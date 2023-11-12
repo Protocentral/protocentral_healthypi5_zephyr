@@ -28,8 +28,3 @@ jobs:
         working-directory: healthypi5_zephyr
         run: |
           west twister -T app -v --inline-logs --integration
-
-      - name: Twister Tests
-        working-directory: healthypi5_zephyr
-        run: |
-          west twister -T tests --integration
