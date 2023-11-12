@@ -226,14 +226,6 @@ void send_usb_cdc(const char *buf, size_t len)
     uart_irq_tx_enable(usb_dev);
 }
 
-// TODO: implement RPI UART
-void send_rpi_uart(const char *buf, size_t len)
-{
-    int rb_len;
-    // rb_len = ring_buf_put(&ringbuf_uart, buf, len);
-    // uart_irq_tx_enable(uart_dev);
-}
-
 static void interrupt_handler(const struct device *dev, void *user_data)
 {
     ARG_UNUSED(user_data);
@@ -333,8 +325,6 @@ uint8_t read_battery_level(void)
 
 void hw_thread(void)
 {
-    int ret = 0;
-
     if (!device_is_ready(max30001_dev))
     {
         printk("MAX30001 device not found!");
@@ -360,7 +350,7 @@ void hw_thread(void)
     }
  
     leds_init();
-    //buttons_init();
+    buttons_init();
 
     fs_module_init();
 

@@ -181,26 +181,6 @@ void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_
     }
 }
 
-static void cmdif_send_ble_status(uint8_t m_cmd, uint8_t m_value)
-{
-    printk("Sending BLE Status: %X %X\n", m_cmd, m_value);
-    uint8_t cmd_pkt[9];
-    cmd_pkt[0] = CES_CMDIF_PKT_START_1;
-    cmd_pkt[1] = CES_CMDIF_PKT_START_2;
-    cmd_pkt[2] = 0x02;
-    cmd_pkt[3] = 0x00;
-    cmd_pkt[4] = CES_CMDIF_TYPE_STATUS;
-    cmd_pkt[5] = m_cmd;
-    cmd_pkt[6] = m_value;
-    cmd_pkt[7] = CES_CMDIF_PKT_STOP_1;
-    cmd_pkt[8] = CES_CMDIF_PKT_STOP_2;
-
-    for (int i = 0; i < 9; i++)
-    {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
-    }
-}
-
 void cmdif_send_ble_device_status_response(void)
 {
     //cmdif_send_ble_status(WISER_CMD_GET_DEVICE_STATUS, global_dev_status);

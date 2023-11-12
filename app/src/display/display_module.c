@@ -60,9 +60,8 @@ static lv_style_t style_h2;
 static lv_style_t style_info;
 static lv_style_t style_icon;
 
-static lv_obj_t *roller_session_select;
-
-static lv_obj_t *label_current_mode;
+//static lv_obj_t *roller_session_select;
+//static lv_obj_t *label_current_mode;
 
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
@@ -540,7 +539,7 @@ void draw_scr_chart_single(uint8_t m_data_type)
 
     lv_obj_add_style(scr_chart_single, &style_scr_back, 0);
 
-    lv_group_t *g1 = lv_group_create();
+    //lv_group_t *g1 = lv_group_create();
 
     // Create Chart 1
     chart1 = lv_chart_create(scr_chart_single);
@@ -588,11 +587,6 @@ void draw_scr_chart_single(uint8_t m_data_type)
 static void anim_x_cb(void *var, int32_t v)
 {
     lv_obj_set_x(var, v);
-}
-
-static void anim_size_cb(void *var, int32_t v)
-{
-    lv_obj_set_size(var, v, v);
 }
 
 void draw_scr_welcome(void)
@@ -709,7 +703,7 @@ void display_screens_thread(void)
 
     draw_scr_welcome();
 
-    int sample_count = 0;
+    //int sample_count = 0;
     while (1)
     {
         k_msgq_get(&q_plot, &sensor_sample, K_FOREVER);

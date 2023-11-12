@@ -122,7 +122,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	}
 }
 
-static void security_changed(struct bt_conn *conn, bt_security_t level,
+/*static void security_changed(struct bt_conn *conn, bt_security_t level,
 							 enum bt_security_err err)
 {
 	char addr[BT_ADDR_LE_STR_LEN];
@@ -138,7 +138,7 @@ static void security_changed(struct bt_conn *conn, bt_security_t level,
 		printk("Security failed: %s level %u err %d\n", addr, level,
 			   err);
 	}
-}
+}*/
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
 	.connected = connected,
@@ -233,5 +233,5 @@ void ble_module_init()
 
 	bt_ready();
 
-	// bt_conn_auth_cb_register(&auth_cb_display);
+	bt_conn_auth_cb_register(&auth_cb_display);
 }

@@ -3,7 +3,6 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
-#include <zephyr/random/rand32.h>
 
 #include "max30001.h"
 
@@ -11,6 +10,7 @@
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "sampling_module.h"
+#include "algos.h"
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
@@ -62,7 +62,7 @@ struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
-char session_id_str[5];
+char session_id_str[15];
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -119,9 +119,9 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
 
     if (settings_send_rpi_uart_enabled)
     {
-        send_rpi_uart(DataPacketHeader, 5);
-        send_rpi_uart(DataPacket, DATA_LEN);
-        send_rpi_uart(DataPacketFooter, 2);
+        //send_rpi_uart(DataPacketHeader, 5);
+        //send_rpi_uart(DataPacket, DATA_LEN);
+        //send_rpi_uart(DataPacketFooter, 2);
     }
 }
 
@@ -171,7 +171,7 @@ void record_init_session_log()
     }
 
     current_session_log_counter = 0;
-    current_session_log_id = (uint16_t)sys_rand32_get(); // Create random session ID
+    //current_session_log_id = (uint16_t)sys_rand32_get(); // Create random session ID
 
     // printk("Init Session ID %s \n", log_get_current_session_id_str());
 }
