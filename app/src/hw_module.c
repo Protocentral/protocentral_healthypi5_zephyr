@@ -83,7 +83,7 @@ const struct device *const max30001_dev = DEVICE_DT_GET(MAX30001_DEVICE_NODE);
 #define AFE4400_DEVICE_NODE DT_ALIAS(afe4400)
 const struct device *const afe4400_dev = DEVICE_DT_GET(AFE4400_DEVICE_NODE);
 
-//#define MAX30205_DEVICE_NODE DT_ALIAS(max30205)
+// #define MAX30205_DEVICE_NODE DT_ALIAS(max30205)
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 
 const struct device *fg_dev;
@@ -92,7 +92,7 @@ const struct device *fg_dev;
 
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
-uint8_t global_batt_level = 0;  
+uint8_t global_batt_level = 0;
 
 static void cooldown_expired_isr_ok(struct k_work *work)
 {
@@ -316,7 +316,7 @@ uint8_t read_battery_level(void)
     }
     else
     {
-        //printk("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
+        // printk("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
         batt_level = vals[2].relative_state_of_charge;
     }
 
@@ -348,7 +348,7 @@ void hw_thread(void)
     {
         printk("No device found...\n");
     }
- 
+
     leds_init();
     buttons_init();
 
@@ -369,7 +369,10 @@ void hw_thread(void)
 
         global_batt_level = read_battery_level();
         hpi_disp_update_batt_level(global_batt_level);
+
+#ifdef CONFIG_BT
         ble_bas_notify(global_batt_level);
+#endif
 
         k_sleep(K_MSEC(2000));
     }

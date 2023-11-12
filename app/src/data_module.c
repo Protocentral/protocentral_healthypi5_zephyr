@@ -16,7 +16,6 @@
 #include "display_module.h"
 #endif
 
-
 #include "fs_module.h"
 #include "ble_module.h"
 
@@ -119,9 +118,9 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
 
     if (settings_send_rpi_uart_enabled)
     {
-        //send_rpi_uart(DataPacketHeader, 5);
-        //send_rpi_uart(DataPacket, DATA_LEN);
-        //send_rpi_uart(DataPacketFooter, 2);
+        // send_rpi_uart(DataPacketHeader, 5);
+        // send_rpi_uart(DataPacket, DATA_LEN);
+        // send_rpi_uart(DataPacketFooter, 2);
     }
 }
 
@@ -171,7 +170,7 @@ void record_init_session_log()
     }
 
     current_session_log_counter = 0;
-    //current_session_log_id = (uint16_t)sys_rand32_get(); // Create random session ID
+    // current_session_log_id = (uint16_t)sys_rand32_get(); // Create random session ID
 
     // printk("Init Session ID %s \n", log_get_current_session_id_str());
 }
@@ -238,8 +237,9 @@ void data_thread(void)
         if (m_temp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
         {
             m_temp_sample_counter = 0;
-
+#ifdef CONFIG_BT
             ble_temp_notify(sensor_sample.temp);
+#endif
         }
 
         if (dec == 20)
@@ -265,8 +265,10 @@ void data_thread(void)
             computed_data.hr = n_heart_rate;
             computed_data.rr = 0;
 
+#ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(n_heart_rate);
+#endif
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
