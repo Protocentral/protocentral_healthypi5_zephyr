@@ -62,9 +62,9 @@ static uint32_t _max30001_read_status(const struct device *dev)
     const struct spi_buf tx_buf[1] = {{.buf = &spiTxCommand, .len = 1}};
     const struct spi_buf_set tx = {.buffers = tx_buf, .count = 1};
     struct spi_buf rx_buf[2] = {{.buf = NULL, .len = 1}, {.buf = buf, .len = 3}}; // 24 bit register + 1 dummy byte
-    
+
     const struct spi_buf_set rx = {.buffers = rx_buf, .count = 2};
-    
+
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Stat: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
@@ -85,7 +85,6 @@ static uint32_t _max30001_read_reg(const struct device *dev, uint8_t reg)
 
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Reg: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
-   
 
     return (uint32_t)(buf[0] << 16) | (buf[1] << 8) | buf[2];
 }
@@ -253,8 +252,9 @@ static int max30001_channel_get(const struct device *dev,
                                 struct sensor_value *val)
 {
     struct max30001_data *data = dev->data;
+    enum max30001_channel max30001_chan = (enum max30001_channel)chan;
 
-    switch (chan)
+    switch (max30001_chan)
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
@@ -330,7 +330,7 @@ static int max30001_chip_init(const struct device *dev)
     _max30001Synch(dev);
     k_sleep(K_MSEC(100));
 
-    //printk("\nmax30001_chip_init\n");
+    // printk("\nmax30001_chip_init\n");
 
     LOG_DBG("\"%s\" OK", dev->name);
     return 0;

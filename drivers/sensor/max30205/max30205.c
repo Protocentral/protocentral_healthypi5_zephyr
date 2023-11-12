@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(MAX30205, CONFIG_SENSOR_LOG_LEVEL);
 uint8_t m_read_reg_2(const struct device *dev, uint8_t reg, uint8_t *read_buf)
 {
 	const struct max30205_config *config = dev->config;
-	i2c_write_read_dt(&config->i2c, reg, sizeof(reg), read_buf, sizeof(read_buf));
+	i2c_write_read_dt(&config->i2c, &reg, sizeof(reg), read_buf, sizeof(read_buf));
 	return 0;
 }
 
