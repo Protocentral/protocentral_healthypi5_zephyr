@@ -51,15 +51,20 @@ OTA updates             | In Progress     | :hourglass: |
 
 ## Compiling the firmware
 
-To compile the code for the RP2040, you will need to install the [Zephyr enviroment](https://docs.zephyrproject.org/) and the Zephyr SDK. You can find instructions for installing the SDK [here](https://docs.zephyrproject.org/latest/getting_started/index.html). Once you have the SDK installed, you can compile the code by running the following commands from the root directory of the repository (change the ~/zephyrproject path to the path where you installed Zephyr):
+To compile the code for the RP2040, you will need to install the [Zephyr enviroment](https://docs.zephyrproject.org/) and the Zephyr SDK. You can find instructions for installing the SDK [here](https://docs.zephyrproject.org/latest/getting_started/index.html). 
+
+Once you have the SDK installed, you can compile the code by running the following commands from the root directory of where you wish to store the healthypi5 Zephyr workspace:
 
 ```
-source ~/zephyrproject/zephyr/zephyr-env.sh
+west init -m https://github.com/protocentral/healthypi5_zephyr --mr main hpi5-workspace
+cd hpi5-workspace
+west update
 ```
-This makes sure that the build system can find the Zephyr SDK. Now, build the binaries by running the following commands
+
+You can then build the firmware by running the following commands.
 
 ```
-west build -p auto -b healthypi5_rp2040 . -- -DBOARD_ROOT=.
+west build -b healthypi5_rp2040 healthypi5_zephyr/app
 west flash
 ```
 
