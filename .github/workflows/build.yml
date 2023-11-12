@@ -16,20 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          path: example-application
+          path: healthypi5_zephyr
 
       - name: Initialize
-        working-directory: example-application
+        working-directory: healthypi5_zephyr
         run: |
           west init -l .
           west update -o=--depth=1 -n
 
       - name: Build firmware
-        working-directory: example-application
+        working-directory: healthypi5_zephyr
         run: |
           west twister -T app -v --inline-logs --integration
 
       - name: Twister Tests
-        working-directory: example-application
+        working-directory: healthypi5_zephyr
         run: |
           west twister -T tests --integration
