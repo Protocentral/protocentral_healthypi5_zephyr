@@ -1,88 +1,118 @@
-# Zephyr Example Application
+# HealthyPi 5 Zephyr Firmware for RP2040 Main MCU
 
-This repository contains a Zephyr example application. The main purpose of this
-repository is to serve as a reference on how to structure Zephyr-based
-applications. Some of the features demonstrated in this example are:
+![HealthyPi 5](docs/images/healthypi5.jpg)
 
-- Basic [Zephyr application][app_dev] skeleton
-- [Zephyr workspace applications][workspace_app]
-- [Zephyr modules][modules]
-- [West T2 topology][west_t2]
-- [Custom boards][board_porting]
-- Custom [devicetree bindings][bindings]
-- Out-of-tree [drivers][drivers]
-- Out-of-tree libraries
-- Example CI configuration (using Github Actions)
-- Custom [west extension][west_ext]
+Don't have one? You can pre-order now at [Crowd Supply](https://www.crowdsupply.com/protocentral/healthypi-5)
 
-This repository is versioned together with the [Zephyr main tree][zephyr]. This
-means that every time that Zephyr is tagged, this repository is tagged as well
-with the same version number, and the [manifest](west.yml) entry for `zephyr`
-will point to the corresponding Zephyr tag. For example, the `example-application`
-v2.6.0 will point to Zephyr v2.6.0. Note that the `main` branch always
-points to the development branch of Zephyr, also `main`.
+HealthyPi 5 is the latest evolution of the HealthyPi series. It is a robust, feature-rich, open-source development board that allows you to explore many different biosignals with minimal effort. Whether you need a simple monitor for a specific vital sign or a complete health-sensor platform, HealthyPi 5 is an extensible solution to to your health-data challenges. Out of the box, it can handle electrocardiogram (ECG), respiration, photoplethysmography (PPG), oxygen saturation (SpO₂), and body temperature data. 
 
-[app_dev]: https://docs.zephyrproject.org/latest/develop/application/index.html
-[workspace_app]: https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-workspace-app
-[modules]: https://docs.zephyrproject.org/latest/develop/modules.html
-[west_t2]: https://docs.zephyrproject.org/latest/develop/west/workspaces.html#west-t2
-[board_porting]: https://docs.zephyrproject.org/latest/guides/porting/board_porting.html
-[bindings]: https://docs.zephyrproject.org/latest/guides/dts/bindings.html
-[drivers]: https://docs.zephyrproject.org/latest/reference/drivers/index.html
-[zephyr]: https://github.com/zephyrproject-rtos/zephyr
-[west_ext]: https://docs.zephyrproject.org/latest/develop/west/extensions.html
+This repository contains the Zephyr port of the firmware for the HealthyPi 5. If you're looking for the Arduino firmware, it's located in its own repository [here](https://github.com/Protocentral/protocentral_healthypi_5_firmware). 
 
-## Getting Started
+[Zephyr](https://www.zephyrproject.org/) is a real-time operating system (RTOS) that is designed to be used on resource-constrained systems. We chose to use Zephyr for the HealthyPi 5 because it is a robust, well-supported RTOS (backed by the [Linux Foundation](https://www.linuxfoundation.org)), that is easy to use and has a large open source community. The latest release of Zephyr is quite stable and mature and fully supports the RP2040 microcontroller.
 
-Before getting started, make sure you have a proper Zephyr development
-environment. Follow the official
-[Zephyr Getting Started Guide](https://docs.zephyrproject.org/latest/getting_started/index.html).
+This firmware is still in development and is not yet ready for general use. We are working hard to get it ready for release and will update this repository as we make progress. We will also be releasing a Getting Started Guide soon to help you get up and running with the HealthyPi 5. The first release should be ready in time for the HealthyPi 5 [Crowd Supply campaign fulfillment](https://www.crowdsupply.com/protocentral/healthypi-5)
 
-### Initialization
+**This repository contains the Zephyr code only for the RP2040 Main MCU on-board the HealthyPi 5. The ESP3C3 Wireless co-processor code is located in it's [own repo here](https://github.com/Protocentral/healthypi5_esp32c3_zephyr)**
 
-The first step is to initialize the workspace folder (``my-workspace``) where
-the ``example-application`` and all Zephyr modules will be cloned. Run the following
-command:
+## Features
 
-```shell
-# initialize my-workspace for the example-application (main branch)
-west init -m https://github.com/zephyrproject-rtos/example-application --mr main my-workspace
-# update Zephyr modules
-cd my-workspace
-west update
+* RP2040 dual-core ARM Cortex M0 microcontroller
+* 16 MB onboard flash
+* ESP32C3 RISC-V module with BLE and Wi-Fi support
+* MAX30001 analog front end for ECG and respiration measurement
+* AFE4400 analog front end for PPG
+* MAX30205 temperature sensor via onboard Qwiic/I²C connectors
+* 40-pin Raspberry Pi HAT connector (also used to connect our Display Add-On Module)
+* 1x USB Type-C connector for communication with a computer and programming the RP2040
+* 1x USB Type-C connector for programming and debugging the ESP32 module
+* Onboard MicroSD card slot
+* On-board Li-Ion battery management with charging through USB
+
+## Supported boards
+
+* HealthyPi 5 (RP2040 only)
+* HealthyPi 5 (RP2040 only) + Display Add-On Module
+
+## Firmware supported features
+
+Drivers / Module        |    Status     |           |
+----------------        | --------------| --------- |
+MAX30001 Sensor Driver  | Basic functionality Completed | :white_check_mark:    | 
+AFE4400 Sensor Driver   | Basic functionality Completed | :white_check_mark:    |
+MAX30205 Sensor Driver  | Basic functionality Completed | :white_check_mark:    |
+Display Driver (LCD)    | Basic functionality Completed | :white_check_mark:    |
+GUI (LVGL)              | In Progress     | :hourglass: |
+SD Card Driver          | Basic functionality Completed | :white_check_mark:    |
+USB CDC Driver          | Basic functionality Completed     | :white_check_mark: |
+USB MSC Driver          | In Progress     | :hourglass: |
+Data Logging module     | In Progress     | :hourglass: |
+RP2040 <> ESP32C3 communication | Completed | :white_check_mark: |
+OTA updates             | In Progress     | :hourglass: |
+
+## Compiling the firmware
+
+To compile the code for the RP2040, you will need to install the [Zephyr enviroment](https://docs.zephyrproject.org/) and the Zephyr SDK. You can find instructions for installing the SDK [here](https://docs.zephyrproject.org/latest/getting_started/index.html). Once you have the SDK installed, you can compile the code by running the following commands from the root directory of the repository (change the ~/zephyrproject path to the path where you installed Zephyr):
+
 ```
-
-### Building and running
-
-To build the application, run the following command:
-
-```shell
-west build -b $BOARD app
+source ~/zephyrproject/zephyr/zephyr-env.sh
 ```
+This makes sure that the build system can find the Zephyr SDK. Now, build the binaries by running the following commands
 
-where `$BOARD` is the target board.
-
-You can use the `custom_plank` board found in this
-repository. Note that Zephyr sample boards may be used if an
-appropriate overlay is provided (see `app/boards`).
-
-A sample debug configuration is also provided. To apply it, run the following
-command:
-
-```shell
-west build -b $BOARD app -- -DOVERLAY_CONFIG=debug.conf
 ```
-
-Once you have built the application, run the following command to flash it:
-
-```shell
+west build -p auto -b healthypi5_rp2040 . -- -DBOARD_ROOT=.
 west flash
 ```
 
-### Testing
+## License Information
 
-To execute Twister integration tests, run the following command:
+This product is open source! Please see the LICENSE.md file for more information.
 
-```shell
-west twister -T tests --integration
-```
+## Getting Started
+_Getting Started Guide coming soon..._
+
+## License Information
+
+![License](license_mark.svg)
+
+This product is open source! Both, our hardware and software are open source and licensed under the following licenses:
+
+Hardware
+---------
+
+**All hardware is released under the [CERN-OHL-P v2](https://ohwr.org/cern_ohl_p_v2.txt)** license.
+
+Copyright CERN 2020.
+
+This source describes Open Hardware and is licensed under the CERN-OHL-P v2.
+
+You may redistribute and modify this documentation and make products
+using it under the terms of the CERN-OHL-P v2 (https:/cern.ch/cern-ohl).
+This documentation is distributed WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY, INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY
+AND FITNESS FOR A PARTICULAR PURPOSE. Please see the CERN-OHL-P v2
+for applicable conditions
+
+Software
+--------
+
+**All software is released under the MIT License(http://opensource.org/licenses/MIT).**
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Documentation
+-------------
+**All documentation is released under [Creative Commons Share-alike 4.0 International](http://creativecommons.org/licenses/by-sa/4.0/).**
+![CC-BY-SA-4.0](https://i.creativecommons.org/l/by-sa/4.0/88x31.png)
+
+You are free to:
+
+* Share — copy and redistribute the material in any medium or format
+* Adapt — remix, transform, and build upon the material for any purpose, even commercially.
+The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+Under the following terms:
+
+* Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+* ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+
+Please check [*LICENSE.md*](LICENSE.md) for detailed license descriptions.
