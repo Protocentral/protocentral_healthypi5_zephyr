@@ -1,0 +1,18 @@
+# Configuration options
+
+config SENSOR_AFE4400
+	bool "AFE4400 Driver"
+	default y
+	select SPI
+	help
+	  Enable the driver for the TI AFE4400 PPG front-end
+
+if SENSOR_AFE4400
+
+config SENSOR_AFE4400_INIT_PRIORITY
+	int "Init priority"
+	default 80
+	help
+	  AFE4400 device driver initialization priority.
+
+endif # SENSOR_AFE4400

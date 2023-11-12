@@ -1,0 +1,110 @@
+void draw_scr_home(void)
+{
+    scr_home = lv_obj_create(NULL);
+
+    static lv_style_t style;
+    lv_style_init(&style);
+    lv_style_set_radius(&style, 1);
+
+    lv_style_set_bg_opa(&style, LV_OPA_COVER);
+    lv_style_set_border_width(&style, 0);
+
+    /*static lv_grad_dsc_t grad;
+    grad.dir = LV_GRAD_DIR_HOR;
+    grad.stops_count = 2;
+    grad.stops[0].color = lv_color_hex(0x003a57); // lv_palette_lighten(LV_PALETTE_GREY, 1);
+    grad.stops[1].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
+
+    grad.stops[0].frac = 128;
+    grad.stops[1].frac = 192;
+    */
+
+    // lv_style_set_bg_grad(&style, &grad);
+    lv_style_set_bg_color(&style, lv_palette_main(LV_PALETTE_BLUE));
+
+    lv_obj_add_style(scr_home, &style, 0);
+
+    lv_obj_t *label_hpi = lv_label_create(scr_home);
+    lv_label_set_text(label_hpi, "Welcome to HealthyPi 5");
+    lv_obj_add_style(label_hpi, &style_h1, 0);
+    // lv_obj_center(label_hpi);
+    lv_obj_align(label_hpi, LV_ALIGN_TOP_MID, 0, 20);
+
+    char menu_opt[100] = "Log Data\nPlot Data\nStream Data\nSettings\nAbout";
+    lv_obj_t *roller_menu = lv_roller_create(scr_home);
+    lv_roller_set_options(roller_menu,
+                          menu_opt,
+                          LV_ROLLER_MODE_INFINITE);
+
+    lv_roller_set_visible_row_count(roller_menu, 3);
+    lv_obj_add_event_cb(roller_menu, menu_roller_event_handler, LV_EVENT_ALL, NULL);
+    lv_obj_center(roller_menu);
+
+    lv_group_t *g = lv_group_create();
+    lv_group_add_obj(g, roller_menu);
+    lv_indev_set_group(m_keypad_indev, g);
+
+    lv_obj_t *lbl_mode_disp = lv_label_create(scr_home);
+    lv_label_set_text(lbl_mode_disp, "Current Mode");
+    lv_obj_align(lbl_mode_disp, LV_ALIGN_CENTER, 0, 75);
+
+    label_current_mode = lv_label_create(scr_home);
+    lv_label_set_text(label_current_mode, "Standby");
+    lv_obj_align(label_current_mode, LV_ALIGN_CENTER, 0, 95);
+    lv_obj_add_style(label_current_mode, &style_h2, 0);
+
+    draw_footer_header(scr_home);
+
+    lv_scr_load_anim(scr_home, LV_SCR_LOAD_ANIM_NONE, 0, 500, true);
+}
+
+
+void update_lbl_curr_mode(void)
+{
+    if (curr_mode == MODE_STANDBY)
+    {
+        lv_label_set_text(label_current_mode, "Standby");
+    }
+    if (curr_mode == MODE_RECORDING)
+    {
+        lv_label_set_text(label_current_mode, "Recording data");
+    }
+    else if (curr_mode == MODE_PLOTTING)
+    {
+        lv_label_set_text(label_current_mode, "Plotting data");
+    }
+    else if (curr_mode == MODE_STREAMING)
+    {
+        lv_label_set_text(label_current_mode, "Streaming data");
+    }
+}
+
+void menu_roller_event_handler(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *roller = lv_event_get_target(e);
+    if (code == LV_EVENT_VALUE_CHANGED)
+    {
+        uint16_t sel = lv_roller_get_selected(roller);
+        printk("Roller changed: %d\n", sel);
+        switch (sel)
+        {
+        case 0:
+            curr_mode = MODE_RECORDING;
+            break;
+        case 1:
+            curr_mode = MODE_PLOTTING;
+            break;
+        case 2:
+            curr_mode = MODE_STREAMING;
+            break;
+        default:
+            curr_mode = MODE_STANDBY;
+            break;
+        }
+
+        //update_lbl_curr_mode();
+
+        // display_load_session_preview(sel);
+    }
+}

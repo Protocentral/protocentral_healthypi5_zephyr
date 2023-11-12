@@ -1,0 +1,71 @@
+/*
+ * Copyright (c) 2021, Yonatan Schachter
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/rpi-pico-rp2040-pinctrl.h>
+
+&pinctrl {
+	uart0_default: uart0_default {
+		group1 {
+			pinmux = <UART0_TX_P0>;
+		};
+		group2 {
+			pinmux = <UART0_RX_P1>;
+			input-enable;
+		};
+	};
+
+	uart1_default: uart1_default {
+		group1 {
+			pinmux = <UART1_TX_P24>,<UART1_RTS_P27>;
+
+		};
+		group2 {
+			pinmux = <UART1_RX_P25>,<UART1_CTS_P26>;
+			input-enable;
+		};
+	};
+
+	i2c1_default: i2c1_default {
+		group1 {
+			pinmux = <I2C1_SDA_P6>, <I2C1_SCL_P7>;
+			input-enable;
+			input-schmitt-enable;
+		};
+	};
+
+	spi0_default: spi0_default {
+		group1 {
+			pinmux = <SPI0_SCK_P2>, <SPI0_TX_P3>;
+		};
+		group2 {
+			pinmux = <SPI0_RX_P4>;
+			input-enable;
+		};
+	};
+
+	spi1_default: spi1_default {
+		group1 {
+			pinmux = <SPI1_SCK_P10>, <SPI1_TX_P11>;
+		};
+		group2 {
+			pinmux = <SPI1_RX_P8>;
+			input-enable;
+		};
+
+	};
+
+	/*pwm_ch1b_default: pwm_ch1b_default {
+		group1 {
+			pinmux = <PWM_1B_P19>; // Blue LED - GPIO 19
+		};
+	};*/
+
+	adc_default: adc_default {
+		group1 {
+			pinmux = <ADC_CH1_P27>, <ADC_CH2_P28>;
+			input-enable;
+		};
+	};
+};

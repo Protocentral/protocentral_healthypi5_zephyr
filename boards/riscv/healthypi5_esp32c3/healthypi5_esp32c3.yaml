@@ -1,0 +1,17 @@
+identifier: healthypi5_esp32c3
+name: ESP32-C3
+type: mcu
+arch: riscv
+toolchain:
+  - zephyr
+supported:
+  - adc
+  - gpio
+  - i2c
+  - watchdog
+  - uart
+  - dma
+testing:
+  ignore_tags:
+    - net
+    - bluetooth

@@ -1,48 +1,29 @@
-/*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- * SPDX-License-Identifier: Apache-2.0
- */
 
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
+#include <stdio.h>
+#include <string.h>
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/sensor.h>
-#include <app_version.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
+
+#include "sys_sm_module.h"
+#include "fs_module.h"
+
+#include <app_version.h>
+
+#include "ble_module.h"
+// #include "tf/main_functions.h"
+
+#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+LOG_MODULE_REGISTER(healthypi5, LOG_LEVEL);
 
 int main(void)
 {
-	int ret;
-	const struct device *sensor;
+	ble_module_init();
 
-	printk("Zephyr Example Application %s\n", APP_VERSION_STRING);
-
-	sensor = DEVICE_DT_GET(DT_NODELABEL(examplesensor0));
-	if (!device_is_ready(sensor)) {
-		LOG_ERR("Sensor not ready");
-		return 0;
-	}
-
-	while (1) {
-		struct sensor_value val;
-
-		ret = sensor_sample_fetch(sensor);
-		if (ret < 0) {
-			LOG_ERR("Could not fetch sample (%d)", ret);
-			return 0;
-		}
-
-		ret = sensor_channel_get(sensor, SENSOR_CHAN_PROX, &val);
-		if (ret < 0) {
-			LOG_ERR("Could not get sample (%d)", ret);
-			return 0;
-		}
-
-		printk("Sensor value: %d\n", val.val1);
-
-		k_sleep(K_MSEC(1000));
-	}
+	printk("\nHealthyPi 5 RP2040 started !! FW version: %d.%d.%d \n\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
 
 	return 0;
 }
-
