@@ -283,7 +283,7 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
         // HealthyPi label
         lv_obj_t *label_hpi = lv_label_create(parent);
         char fw_version[40];
-        sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d Z)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
+        sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
         lv_label_set_text(label_hpi, fw_version);
         lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 0, 0);
     }
@@ -699,16 +699,17 @@ void display_screens_thread(void)
     //  draw_scr_menu("A\nB\n");
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
-    // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
+    
+    draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
 
-    draw_scr_welcome();
+    //draw_scr_welcome();
 
-    //int sample_count = 0;
+    int sample_count = 0;
     while (1)
     {
         k_msgq_get(&q_plot, &sensor_sample, K_FOREVER);
 
-        /*hpi_disp_draw_plotECG((sensor_sample.raw_red) / 1000.0000);
+        hpi_disp_draw_plotECG((sensor_sample.raw_red) / 1000.0000);
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
@@ -719,7 +720,6 @@ void display_screens_thread(void)
         {
             sample_count++;
         }
-        */
 
         if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
         {
