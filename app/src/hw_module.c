@@ -158,7 +158,8 @@ static void button_isr_down(const struct device *port, struct gpio_callback *cb,
     ARG_UNUSED(cb);
     ARG_UNUSED(pins);
 
-    k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
+    //k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
+    k_sem_give(&sem_down_key_pressed);
 }
 
 static void leds_init()

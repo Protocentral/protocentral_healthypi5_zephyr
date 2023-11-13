@@ -114,6 +114,11 @@ enum hpi_disp_screens
 
 uint8_t hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
 
+lv_obj_t *scr_chart_single;
+lv_obj_t *scr_chart_single_ecg;
+lv_obj_t *scr_chart_single_resp;
+lv_obj_t *scr_chart_single_ppg;
+
 static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     static int call_count = 0;
@@ -231,9 +236,8 @@ void display_init_styles()
 
 void down_key_event_handler()
 {
-    //printk("Down key pressed");
-    //hpi_disp_switch_screen();
-    //
+    printk("Down key pressed\n");
+    hpi_disp_switch_screen();
 }
 
 void hpi_disp_switch_screen(void)
@@ -241,23 +245,25 @@ void hpi_disp_switch_screen(void)
     switch (hpi_disp_curr_screen)
     {
     case HPI_DISP_SCR_ECG:
-        draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
+        //draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
+        draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
+        lv_obj_del(scr_chart_single_ecg);
         hpi_disp_curr_screen = HPI_DISP_SCR_PPG;
         break;
     case HPI_DISP_SCR_PPG:
-        draw_scr_chart_single(HPI_SENSOR_DATA_RESP);
+        //draw_scr_chart_single(HPI_SENSOR_DATA_RESP);
+        draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
         hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
         break;
     case HPI_DISP_SCR_RESP:
-        draw_scr_chart_single(HPI_SENSOR_DATA_ECG);
+        //draw_scr_chart_single(HPI_SENSOR_DATA_ECG);
+        draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
         hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
         break;
     default:
         break;
     }
 }
-
-lv_obj_t *scr_chart_single;
 
 void draw_header(lv_obj_t *parent, bool showFWVersion)
 {
@@ -531,6 +537,60 @@ void hpi_disp_draw_plotECG(float data_ecg)
     }
 }
 
+void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
+{
+    //lv_obj_clean(scr_obj);
+
+    if(scr_obj == NULL)
+    {
+    
+    scr_obj= lv_obj_create(NULL);
+    draw_footer(scr_obj);
+    draw_header(scr_obj, true);
+
+    lv_obj_add_style(scr_obj, &style_scr_back, 0);
+
+    //lv_group_t *g1 = lv_group_create();
+
+    // Create Chart 1
+    chart1 = lv_chart_create(scr_obj);
+    lv_obj_set_size(chart1, 460, 180);
+    lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
+
+    lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
+    lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
+    lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
+    lv_chart_set_div_line_count(chart1, 0, 0);
+    lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
+
+    lv_obj_set_pos(chart1, 10, 25);
+
+    lv_obj_t *label_chart_title = lv_label_create(scr_obj);
+
+    if (m_data_type == HPI_SENSOR_DATA_ECG)
+        lv_label_set_text(label_chart_title, "Showing ECG");
+    else if (m_data_type == HPI_SENSOR_DATA_PPG)
+        lv_label_set_text(label_chart_title, "Showing PPG");
+    else if (m_data_type == HPI_SENSOR_DATA_RESP)
+        lv_label_set_text(label_chart_title, "Showing RESP");
+    else if (m_data_type == HPI_SENSOR_DATA_TEMP)
+        lv_label_set_text(label_chart_title, "Showing TEMP");
+
+    lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
+
+    if(m_data_type == HPI_SENSOR_DATA_ECG)
+        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    else if(m_data_type == HPI_SENSOR_DATA_PPG)
+        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
+    else if(m_data_type == HPI_SENSOR_DATA_RESP)
+        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+    else if(m_data_type == HPI_SENSOR_DATA_TEMP)
+        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_LIME), LV_CHART_AXIS_PRIMARY_Y);
+    }
+
+    lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);   
+}
+
 void draw_scr_chart_single(uint8_t m_data_type)
 {
     scr_chart_single = lv_obj_create(NULL);
@@ -700,7 +760,8 @@ void display_screens_thread(void)
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
     
-    draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
+    //draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
+    draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
 
     //draw_scr_welcome();
 

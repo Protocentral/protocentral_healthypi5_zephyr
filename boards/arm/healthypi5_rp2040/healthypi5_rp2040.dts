@@ -43,6 +43,7 @@
 
 	gpio_keys {
 		compatible = "gpio-keys";
+		debounce-interval-ms = < 60 >;
 
 		button_up: sw1 {
 			label = "Button UP / SW1";
@@ -55,6 +56,7 @@
 		button_down: sw3 {
 			label = "Button DOWN / SW3";
 			gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			
 		};
 	};
 
