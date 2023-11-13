@@ -1,0 +1,1 @@
+west build -t clean

@@ -1,0 +1,1 @@
+west build -p auto -b healthypi5_rp2040 app 
