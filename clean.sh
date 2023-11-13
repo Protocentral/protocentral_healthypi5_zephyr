@@ -1,1 +1,1 @@
-west build -t clean
+west build -t clean -b healthypi5_rp2040 app

@@ -368,7 +368,9 @@ void hw_thread(void)
         // Housekeeping
 
         global_batt_level = read_battery_level();
+#ifdef CONFIG_DISPLAY
         hpi_disp_update_batt_level(global_batt_level);
+#endif
 
 #ifdef CONFIG_BT
         ble_bas_notify(global_batt_level);

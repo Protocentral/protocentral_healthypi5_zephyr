@@ -287,9 +287,10 @@ void data_thread(void)
             }
         }
 
-        /***** Send to draw queue if enabled *****/
+/***** Send to draw queue if enabled *****/
+#ifdef CONFIG_DISPLAY
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
-
+#endif
         /****** Send to log queue if enabled ******/
 
         if (settings_log_data_enabled)
