@@ -388,9 +388,9 @@ void draw_footer(lv_obj_t *parent)
     lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
-    // lv_obj_t *label_menu = lv_label_create(parent);
-    // lv_label_set_text(label_menu, "Press side wheel UP/DOWN for more charts");
-    // lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_t *label_menu = lv_label_create(parent);
+    lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
+    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
 }
 
 void hpi_disp_update_batt_level(int batt_level)
@@ -510,7 +510,7 @@ void hpi_disp_draw_plotECG_burst(float *data_ecg, int num_samples)
     }
 }
 
-void hpi_disp_draw_plotECG(float data_ecg)
+void hpi_disp_draw_plot(float data_ecg)
 {
     if (chart1_update == true)
     {
@@ -584,59 +584,6 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
     }
 
     lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
-}
-
-void draw_scr_chart_single(uint8_t m_data_type)
-{
-    scr_chart_single = lv_obj_create(NULL);
-    draw_footer(scr_chart_single);
-    draw_header(scr_chart_single, true);
-
-    lv_obj_add_style(scr_chart_single, &style_scr_back, 0);
-
-    // lv_group_t *g1 = lv_group_create();
-
-    // Create Chart 1
-    chart1 = lv_chart_create(scr_chart_single);
-    lv_obj_set_size(chart1, 460, 180);
-    lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
-
-    lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
-    lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
-    // lv_chart_set_type(chart1, LV_CHART_TYPE_LINE);   /*Show lines and points too*
-    lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
-    // lv_chart_set_range(chart1, LV_CHART_AXIS_SECONDARY_Y, 0, 1000);
-    lv_chart_set_div_line_count(chart1, 0, 0);
-    lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
-
-    lv_obj_set_pos(chart1, 10, 25);
-
-    lv_obj_t *label_chart_title = lv_label_create(scr_chart_single);
-
-    if (m_data_type == HPI_SENSOR_DATA_ECG)
-        lv_label_set_text(label_chart_title, "Showing ECG");
-    else if (m_data_type == HPI_SENSOR_DATA_PPG)
-        lv_label_set_text(label_chart_title, "Showing PPG");
-    else if (m_data_type == HPI_SENSOR_DATA_RESP)
-        lv_label_set_text(label_chart_title, "Showing RESP");
-    else if (m_data_type == HPI_SENSOR_DATA_TEMP)
-        lv_label_set_text(label_chart_title, "Showing TEMP");
-
-    lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
-    // lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
-
-    /* Data Series for main plot*/
-    if (m_data_type == HPI_SENSOR_DATA_ECG)
-        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    else if (m_data_type == HPI_SENSOR_DATA_PPG)
-        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
-    else if (m_data_type == HPI_SENSOR_DATA_RESP)
-        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
-    else if (m_data_type == HPI_SENSOR_DATA_TEMP)
-        ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_LIME), LV_CHART_AXIS_PRIMARY_Y);
-
-    lv_scr_load_anim(scr_chart_single, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
-    // lv_scr_load(scr_chart_single);
 }
 
 static void anim_x_cb(void *var, int32_t v)
@@ -756,7 +703,7 @@ void display_screens_thread(void)
     struct hpi_computed_data_t computed_data;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
-    draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
+    draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
     // draw_scr_welcome();
 
@@ -765,7 +712,19 @@ void display_screens_thread(void)
     {
         k_msgq_get(&q_plot, &sensor_sample, K_FOREVER);
 
-        hpi_disp_draw_plotECG((sensor_sample.raw_red) / 1000.0000);
+        if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
+        {
+            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample) / 1000000.0000));
+        }
+        else if (hpi_disp_curr_screen == HPI_DISP_SCR_PPG)
+        {
+            hpi_disp_draw_plot((sensor_sample.raw_ir) / 1000.0000);
+        }
+
+        else if (hpi_disp_curr_screen == HPI_DISP_SCR_RESP)
+        {
+            hpi_disp_draw_plot((sensor_sample.bioz_sample) / 1000000.0000);
+        }
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {

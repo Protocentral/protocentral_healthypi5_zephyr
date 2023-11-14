@@ -258,12 +258,12 @@ static int max30001_channel_get(const struct device *dev,
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
-        val->val1 = data->s32ECGData[0] * 0.04768371582; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
-        val->val2 = data->s32ECGData[1] * 0.04768371582;
+        val->val1 = data->s32ECGData[0] * 0.04768371582 *1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
+        val->val2 = data->s32ECGData[1] * 0.04768371582 *1000000;
         break;
     case SENSOR_CHAN_BIOZ_UV:
-        val->val1 = data->s32BIOZData[0];
-        val->val2 = data->s32BIOZData[1];
+        val->val1 = data->s32BIOZData[0]* 0.04768371582 *1000000;
+        val->val2 = data->s32BIOZData[1]* 0.04768371582 *1000000;
     default:
         return -EINVAL;
     }
