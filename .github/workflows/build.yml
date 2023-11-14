@@ -2,9 +2,8 @@ name: Build
 
 on:
   push:
-  pull_request:
-  schedule:
-    - cron: "0 0 * * *"
+    tags:
+      - '*'
 
 jobs:
   build:
@@ -24,7 +23,7 @@ jobs:
           west init -l .
           west update -o=--depth=1 -n
 
-      - name: Build firmware
+      - name: Build test integration firmware
         working-directory: healthypi5_zephyr
         run: |
           west twister -T app -v --inline-logs --integration
