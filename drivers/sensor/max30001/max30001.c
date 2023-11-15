@@ -250,7 +250,8 @@ static int max30001_sample_fetch(const struct device *dev,
     if ((max30001_status & MAX30001_STATUS_MASK_RRINT) == MAX30001_STATUS_MASK_RRINT)
     {
         max30001_rtor = _max30001_read_reg(dev, RTOR);
-        data->lastRRI = max30001_rtor;
+        data->lastRRI = (uint16_t)(max30001_rtor>>10)*8;
+        data->lastHR = (uint16_t) (60*1000/data->lastRRI);  
     }
 
     return 0;
@@ -276,6 +277,9 @@ static int max30001_channel_get(const struct device *dev,
     case SENSOR_CHAN_RTOR:
         val->val1 = data->lastRRI;
         break;
+    case SENSOR_CHAN_HR:
+        val->val1 = data->lastHR;
+        break;
     default:
         return -EINVAL;
     }
@@ -293,7 +297,7 @@ static int max30001_chip_init(const struct device *dev)
     int err;
 
     bool en_bioz = true;
-    bool en_rtor = false;
+    bool en_rtor = true;
 
     err = spi_is_ready_dt(&config->spi);
     if (err < 0)
@@ -335,7 +339,7 @@ static int max30001_chip_init(const struct device *dev)
 
     if (true == en_rtor)
     {
-        _max30001RegWrite(dec, CNFG_RTOR1, 0x3fc600);
+        _max30001RegWrite(dev, CNFG_RTOR1, 0x3fc600);
         k_sleep(K_MSEC(100));
     }
 

@@ -19,6 +19,7 @@ enum max30001_channel{
 	/** Sensor BioZ channel output in microvolts */
 	SENSOR_CHAN_BIOZ_UV = SENSOR_CHAN_PRIV_START + 1,
 	SENSOR_CHAN_RTOR = SENSOR_CHAN_PRIV_START + 2,
+	SENSOR_CHAN_HR = SENSOR_CHAN_PRIV_START + 3,
 
 };
 
@@ -39,7 +40,8 @@ struct max30001_data
 	int32_t s32ecg_sample;
 	int32_t s32bioz_sample;
 
-	uint32_t lastRRI;
+	uint16_t lastRRI;
+	uint16_t lastHR;
 };
 
 typedef union max30001_status_reg

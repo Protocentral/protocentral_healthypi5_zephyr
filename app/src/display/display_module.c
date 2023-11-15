@@ -703,13 +703,14 @@ void display_screens_thread(void)
 
         else if (hpi_disp_curr_screen == HPI_DISP_SCR_RESP)
         {
-            hpi_disp_draw_plot((sensor_sample.bioz_sample) / 1000000.0000);
+            hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
         }
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
             sample_count = 0;
             hpi_disp_update_temp(sensor_sample.temp);
+            hpi_disp_update_hr(sensor_sample.hr);
         }
         else
         {
@@ -723,7 +724,7 @@ void display_screens_thread(void)
             printk("HR: %d", computed_data.hr);
             printk("RR: %d", computed_data.rr);
 
-            hpi_disp_update_hr(computed_data.hr);
+            //hpi_disp_update_hr(computed_data.hr);
             hpi_disp_update_spo2(computed_data.spo2);
             hpi_disp_update_rr(computed_data.rr);
         }
