@@ -177,7 +177,7 @@
 };
 
 &spi0 {
-	clock-frequency = <DT_FREQ_M(8)>;
+	clock-frequency = <DT_FREQ_M(4)>;
 	status = "okay";
 	pinctrl-0 = <&spi0_default>;
 	pinctrl-names = "default";
@@ -186,7 +186,7 @@
 	max30001: max30001@0 {
 		compatible = "maxim,max30001";
 		reg = <0x0>;
-		spi-max-frequency = <DT_FREQ_M(8)>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
 		status = "okay";
 	};
 
@@ -194,7 +194,7 @@
 		compatible = "ti,afe4400";
 		pwdn-gpios = <&gpio0 18 GPIO_ACTIVE_LOW>;
 		reg = <0x1>;
-		spi-max-frequency = <DT_FREQ_M(8)>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
 		status = "okay";
 	};
 };

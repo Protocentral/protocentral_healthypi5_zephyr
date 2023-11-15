@@ -152,7 +152,7 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            // Serial.println("OVF");
+            printk("OVF ");
             _max30001FIFOReset(dev);
         }
     }
