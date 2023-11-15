@@ -62,9 +62,9 @@ static uint32_t _max30001_read_status(const struct device *dev)
     const struct spi_buf tx_buf[1] = {{.buf = &spiTxCommand, .len = 1}};
     const struct spi_buf_set tx = {.buffers = tx_buf, .count = 1};
     struct spi_buf rx_buf[2] = {{.buf = NULL, .len = 1}, {.buf = buf, .len = 3}}; // 24 bit register + 1 dummy byte
-    
+
     const struct spi_buf_set rx = {.buffers = rx_buf, .count = 2};
-    
+
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Stat: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
@@ -85,7 +85,6 @@ static uint32_t _max30001_read_reg(const struct device *dev, uint8_t reg)
 
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Reg: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
-   
 
     return (uint32_t)(buf[0] << 16) | (buf[1] << 8) | buf[2];
 }
@@ -148,7 +147,7 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
             secgtemp = (signed long)uecgtemp;
             secgtemp = (signed long)secgtemp >> 8;
 
-            //drv_data->s32ECGData[secg_counter++] = secgtemp;
+            // drv_data->s32ECGData[secg_counter++] = secgtemp;
             drv_data->s32ecg_sample = secgtemp;
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
@@ -227,6 +226,8 @@ static int max30001_sample_fetch(const struct device *dev,
 
     uint32_t max30001_status, max30001_mngr_int = 0;
     uint8_t fifo_num_bytes;
+    uint32_t max30001_rtor = 0;
+    struct max30001_data *data = dev->data;
 
     max30001_status = _max30001_read_status(dev);
     // printk("Status: %x\n", max30001_status);
@@ -246,6 +247,12 @@ static int max30001_sample_fetch(const struct device *dev,
         _max30001_read_bioz_fifo(dev, fifo_num_bytes);
     }
 
+    if ((max30001_status & MAX30001_STATUS_MASK_RRINT) == MAX30001_STATUS_MASK_RRINT)
+    {
+        max30001_rtor = _max30001_read_reg(dev, RTOR);
+        data->lastRRI = max30001_rtor;
+    }
+
     return 0;
 }
 
@@ -259,12 +266,16 @@ static int max30001_channel_get(const struct device *dev,
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
-        val->val1 = data->s32ecg_sample*47.6837158203;// Output in uV * 0.04768371582 * 1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
-        val->val2 = 0;// * 0.04768371582 * 1000000;
+        val->val1 = data->s32ecg_sample * 47.6837158203; // Output in uV * 0.04768371582 * 1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
+        val->val2 = 0;                                   // * 0.04768371582 * 1000000;
         break;
     case SENSOR_CHAN_BIOZ_UV:
         val->val1 = data->s32BIOZData[0];
         val->val2 = data->s32BIOZData[1];
+        break;
+    case SENSOR_CHAN_RTOR:
+        val->val1 = data->lastRRI;
+        break;
     default:
         return -EINVAL;
     }
@@ -324,6 +335,8 @@ static int max30001_chip_init(const struct device *dev)
 
     if (true == en_rtor)
     {
+        _max30001RegWrite(dec, CNFG_RTOR1, 0x3fc600);
+        k_sleep(K_MSEC(100));
     }
 
     //_max30001RegWrite(dev, MNGR_INT, 0x7B0000); // EFIT=16, BFIT=8
@@ -340,7 +353,7 @@ static int max30001_chip_init(const struct device *dev)
     return 0;
 }
 
-//#ifdef CONFIG_PM_DEVICE
+// #ifdef CONFIG_PM_DEVICE
 static int max30001_pm_action(const struct device *dev,
                               enum pm_device_action action)
 {
@@ -370,7 +383,7 @@ static int max30001_pm_action(const struct device *dev,
 
     return ret;
 }
-//#endif /* CONFIG_PM_DEVICE */
+// #endif /* CONFIG_PM_DEVICE */
 
 /*
  * Main instantiation macro, which selects the correct bus-specific
