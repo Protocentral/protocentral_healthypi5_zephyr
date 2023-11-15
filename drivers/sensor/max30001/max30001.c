@@ -36,7 +36,7 @@ static int _max30001RegWrite(const struct device *dev, uint8_t reg, uint32_t val
     return 0;
 }
 
-/*static int _max30001_read_chip_id(const struct device *dev, uint8_t *buf)
+static int _max30001_read_chip_id(const struct device *dev, uint8_t *buf)
 {
     const struct max30001_config *config = dev->config;
     uint8_t spiTxCommand = ((INFO << 1) | RREG);
@@ -50,7 +50,7 @@ static int _max30001RegWrite(const struct device *dev, uint8_t reg, uint32_t val
     printk("ChipID: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
     return 0;
-}*/
+}
 
 static uint32_t _max30001_read_status(const struct device *dev)
 {
@@ -62,9 +62,9 @@ static uint32_t _max30001_read_status(const struct device *dev)
     const struct spi_buf tx_buf[1] = {{.buf = &spiTxCommand, .len = 1}};
     const struct spi_buf_set tx = {.buffers = tx_buf, .count = 1};
     struct spi_buf rx_buf[2] = {{.buf = NULL, .len = 1}, {.buf = buf, .len = 3}}; // 24 bit register + 1 dummy byte
-
+    
     const struct spi_buf_set rx = {.buffers = rx_buf, .count = 2};
-
+    
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Stat: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
@@ -85,6 +85,7 @@ static uint32_t _max30001_read_reg(const struct device *dev, uint8_t reg)
 
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("Reg: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
+   
 
     return (uint32_t)(buf[0] << 16) | (buf[1] << 8) | buf[2];
 }
@@ -147,7 +148,8 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
             secgtemp = (signed long)uecgtemp;
             secgtemp = (signed long)secgtemp >> 8;
 
-            drv_data->s32ECGData[secg_counter++] = secgtemp;
+            //drv_data->s32ECGData[secg_counter++] = secgtemp;
+            drv_data->s32ecg_sample = secgtemp;
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
@@ -252,18 +254,17 @@ static int max30001_channel_get(const struct device *dev,
                                 struct sensor_value *val)
 {
     struct max30001_data *data = dev->data;
-    enum max30001_channel max30001_chan = (enum max30001_channel)chan;
 
-    switch (max30001_chan)
+    switch (chan)
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
-        val->val1 = data->s32ECGData[0] * 0.04768371582 *1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
-        val->val2 = data->s32ECGData[1] * 0.04768371582 *1000000;
+        val->val1 = data->s32ecg_sample*47.6837158203;// Output in uV * 0.04768371582 * 1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
+        val->val2 = 0;// * 0.04768371582 * 1000000;
         break;
     case SENSOR_CHAN_BIOZ_UV:
-        val->val1 = data->s32BIOZData[0]* 0.04768371582 *1000000;
-        val->val2 = data->s32BIOZData[1]* 0.04768371582 *1000000;
+        val->val1 = data->s32BIOZData[0];
+        val->val2 = data->s32BIOZData[1];
     default:
         return -EINVAL;
     }
@@ -292,6 +293,9 @@ static int max30001_chip_init(const struct device *dev)
 
     _max30001SwReset(dev);
     k_sleep(K_MSEC(100));
+
+    uint8_t chip_id[3];
+    _max30001_read_chip_id(dev, chip_id);
 
     _max30001RegWrite(dev, CNFG_GEN, 0xC0004);
     k_sleep(K_MSEC(100));
@@ -330,13 +334,13 @@ static int max30001_chip_init(const struct device *dev)
     _max30001Synch(dev);
     k_sleep(K_MSEC(100));
 
-    // printk("\nmax30001_chip_init\n");
+    printk("\nmax30001_chip_init\n");
 
     LOG_DBG("\"%s\" OK", dev->name);
     return 0;
 }
 
-#ifdef CONFIG_PM_DEVICE
+//#ifdef CONFIG_PM_DEVICE
 static int max30001_pm_action(const struct device *dev,
                               enum pm_device_action action)
 {
@@ -366,7 +370,7 @@ static int max30001_pm_action(const struct device *dev,
 
     return ret;
 }
-#endif /* CONFIG_PM_DEVICE */
+//#endif /* CONFIG_PM_DEVICE */
 
 /*
  * Main instantiation macro, which selects the correct bus-specific

@@ -88,7 +88,7 @@ const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 
 const struct device *fg_dev;
 
-#define GPIO_DEBOUNCE_TIME K_MSEC(30)
+#define GPIO_DEBOUNCE_TIME K_MSEC(500)
 
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
@@ -158,8 +158,8 @@ static void button_isr_down(const struct device *port, struct gpio_callback *cb,
     ARG_UNUSED(cb);
     ARG_UNUSED(pins);
 
-    //k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
-    k_sem_give(&sem_down_key_pressed);
+    k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
+    //k_sem_give(&sem_down_key_pressed);
 }
 
 static void leds_init()

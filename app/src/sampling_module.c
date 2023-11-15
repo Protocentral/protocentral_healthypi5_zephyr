@@ -41,9 +41,12 @@ void sampling_thread(void)
         struct sensor_value red_sample;
         struct sensor_value ir_sample;
 
+        struct sensor_value rtor_sample;
+
         sensor_sample_fetch(max30001_dev);
         sensor_channel_get(max30001_dev, SENSOR_CHAN_ECG_UV, &ecg_sample);
         sensor_channel_get(max30001_dev, SENSOR_CHAN_BIOZ_UV, &bioz_sample);
+        sensor_channel_get(max30001_dev, SENSOR_CHAN_RTOR, &rtor_sample);
 
         sensor_sample_fetch(afe4400_dev);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_RED, &red_sample);
@@ -71,8 +74,13 @@ void sampling_thread(void)
         sensor_sample.raw_ir = ir_sample.val1;
         sensor_sample.temp = last_read_temp_value;
         sensor_sample._bioZSkipSample = false;
+        sensor_sample.rtor = rtor_sample.val1;
+
+        //printk("%d ", sensor_sample.ecg_sample);
 
         k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
+
+       
 
         // busy loop until next value should be grabbed
         // while (k_timer_status_get(&next_val_timer) <= 0);

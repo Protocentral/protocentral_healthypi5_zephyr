@@ -7,6 +7,8 @@ struct hpi_sensor_data_t {
     int32_t raw_ir;
     int32_t temp;
     bool _bioZSkipSample;
+    uint16_t rtor;
+    uint16_t hr;
 };
 
 

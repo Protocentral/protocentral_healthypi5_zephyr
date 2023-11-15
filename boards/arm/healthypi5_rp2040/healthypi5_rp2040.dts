@@ -43,7 +43,7 @@
 
 	gpio_keys {
 		compatible = "gpio-keys";
-		debounce-interval-ms = < 60 >;
+		//debounce-interval-ms = < 600 >;
 
 		button_up: sw1 {
 			label = "Button UP / SW1";

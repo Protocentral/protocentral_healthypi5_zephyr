@@ -489,44 +489,23 @@ void hpi_disp_do_set_scale()
     }
 }
 
-void hpi_disp_draw_plotECG_burst(float *data_ecg, int num_samples)
-{
-    if (chart1_update == true)
-    {
-        for (int i = 0; i < num_samples; i++)
-        {
-            if (data_ecg[i] < y1_min)
-            {
-                y1_min = data_ecg[i];
-            }
-
-            if (data_ecg[i] > y1_max)
-            {
-                y1_max = data_ecg[i];
-            }
-
-            lv_chart_set_next_value(chart1, ser1, data_ecg[i]);
-        }
-    }
-}
-
-void hpi_disp_draw_plot(float data_ecg)
+void hpi_disp_draw_plot(float plot_data)
 {
     if (chart1_update == true)
     {
 
-        if (data_ecg < y1_min)
+        if (plot_data < y1_min)
         {
-            y1_min = data_ecg;
+            y1_min = plot_data;
         }
 
-        if (data_ecg > y1_max)
+        if (plot_data > y1_max)
         {
-            y1_max = data_ecg;
+            y1_max = plot_data;
         }
 
         // printk("E");
-        lv_chart_set_next_value(chart1, ser1, data_ecg);
+        lv_chart_set_next_value(chart1, ser1, plot_data);
         hpi_disp_add_samples(1);
         hpi_disp_do_set_scale();
     }
@@ -689,10 +668,11 @@ void display_screens_thread(void)
     display_init_styles();
 
     // Setup LVGL Input Device
-    lv_indev_drv_init(&m_keypad_drv);
+    /*lv_indev_drv_init(&m_keypad_drv);
     m_keypad_drv.type = LV_INDEV_TYPE_KEYPAD;
     m_keypad_drv.read_cb = keypad_read;
     m_keypad_indev = lv_indev_drv_register(&m_keypad_drv);
+    */
 
     display_blanking_off(display_dev);
 
@@ -714,7 +694,7 @@ void display_screens_thread(void)
 
         if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
         {
-            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample) / 1000000.0000));
+            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample)/100.0000));
         }
         else if (hpi_disp_curr_screen == HPI_DISP_SCR_PPG)
         {
