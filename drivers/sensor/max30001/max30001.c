@@ -16,8 +16,6 @@ LOG_MODULE_REGISTER(SENSOR_MAX30001, CONFIG_SENSOR_LOG_LEVEL);
 #warning "MAX30001 driver enabled without any devices"
 #endif
 
-#define MAX30001_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB)
-
 static int _max30001RegWrite(const struct device *dev, uint8_t reg, uint32_t val)
 {
     const struct max30001_config *config = dev->config;
@@ -136,9 +134,9 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
     {
         // Get etag
         ecg_etag = ((((unsigned char)buf[i + 2]) & 0x38) >> 3);
-        // printk("etag %x\n", ecg_etag);
+        //printk("E%x ", ecg_etag);
 
-        if (ecg_etag == 0x00) // Valid sample
+        if (ecg_etag == 0x00||ecg_etag==0x02) // Valid sample
         {
             // uecgtemp=(unsigned long)((unsigned long)readBuffer[i]<<16 |(unsigned long)readBuffer[i+1]<<8| (unsigned long)(readBuffer[i+2]&0xC0));
             uecgtemp = (unsigned long)(((unsigned long)buf[i] << 16 | (unsigned long)buf[i + 1] << 8) | (unsigned long)(buf[i + 2] & 0xC0));
@@ -147,13 +145,14 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
             secgtemp = (signed long)uecgtemp;
             secgtemp = (signed long)secgtemp >> 8;
 
-            // drv_data->s32ECGData[secg_counter++] = secgtemp;
-            drv_data->s32ecg_sample = secgtemp;
+            drv_data->s32ECGData[secg_counter++] = secgtemp;
+            // drv_data->s32ecg_sample = secgtemp;
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            printk("OVF ");
+            printk("EOVF ");
             _max30001FIFOReset(dev);
+            _max30001Synch(dev);
         }
     }
 
@@ -191,9 +190,9 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
     {
         // Get etag
         ecg_etag = ((((unsigned char)buf[i + 2]) & 0x38) >> 3);
-        // printk("etag %x\n", ecg_etag);
+        //printk("B%x ", ecg_etag);
 
-        if (ecg_etag == 0x00) // Valid sample
+        if ((ecg_etag == 0x00) || (ecg_etag == 0x02)) // Valid sample
         {
             ubioztemp = (unsigned long)(((unsigned long)buf[i] << 16 | (unsigned long)buf[i + 1] << 8) | (unsigned long)(buf[i + 2] & 0xC0));
             ubioztemp = (unsigned long)(ubioztemp << 8);
@@ -203,10 +202,16 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
 
             drv_data->s32BIOZData[s_counter++] = stemp;
         }
+        else if(ecg_etag==0x06)
+        {
+            printk("N ");
+            return 0;
+        }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            // Serial.println("OVF");
+            printk("R ");
             _max30001FIFOReset(dev);
+            _max30001Synch(dev);
         }
     }
     return 0;
@@ -225,7 +230,9 @@ static int max30001_sample_fetch(const struct device *dev,
 #endif
 
     uint32_t max30001_status, max30001_mngr_int = 0;
-    uint8_t fifo_num_bytes;
+    uint8_t e_fifo_num_bytes;
+    uint8_t b_fifo_num_bytes;
+
     uint32_t max30001_rtor = 0;
     struct max30001_data *data = dev->data;
 
@@ -235,23 +242,30 @@ static int max30001_sample_fetch(const struct device *dev,
     if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
         max30001_mngr_int = _max30001_read_reg(dev, MNGR_INT);
-        fifo_num_bytes = ((((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1) * 3);
-        // printk("FIFO num bytes: %d\n", fifo_num_bytes);
-        _max30001_read_ecg_fifo(dev, fifo_num_bytes);
+        e_fifo_num_bytes = ((((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1) * 3);
+        //printk("EFN %d ", e_fifo_num_bytes);
+        _max30001_read_ecg_fifo(dev, e_fifo_num_bytes);
     }
 
     if ((max30001_status & MAX30001_STATUS_MASK_BINT) == MAX30001_STATUS_MASK_BINT) // BIOZ FIFO is full
     {
         max30001_mngr_int = _max30001_read_reg(dev, MNGR_INT);
-        fifo_num_bytes = (((max30001_mngr_int & MAX30001_INT_MASK_BFIT) >> MAX30001_INT_SHIFT_BFIT) + 1) * 3;
-        _max30001_read_bioz_fifo(dev, fifo_num_bytes);
+        b_fifo_num_bytes = (((max30001_mngr_int & MAX30001_INT_MASK_BFIT) >> MAX30001_INT_SHIFT_BFIT) + 1) * 3;
+        //printk("BFN %d ", b_fifo_num_bytes);
+        _max30001_read_bioz_fifo(dev, b_fifo_num_bytes);
     }
 
     if ((max30001_status & MAX30001_STATUS_MASK_RRINT) == MAX30001_STATUS_MASK_RRINT)
     {
         max30001_rtor = _max30001_read_reg(dev, RTOR);
-        data->lastRRI = (uint16_t)(max30001_rtor>>10)*8;
-        data->lastHR = (uint16_t) (60*1000/data->lastRRI);  
+        data->lastRRI = (uint16_t)(max30001_rtor >> 10) * 8;
+        data->lastHR = (uint16_t)(60 * 1000 / data->lastRRI);
+    }
+
+    if(((max30001_status & MAX30001_STATUS_MASK_BOVF)==MAX30001_STATUS_MASK_BOVF)||((max30001_status & MAX30001_STATUS_MASK_EOVF)==MAX30001_STATUS_MASK_EOVF))
+    {
+        printk("SR ");
+        _max30001FIFOReset(dev);
     }
 
     return 0;
@@ -267,7 +281,7 @@ static int max30001_channel_get(const struct device *dev,
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
-        val->val1 = data->s32ecg_sample * 47.6837158203; // Output in uV * 0.04768371582 * 1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
+        val->val1 = data->s32ECGData[0] * 47.6837158203; // Output in uV * 0.04768371582 * 1000000; // ECG mV = (ADC* VREF)/(2^17*ECG_GAIN)
         val->val2 = 0;                                   // * 0.04768371582 * 1000000;
         break;
     case SENSOR_CHAN_BIOZ_UV:
@@ -344,7 +358,8 @@ static int max30001_chip_init(const struct device *dev)
     }
 
     //_max30001RegWrite(dev, MNGR_INT, 0x7B0000); // EFIT=16, BFIT=8
-    _max30001RegWrite(dev, MNGR_INT, 0x090000); // EFIT=2, BFIT=2
+    _max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
+    //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
 
     k_sleep(K_MSEC(100));
 
@@ -388,6 +403,8 @@ static int max30001_pm_action(const struct device *dev,
     return ret;
 }
 // #endif /* CONFIG_PM_DEVICE */
+
+#define MAX30001_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB)
 
 /*
  * Main instantiation macro, which selects the correct bus-specific
