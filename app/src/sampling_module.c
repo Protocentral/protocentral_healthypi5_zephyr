@@ -13,7 +13,7 @@ extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 extern const struct device *const max30205_dev;
 
-#define SAMPLING_INTERVAL_MS          7     // Time between samples in milliseconds  
+#define SAMPLING_INTERVAL_MS          6     // Time between samples in milliseconds  
 #define TEMP_SAMPLING_INTERVAL_COUNT  125   // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
 K_MSGQ_DEFINE(q_sample, sizeof(struct hpi_sensor_data_t), 100, 1);
