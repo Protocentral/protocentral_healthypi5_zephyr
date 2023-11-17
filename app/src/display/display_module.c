@@ -24,9 +24,7 @@
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
 
-// LVGL Common Objects
-static lv_indev_drv_t m_keypad_drv;
-static lv_indev_t *m_keypad_indev = NULL;
+
 extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
@@ -333,6 +331,12 @@ void draw_footer(lv_obj_t *parent)
     lv_label_set_text(label_hr_sub, "bpm");
     lv_obj_align_to(label_hr_sub, label_hr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_hr_sub, &style_sub, LV_STATE_DEFAULT);
+
+    // HR BPM Subscript label
+    lv_obj_t *label_hr_status = lv_label_create(parent);
+    lv_label_set_text(label_hr_status, "ON");
+    lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
+    //lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
 
     // SPO2 Number label
     label_spo2 = lv_label_create(parent);

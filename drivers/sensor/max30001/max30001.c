@@ -42,9 +42,9 @@ static int _max30001_read_chip_id(const struct device *dev, uint8_t *buf)
     const struct spi_buf tx_buf = {.buf = &spiTxCommand, .len = 1};
     const struct spi_buf_set tx = {.buffers = &tx_buf, .count = 1};
     struct spi_buf rx_buf[2] = {{.buf = NULL, .len = 1}, {.buf = buf, .len = 3}}; // 24 bit register + 1 dummy byte
-    const struct spi_buf_set rx = {.buffers = &rx_buf, .count = 2};
+    const struct spi_buf_set rx = {.buffers = rx_buf, .count = 2};
 
-    int ret = spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
+    spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     printk("ChipID: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
     return 0;
@@ -134,9 +134,9 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
     {
         // Get etag
         ecg_etag = ((((unsigned char)buf[i + 2]) & 0x38) >> 3);
-        //printk("E%x ", ecg_etag);
+        // printk("E%x ", ecg_etag);
 
-        if (ecg_etag == 0x00||ecg_etag==0x02) // Valid sample
+        if (ecg_etag == 0x00 || ecg_etag == 0x02) // Valid sample
         {
             // uecgtemp=(unsigned long)((unsigned long)readBuffer[i]<<16 |(unsigned long)readBuffer[i+1]<<8| (unsigned long)(readBuffer[i+2]&0xC0));
             uecgtemp = (unsigned long)(((unsigned long)buf[i] << 16 | (unsigned long)buf[i + 1] << 8) | (unsigned long)(buf[i + 2] & 0xC0));
@@ -190,7 +190,7 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
     {
         // Get etag
         ecg_etag = ((((unsigned char)buf[i + 2]) & 0x38) >> 3);
-        //printk("B%x ", ecg_etag);
+        // printk("B%x ", ecg_etag);
 
         if ((ecg_etag == 0x00) || (ecg_etag == 0x02)) // Valid sample
         {
@@ -202,14 +202,12 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
 
             drv_data->s32BIOZData[s_counter++] = stemp;
         }
-        else if(ecg_etag==0x06)
+        else if (ecg_etag == 0x06)
         {
-            printk("N ");
             return 0;
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            printk("R ");
             _max30001FIFOReset(dev);
             _max30001Synch(dev);
         }
@@ -237,13 +235,19 @@ static int max30001_sample_fetch(const struct device *dev,
     struct max30001_data *data = dev->data;
 
     max30001_status = _max30001_read_status(dev);
-    // printk("Status: %x\n", max30001_status);
+    //printk("Status: %x\n", max30001_status);
+
+    if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
+    {
+        // Leads are off
+        printk("LO");
+    }
 
     if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
         max30001_mngr_int = _max30001_read_reg(dev, MNGR_INT);
         e_fifo_num_bytes = ((((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1) * 3);
-        //printk("EFN %d ", e_fifo_num_bytes);
+        // printk("EFN %d ", e_fifo_num_bytes);
         _max30001_read_ecg_fifo(dev, e_fifo_num_bytes);
     }
 
@@ -251,7 +255,7 @@ static int max30001_sample_fetch(const struct device *dev,
     {
         max30001_mngr_int = _max30001_read_reg(dev, MNGR_INT);
         b_fifo_num_bytes = (((max30001_mngr_int & MAX30001_INT_MASK_BFIT) >> MAX30001_INT_SHIFT_BFIT) + 1) * 3;
-        //printk("BFN %d ", b_fifo_num_bytes);
+        // printk("BFN %d ", b_fifo_num_bytes);
         _max30001_read_bioz_fifo(dev, b_fifo_num_bytes);
     }
 
@@ -262,11 +266,12 @@ static int max30001_sample_fetch(const struct device *dev,
         data->lastHR = (uint16_t)(60 * 1000 / data->lastRRI);
     }
 
-    if(((max30001_status & MAX30001_STATUS_MASK_BOVF)==MAX30001_STATUS_MASK_BOVF)||((max30001_status & MAX30001_STATUS_MASK_EOVF)==MAX30001_STATUS_MASK_EOVF))
+    if (((max30001_status & MAX30001_STATUS_MASK_BOVF) == MAX30001_STATUS_MASK_BOVF) || ((max30001_status & MAX30001_STATUS_MASK_EOVF) == MAX30001_STATUS_MASK_EOVF))
     {
-        printk("SR ");
         _max30001FIFOReset(dev);
     }
+
+    
 
     return 0;
 }
@@ -277,7 +282,9 @@ static int max30001_channel_get(const struct device *dev,
 {
     struct max30001_data *data = dev->data;
 
-    switch (chan)
+    enum max30001_channel max30001_chan = chan;
+
+    switch (max30001_chan)
     {
     case SENSOR_CHAN_ECG_UV:
         // Val 1 is one sample //Val 2 is 2nd sample from FIFO
@@ -312,6 +319,7 @@ static int max30001_chip_init(const struct device *dev)
 
     bool en_bioz = true;
     bool en_rtor = true;
+    bool en_dcloff =false;
 
     err = spi_is_ready_dt(&config->spi);
     if (err < 0)
@@ -326,7 +334,15 @@ static int max30001_chip_init(const struct device *dev)
     uint8_t chip_id[3];
     _max30001_read_chip_id(dev, chip_id);
 
-    _max30001RegWrite(dev, CNFG_GEN, 0xC0004);
+    if (en_dcloff == true)
+    {
+        _max30001RegWrite(dev, CNFG_GEN, 0xC1514); // DC LOFF Enabled, 5 nA current
+    }
+    else
+    {
+        _max30001RegWrite(dev, CNFG_GEN, 0xC0004); // ECG, BIOZ Enabled, DC LOFF disabled
+    }
+
     k_sleep(K_MSEC(100));
 
     _max30001RegWrite(dev, CNFG_CAL, 0x702000); // Calibration sources disabled
@@ -372,38 +388,6 @@ static int max30001_chip_init(const struct device *dev)
     return 0;
 }
 
-// #ifdef CONFIG_PM_DEVICE
-static int max30001_pm_action(const struct device *dev,
-                              enum pm_device_action action)
-{
-    int ret = 0;
-
-    switch (action)
-    {
-    case PM_DEVICE_ACTION_RESUME:
-        /* Re-initialize the chip */
-        // ret = bme280_chip_init(dev);
-        break;
-    case PM_DEVICE_ACTION_SUSPEND:
-        /* Put the chip into sleep mode */
-        /*ret = bme280_reg_write(dev,
-            BME280_REG_CTRL_MEAS,
-            BME280_CTRL_MEAS_OFF_VAL);
-            */
-
-        if (ret < 0)
-        {
-            LOG_DBG("CTRL_MEAS write failed: %d", ret);
-        }
-        break;
-    default:
-        return -ENOTSUP;
-    }
-
-    return ret;
-}
-// #endif /* CONFIG_PM_DEVICE */
-
 #define MAX30001_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB)
 
 /*
@@ -418,7 +402,6 @@ static int max30001_pm_action(const struct device *dev,
                 inst, MAX30001_SPI_OPERATION, 0),                \
                                                                  \
     };                                                           \
-    PM_DEVICE_DT_INST_DEFINE(inst, max30001_pm_action);          \
                                                                  \
     SENSOR_DEVICE_DT_INST_DEFINE(inst,                           \
                                  max30001_chip_init,             \
