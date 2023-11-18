@@ -63,6 +63,9 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
+volatile uint8_t globalRespirationRate=0;
+int16_t resWaveBuff,respFilterout;
+
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
@@ -99,8 +102,8 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
     DataPacket[18] = temp >> 8;
 
     DataPacket[19] = spo2;
-    DataPacket[20] = rr;
-    DataPacket[21] = hr;
+    DataPacket[20] = hr;
+    DataPacket[21] = rr;
 
     if (settings_send_usb_enabled)
     {
@@ -210,6 +213,7 @@ void data_thread(void)
     printk("Data Thread starting\n");
 
     struct hpi_sensor_data_t sensor_sample;
+    struct hpi_computed_data_t computed_data;
 
     record_init_session_log();
 
@@ -260,8 +264,6 @@ void data_thread(void)
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
             printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
-            struct hpi_computed_data_t computed_data;
-
             computed_data.spo2 = n_spo2;
             computed_data.hr = n_heart_rate;
             computed_data.rr = -999;
@@ -276,13 +278,19 @@ void data_thread(void)
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
+        respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
+        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        computed_data.rr = globalRespirationRate;
+        printk("Respiration rate: %d\n", globalRespirationRate);
+
+
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
         {
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, 0, 0, 0, sensor_sample._bioZSkipSample);
+                         sensor_sample.temp, 0,computed_data.rr, 0, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
