@@ -258,12 +258,15 @@ void data_thread(void)
 
             printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
+            printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             struct hpi_computed_data_t computed_data;
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = n_heart_rate;
-            computed_data.rr = 0;
+            computed_data.rr = -999;
+            computed_data.hr_valid = ch_hr_valid;
+            computed_data.spo2_valid = ch_spo2_valid;
 
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
@@ -287,7 +290,7 @@ void data_thread(void)
             }
         }
 
-/***** Send to draw queue if enabled *****/
+        /***** Send to draw queue if enabled *****/
 #ifdef CONFIG_DISPLAY
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
 #endif

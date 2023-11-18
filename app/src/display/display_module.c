@@ -24,7 +24,6 @@
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
 
-
 extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
@@ -336,7 +335,7 @@ void draw_footer(lv_obj_t *parent)
     lv_obj_t *label_hr_status = lv_label_create(parent);
     lv_label_set_text(label_hr_status, "ON");
     lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
-    //lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
+    // lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
 
     // SPO2 Number label
     label_spo2 = lv_label_create(parent);
@@ -433,6 +432,12 @@ void hpi_disp_update_temp(int temp)
     if (label_temp == NULL)
         return;
 
+    if (temp <= 0)
+    {
+        lv_label_set_text(label_temp, "---");
+        return;
+    }
+
     char buf[32];
     double temp_d = (double)(temp / 1000.00);
     sprintf(buf, "%.2f", temp_d);
@@ -454,6 +459,12 @@ void hpi_disp_update_spo2(int spo2)
     if (label_spo2 == NULL)
         return;
 
+    if (spo2 < 0)
+    {
+        lv_label_set_text(label_spo2, "---");
+        return;
+    }
+
     char buf[32];
     sprintf(buf, "%d", spo2);
     lv_label_set_text(label_spo2, buf);
@@ -463,6 +474,12 @@ void hpi_disp_update_rr(int rr)
 {
     if (label_rr == NULL)
         return;
+
+    if (rr < 0)
+    {
+        lv_label_set_text(label_rr, "---");
+        return;
+    }
 
     char buf[32];
     sprintf(buf, "%d", rr);
@@ -698,7 +715,7 @@ void display_screens_thread(void)
 
         if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
         {
-            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample)/100.0000));
+            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample) / 100.0000));
         }
         else if (hpi_disp_curr_screen == HPI_DISP_SCR_PPG)
         {
@@ -728,7 +745,7 @@ void display_screens_thread(void)
             printk("HR: %d", computed_data.hr);
             printk("RR: %d", computed_data.rr);
 
-            //hpi_disp_update_hr(computed_data.hr);
+            // hpi_disp_update_hr(computed_data.hr);
             hpi_disp_update_spo2(computed_data.spo2);
             hpi_disp_update_rr(computed_data.rr);
         }
