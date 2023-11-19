@@ -30,9 +30,10 @@ jobs:
       
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: healthypi5_zephyr/build/zephyr/zephyr.uf2
-          asset_name: zephyr.hex
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/zephyr/zephyr.uf2
+          asset_name: healthypi5_rp2040_display.uf2
           asset_content_type: application/octet-stream
-          asset_label: healthypi5_zephyr_display.uf2
