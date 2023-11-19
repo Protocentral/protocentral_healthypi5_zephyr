@@ -27,10 +27,10 @@ jobs:
         working-directory: healthypi5_zephyr
         run: |
           west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf
-          mv build/zephyr/zephyr.uf2 build/zephyr/healthypi5_zephyr_display.uf2
+          mv build/zephyr/zephyr.uf2 healthypi5_zephyr_display.uf2
       
       - name: Upload release asset
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/zephyr/healthypi5_zephyr_display.uf2"
+          artifacts: "*healthypi5_zephyr_display.uf2"
           token: ${{ secrets.GITHUB_TOKEN }}
