@@ -26,6 +26,7 @@ jobs:
       - name: Build base firmware
         working-directory: healthypi5_zephyr
         run: |
+          rm -rf *.uf2
           west build -p auto -b healthypi5_rp2040 app
           mv build/zephyr/zephyr.uf2 healthypi5_base.uf2
 
