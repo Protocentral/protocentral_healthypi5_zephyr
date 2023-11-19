@@ -32,5 +32,5 @@ jobs:
       - name: Upload release asset
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "*healthypi5_zephyr_display.uf2"
+          artifacts: "healthypi5_zephyr_display.uf2"
           token: ${{ secrets.GITHUB_TOKEN }}
