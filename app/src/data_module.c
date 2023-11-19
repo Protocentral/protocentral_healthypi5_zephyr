@@ -270,14 +270,14 @@ void data_thread(void)
             printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.spo2 = n_spo2;
-            computed_data.hr = n_heart_rate;
+            computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
             //computed_data.rr = -999;
             computed_data.hr_valid = ch_hr_valid;
             computed_data.spo2_valid = ch_spo2_valid;
 
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
-            ble_hrs_notify(n_heart_rate);
+            ble_hrs_notify(computed_data.hr);
 #endif
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
@@ -289,7 +289,7 @@ void data_thread(void)
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, 0,computed_data.rr, 0, sensor_sample._bioZSkipSample);
+                         sensor_sample.temp, computed_data.hr,computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
