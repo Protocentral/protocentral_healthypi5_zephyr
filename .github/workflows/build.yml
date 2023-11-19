@@ -27,3 +27,17 @@ jobs:
         working-directory: healthypi5_zephyr
         run: |
           west twister -T app -v --inline-logs --integration
+
+      - name: Build display firmware
+        working-directory: healthypi5_zephyr
+        run: |
+          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf
+      
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: healthypi5_zephyr/build/zephyr/zephyr.hex
+          asset_name: zephyr.hex
+          asset_content_type: application/octet-stream
+          asset_label: healthypi5_zephyr_display.hex

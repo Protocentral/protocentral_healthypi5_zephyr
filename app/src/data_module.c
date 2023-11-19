@@ -256,6 +256,11 @@ void data_thread(void)
 
         dec++;
 
+        respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
+        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        computed_data.rr = globalRespirationRate;
+        printk("Respiration rate: %d\n", globalRespirationRate);
+
         if (n_buffer_count > 99)
         {
             n_buffer_count = 0;
@@ -266,7 +271,7 @@ void data_thread(void)
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = n_heart_rate;
-            computed_data.rr = -999;
+            //computed_data.rr = -999;
             computed_data.hr_valid = ch_hr_valid;
             computed_data.spo2_valid = ch_spo2_valid;
 
@@ -277,12 +282,6 @@ void data_thread(void)
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
-
-        respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
-        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
-        computed_data.rr = globalRespirationRate;
-        printk("Respiration rate: %d\n", globalRespirationRate);
-
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
