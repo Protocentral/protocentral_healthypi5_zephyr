@@ -23,14 +23,28 @@ jobs:
           west init -l .
           west update -o=--depth=1 -n
 
+      - name: Build base firmware
+        working-directory: healthypi5_zephyr
+        run: |
+          west build -p auto -b healthypi5_rp2040 app
+          mv build/zephyr/zephyr.uf2 healthypi5_base.uf2
+
       - name: Build display firmware
         working-directory: healthypi5_zephyr
         run: |
+          west build -t pristine
           west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf
-          mv build/zephyr/zephyr.uf2 healthypi5_zephyr_display.uf2
+          mv build/zephyr/zephyr.uf2 healthypi5_display.uf2
+
+      - name: Build BLE firmware
+        working-directory: healthypi5_zephyr
+        run: |
+          west build -t pristine
+          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf
+          mv build/zephyr/zephyr.uf2 healthypi5_ble.uf2
       
-      - name: Upload release asset
+      - name: Upload release assets
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "healthypi5_zephyr/healthypi5_zephyr_display.uf2"
+          artifacts: "healthypi5_zephyr/*.uf2"
           token: ${{ secrets.GITHUB_TOKEN }}
