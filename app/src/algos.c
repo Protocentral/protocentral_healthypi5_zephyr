@@ -49,6 +49,8 @@ int16_t RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    12
                                        24,     38,     52,     65,     77,     88,     97,    106,    113,
                                       118,    122,    125,    127,    127,    126,    124,    120       };
 
+#define SLEEP_TIME_MS   1000
+
 void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
 
@@ -540,6 +542,7 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
   }
 
   *RespirationRate=(uint8_t)Respiration_Rate;
+
 }
 
 
