@@ -24,3 +24,4 @@ manifest:
           - mcuboot
           - zcbor  
           - tinycrypt
+          - fatfs
