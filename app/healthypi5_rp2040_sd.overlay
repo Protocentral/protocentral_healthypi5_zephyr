@@ -1,0 +1,27 @@
+
+// ProtoCentral Electronics (info@protocentral.com)
+// SPDX-License-Identifier: Apache-2.0
+
+/ {
+	chosen {
+		
+	};
+};
+&spi1 {
+	clock-frequency = <DT_FREQ_M(48)>;
+	status = "okay";
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+
+	sdhc0: sdhc@0 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <0>;
+		status = "okay";
+		mmc {
+			compatible = "zephyr,sdmmc-disk";
+			status = "okay";
+		};
+		spi-max-frequency = <24000000>;
+	};
+};
