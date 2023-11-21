@@ -267,9 +267,9 @@ void data_thread(void)
         {
             n_buffer_count = 0;
 
-            printf("Calculating SPO2...\n");
+            //printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+            //printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm

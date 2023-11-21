@@ -39,7 +39,7 @@ K_SEM_DEFINE(sem_hw_inited, 0, 1);
 
 /****END EXTERNS****/
 
-#define HW_THREAD_STACKSIZE 1024
+#define HW_THREAD_STACKSIZE 8192
 #define HW_THREAD_PRIORITY 7
 
 // Peripheral Device Pointers
@@ -326,6 +326,9 @@ uint8_t read_battery_level(void)
 
 void hw_thread(void)
 {
+    fs_module_init();
+
+
     if (!device_is_ready(max30001_dev))
     {
         printk("MAX30001 device not found!");
@@ -353,8 +356,7 @@ void hw_thread(void)
     leds_init();
     buttons_init();
 
-    fs_module_init();
-
+    
     // init_settings();
 
     printk("HW Thread started\n");

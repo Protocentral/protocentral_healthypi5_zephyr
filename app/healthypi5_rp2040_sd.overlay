@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 &spi1 {
-	clock-frequency = <DT_FREQ_M(48)>;
+	clock-frequency = <DT_FREQ_M(4)>;
 	status = "okay";
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
@@ -13,10 +13,11 @@
 		compatible = "zephyr,sdhc-spi-slot";
 		reg = <0>;
 		status = "okay";
+		power-delay-ms = <5>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
 			status = "okay";
 		};
-		spi-max-frequency = <24000000>;
 	};
 };
