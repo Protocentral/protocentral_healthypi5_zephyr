@@ -63,9 +63,9 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate=0;
-int16_t resWaveBuff,respFilterout;
-long timeElapsed=0;
+volatile uint8_t globalRespirationRate = 0;
+int16_t resWaveBuff, respFilterout;
+long timeElapsed = 0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -259,9 +259,9 @@ void data_thread(void)
         dec++;
 
         respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
-        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
         computed_data.rr = globalRespirationRate;
-        printk("Respiration rate: %d\n", globalRespirationRate);
+        //printk("Respiration rate: %d\n", globalRespirationRate);
 
         if (n_buffer_count > 99)
         {
@@ -273,7 +273,7 @@ void data_thread(void)
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
-            //computed_data.rr = -999;
+            // computed_data.rr = -999;
             computed_data.hr_valid = ch_hr_valid;
             computed_data.spo2_valid = ch_spo2_valid;
 
@@ -281,12 +281,9 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-
-
-
         }
         respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
-        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
 
         m_resp_sample_counter++;
 
@@ -295,10 +292,8 @@ void data_thread(void)
             m_resp_sample_counter = 0;
             computed_data.rr = globalRespirationRate;
         }
-        
+
         k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
-
-
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
@@ -306,7 +301,7 @@ void data_thread(void)
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, computed_data.hr,computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+                         sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
