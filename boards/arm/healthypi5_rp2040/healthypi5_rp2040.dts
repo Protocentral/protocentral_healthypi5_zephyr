@@ -176,6 +176,8 @@
 	};
 };
 
+
+
 &spi0 {
 	clock-frequency = <DT_FREQ_M(8)>;
 	status = "okay";
@@ -231,9 +233,11 @@
 };
 
 zephyr_udc0: &usbd {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
 	status = "okay";
 };
-
 
 /*&pwm {
 	pinctrl-0 = <&pwm_ch1b_default>;

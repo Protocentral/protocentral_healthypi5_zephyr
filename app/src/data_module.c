@@ -63,8 +63,8 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate=0;
-int16_t resWaveBuff,respFilterout;
+volatile uint32_t globalRespirationRate=0;
+int32_t resWaveBuff,respFilterout;
 long timeElapsed=0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
@@ -258,42 +258,40 @@ void data_thread(void)
 
         dec++;
 
-        if (n_buffer_count > 99)
-        {
-            n_buffer_count = 0;
-
-            printf("Calculating SPO2...\n");
-            hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
-
-            computed_data.spo2 = n_spo2;
-            computed_data.hr = n_heart_rate;
-            //#computed_data.rr = -999;
-            computed_data.hr_valid = ch_hr_valid;
-            computed_data.spo2_valid = ch_spo2_valid;
-
-#ifdef CONFIG_BT
-            ble_spo2_notify(n_spo2);
-            ble_hrs_notify(n_heart_rate);
-#endif
-
-
-
-        }
-        respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
+        respFilterout = Resp_ProcessCurrSample((int32_t)sensor_sample.bioz_sample);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
-
         m_resp_sample_counter++;
 
         if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
         {
             m_resp_sample_counter = 0;
             computed_data.rr = globalRespirationRate;
+            printf("Respiration: %d\n", globalRespirationRate);
+
         }
         
-        k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
 
+        if (n_buffer_count > 99)
+        {
+            n_buffer_count = 0;
 
+            printf("Calculating SPO2...\n");
+            hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
+            printf("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+
+            computed_data.spo2 = n_spo2;
+            computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
+            //computed_data.rr = -999;
+            computed_data.hr_valid = ch_hr_valid;
+            computed_data.spo2_valid = ch_spo2_valid;
+
+#ifdef CONFIG_BT
+            ble_spo2_notify(n_spo2);
+            ble_hrs_notify(computed_data.hr);
+#endif
+
+            k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
+        }
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
@@ -301,7 +299,7 @@ void data_thread(void)
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, 0,computed_data.rr, 0, sensor_sample._bioZSkipSample);
+                         sensor_sample.temp, computed_data.hr,computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {

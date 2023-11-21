@@ -41,6 +41,26 @@ struct fs_mount_t *mp =
 #endif
     ;
 
+#if defined(CONFIG_FAT_FILESYSTEM_ELM)
+
+#include <ff.h>
+
+/*
+ *  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
+ *  in ffconf.h
+ */
+#define DISK_DRIVE_NAME "SD"
+#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
+
+static FATFS fat_fs;
+/* mounting info */
+static struct fs_mount_t mp_sd = {
+	.type = FS_FATFS,
+	.fs_data = &fat_fs,
+};
+
+#endif /* CONFIG_FAT_FILESYSTEM_ELM */
+
 /* Default values are assigned to settings values consuments
  * All of them will be overwritten if storage contain proper key-values
  */

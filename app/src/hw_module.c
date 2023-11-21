@@ -23,7 +23,7 @@
 #include "hw_module.h"
 #include "fs_module.h"
 
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+#ifdef CONFIG_DISPLAY
 #include "display_module.h"
 #endif
 
