@@ -65,6 +65,7 @@ char session_id_str[15];
 
 volatile uint8_t globalRespirationRate=0;
 int16_t resWaveBuff,respFilterout;
+long timeElapsed=0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -218,6 +219,7 @@ void data_thread(void)
     record_init_session_log();
 
     int m_temp_sample_counter = 0;
+    int m_resp_sample_counter = 0;
 
     int32_t n_spo2;       // SPO2 value
     int32_t n_heart_rate; // heart rate value
@@ -280,8 +282,23 @@ void data_thread(void)
             ble_hrs_notify(computed_data.hr);
 #endif
 
-            k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
+
+
         }
+        respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
+        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+
+        m_resp_sample_counter++;
+
+        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
+        {
+            m_resp_sample_counter = 0;
+            computed_data.rr = globalRespirationRate;
+        }
+        
+        k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
+
+
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
