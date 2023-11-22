@@ -40,7 +40,7 @@ extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
 static bool settings_send_usb_enabled = true;
-static bool settings_send_ble_enabled = false;
+static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
 static bool settings_log_data_enabled = false;       // true;
@@ -111,13 +111,6 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
         send_usb_cdc(DataPacketHeader, 5);
         send_usb_cdc(DataPacket, DATA_LEN);
         send_usb_cdc(DataPacketFooter, 2);
-    }
-
-    if (settings_send_ble_enabled)
-    {
-        // cmdif_send_ble_data(DataPacketHeader, 5);
-        cmdif_send_ble_data(DataPacket, DATA_LEN);
-        // cmdif_send_ble_data(DataPacketFooter, 2);
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -262,9 +255,9 @@ void data_thread(void)
         {
             n_buffer_count = 0;
 
-            //printf("Calculating SPO2...\n");
+            // printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            //printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+            // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
@@ -276,9 +269,9 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
+            k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
-        
+
         /*respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
 
@@ -289,7 +282,7 @@ void data_thread(void)
             m_resp_sample_counter = 0;
             computed_data.rr = globalRespirationRate;
         }*/
-    
+
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
         {
@@ -307,6 +300,14 @@ void data_thread(void)
         /***** Send to draw queue if enabled *****/
 #ifdef CONFIG_DISPLAY
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
+#endif
+
+#ifdef CONFIG_BT
+        if (settings_send_ble_enabled)
+        {
+            ble_ecg_notify(sensor_sample.ecg_sample, 1);
+        }
+
 #endif
         /****** Send to log queue if enabled ******/
 
