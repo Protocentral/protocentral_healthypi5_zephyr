@@ -269,6 +269,13 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
+#ifdef CONFIG_BT
+            if (settings_send_ble_enabled)
+            {
+                ble_ecg_notify(sensor_sample.ecg_sample, 1);
+            }
+
+#endif
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
@@ -302,13 +309,6 @@ void data_thread(void)
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
 #endif
 
-#ifdef CONFIG_BT
-        if (settings_send_ble_enabled)
-        {
-            ble_ecg_notify(sensor_sample.ecg_sample, 1);
-        }
-
-#endif
         /****** Send to log queue if enabled ******/
 
         if (settings_log_data_enabled)

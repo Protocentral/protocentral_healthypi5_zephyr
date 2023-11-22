@@ -45,6 +45,10 @@ static void temp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value
 {
 }
 
+static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+}
+
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
@@ -81,7 +85,7 @@ BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
 											  BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, NULL),
-					   BT_GATT_CCC(temp_on_cccd_changed,
+					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
 void ble_spo2_notify(uint16_t spo2_val)
