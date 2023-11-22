@@ -12,8 +12,8 @@ int RESP_Current_Sample = 0;
 int RESP_Next_Sample = 0;
 int RESP_Second_Next_Sample = 0;
 uint8_t Respiration_Rate = 0;
-int16_t RESP_WorkingBuff[2 * FILTERORDER];
-int16_t Pvev_DC_Sample = 0, Pvev_Sample = 0;
+int32_t RESP_WorkingBuff[2 * FILTERORDER];
+int32_t Pvev_DC_Sample = 0, Pvev_Sample = 0;
 
 static int32_t an_x[BUFFER_SIZE];
 static int32_t an_y[BUFFER_SIZE];
@@ -29,26 +29,24 @@ const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97,
                                      28, 27, 26, 25, 23, 22, 21, 20, 19, 17, 16, 15, 14, 12, 11, 10, 9, 7, 6, 5,
                                      3, 2, 1};
 
-int16_t RespCoeffBuf[FILTERORDER] = {120, 124, 126, 127, 127, 125, 122, 118, 113, /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
-                                     106, 97, 88, 77, 65, 52, 38, 24, 8,
-                                     -8, -25, -42, -59, -76, -93, -110, -126, -142,
-                                     -156, -170, -183, -194, -203, -211, -217, -221, -223,
-                                     -223, -220, -215, -208, -198, -185, -170, -152, -132,
-                                     -108, -83, -55, -24, 8, 43, 80, 119, 159,
-                                     201, 244, 288, 333, 378, 424, 470, 516, 561,
-                                     606, 650, 693, 734, 773, 811, 847, 880, 911,
-                                     939, 964, 986, 1005, 1020, 1033, 1041, 1047, 1049,
-                                     1047, 1041, 1033, 1020, 1005, 986, 964, 939, 911,
-                                     880, 847, 811, 773, 734, 693, 650, 606, 561,
-                                     516, 470, 424, 378, 333, 288, 244, 201, 159,
-                                     119, 80, 43, 8, -24, -55, -83, -108, -132,
-                                     -152, -170, -185, -198, -208, -215, -220, -223, -223,
-                                     -221, -217, -211, -203, -194, -183, -170, -156, -142,
-                                     -126, -110, -93, -76, -59, -42, -25, -8, 8,
-                                     24, 38, 52, 65, 77, 88, 97, 106, 113,
-                                     118, 122, 125, 127, 127, 126, 124, 120};
-
-#define SLEEP_TIME_MS   1000
+int32_t RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    125,    122,    118,    113,  /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
+                                      106,     97,     88,     77,     65,     52,     38,     24,      8,
+                                       -8,    -25,    -42,    -59,    -76,    -93,   -110,   -126,   -142,
+                                     -156,   -170,   -183,   -194,   -203,   -211,   -217,   -221,   -223,
+                                     -223,   -220,   -215,   -208,   -198,   -185,   -170,   -152,   -132,
+                                     -108,    -83,    -55,    -24,      8,     43,     80,    119,    159,
+                                      201,    244,    288,    333,    378,    424,    470,    516,    561,
+                                      606,    650,    693,    734,    773,    811,    847,    880,    911,
+                                      939,    964,    986,   1005,   1020,   1033,   1041,   1047,   1049,
+                                     1047,   1041,   1033,   1020,   1005,    986,    964,    939,    911,
+                                      880,    847,    811,    773,    734,    693,    650,    606,    561,
+                                      516,    470,    424,    378,    333,    288,    244,    201,    159,
+                                      119,     80,     43,      8,    -24,    -55,    -83,   -108,   -132,
+                                     -152,   -170,   -185,   -198,   -208,   -215,   -220,   -223,   -223,
+                                     -221,   -217,   -211,   -203,   -194,   -183,   -170,   -156,   -142,
+                                     -126,   -110,    -93,    -76,    -59,    -42,    -25,     -8,      8,
+                                       24,     38,     52,     65,     77,     88,     97,    106,    113,
+                                      118,    122,    125,    127,    127,    126,    124,    120       };
 
 void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
@@ -334,7 +332,7 @@ void hpi_sort_indices_descend(int32_t *pn_x, int32_t *pn_indx, int32_t n_size)
   }
 }
 
-void Resp_FilterProcess(int16_t *RESP_WorkingBuff, int16_t *CoeffBuf, int16_t *FilterOut)
+void Resp_FilterProcess(int32_t *RESP_WorkingBuff, int32_t *CoeffBuf, int32_t *FilterOut)
 {
   int32_t acc = 0; // accumulator for MACs
   int k;
@@ -355,25 +353,25 @@ void Resp_FilterProcess(int16_t *RESP_WorkingBuff, int16_t *CoeffBuf, int16_t *F
   }
 
   // convert from Q30 to Q15
-  *FilterOut = (int16_t)(acc >> 15);
+  *FilterOut = (int32_t)(acc >> 15);
 }
 
-int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
+int32_t Resp_ProcessCurrSample(int32_t CurrAqsSample)
 {
-  static uint16_t bufStart = 0, bufCur = FILTERORDER - 1;
-  int16_t temp1, temp2; //, RESPData;
-  int16_t RESPData;
+  static uint32_t bufStart = 0, bufCur = FILTERORDER - 1;
+  int32_t temp1, temp2; //, RESPData;
+  int32_t RESPData;
   /* Count variable*/
-  int16_t FiltOut;
+  int32_t FiltOut;
   temp1 = NRCOEFF * Pvev_DC_Sample;
   Pvev_DC_Sample = (CurrAqsSample - Pvev_Sample) + temp1;
   Pvev_Sample = CurrAqsSample;
   temp2 = Pvev_DC_Sample;
-  RESPData = (int16_t)temp2;
+  RESPData = (int32_t)temp2;
   RESPData = CurrAqsSample;
   /* Store the DC removed value in RESP_WorkingBuff buffer in millivolts range*/
   RESP_WorkingBuff[bufCur] = RESPData;
-  Resp_FilterProcess(&RESP_WorkingBuff[bufCur], RespCoeffBuf, (int16_t *)&FiltOut);
+  Resp_FilterProcess(&RESP_WorkingBuff[bufCur], RespCoeffBuf, (int32_t *)&FiltOut);
   /* Store the DC removed value in Working buffer in millivolts range*/
   RESP_WorkingBuff[bufStart] = RESPData;
   /* Store the filtered out sample to the LeadInfo buffer*/
@@ -389,9 +387,9 @@ int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
   return FiltOut;
 }
 
-void RESP_Algorithm_Interface(int16_t CurrSample, volatile uint8_t *RespirationRate)
+void RESP_Algorithm_Interface(int32_t CurrSample, volatile uint32_t *RespirationRate)
 {
-  static int16_t prev_data[64] = {0};
+  static int32_t prev_data[64] = {0};
   char i;
   long Mac = 0;
   prev_data[0] = CurrSample;
@@ -403,7 +401,7 @@ void RESP_Algorithm_Interface(int16_t CurrSample, volatile uint8_t *RespirationR
   }
 
   Mac += CurrSample;
-  CurrSample = (int16_t)Mac >> 1;
+  CurrSample = (int32_t)Mac >> 1;
   RESP_Second_Prev_Sample = RESP_Prev_Sample;
   RESP_Prev_Sample = RESP_Current_Sample;
   RESP_Current_Sample = RESP_Next_Sample;
@@ -412,13 +410,13 @@ void RESP_Algorithm_Interface(int16_t CurrSample, volatile uint8_t *RespirationR
   Respiration_Rate_Detection(RESP_Second_Next_Sample, RespirationRate);
 }
 
-void Respiration_Rate_Detection(int16_t Resp_wave, volatile uint8_t *RespirationRate)
+void Respiration_Rate_Detection(int32_t Resp_wave, volatile uint32_t *RespirationRate)
 {
-  static uint16_t skipCount = 0, SampleCount = 0, TimeCnt = 0, SampleCountNtve = 0, PtiveCnt = 0, NtiveCnt = 0;
-  static int16_t MinThreshold = 0x7FFF, MaxThreshold = 0x8000, PrevSample = 0, PrevPrevSample = 0, PrevPrevPrevSample = 0;
-  static int16_t MinThresholdNew = 0x7FFF, MaxThresholdNew = 0x8000, AvgThreshold = 0;
+  static uint32_t skipCount = 0, SampleCount = 0, TimeCnt = 0, SampleCountNtve = 0, PtiveCnt = 0, NtiveCnt = 0;
+  static int32_t MinThreshold = 0x7FFF, MaxThreshold = 0x8000, PrevSample = 0, PrevPrevSample = 0, PrevPrevPrevSample = 0;
+  static int32_t MinThresholdNew = 0x7FFF, MaxThresholdNew = 0x8000, AvgThreshold = 0;
   static unsigned char startCalc = 0, PtiveEdgeDetected = 0, NtiveEdgeDetected = 0, peakCount = 0;
-  static uint16_t PeakCount[8];
+  static uint32_t PeakCount[8];
   SampleCount++;
   SampleCountNtve++;
   TimeCnt++;
@@ -544,5 +542,5 @@ void Respiration_Rate_Detection(int16_t Resp_wave, volatile uint8_t *Respiration
     }
   }
 
-  *RespirationRate = (uint8_t)Respiration_Rate;
+  *RespirationRate=(uint32_t)Respiration_Rate;
 }

@@ -63,9 +63,9 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate = 0;
-int16_t resWaveBuff, respFilterout;
-long timeElapsed = 0;
+volatile uint32_t globalRespirationRate=0;
+int32_t resWaveBuff,respFilterout;
+long timeElapsed=0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -258,10 +258,18 @@ void data_thread(void)
 
         dec++;
 
-        respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
-        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-        computed_data.rr = globalRespirationRate;
-        //printk("Respiration rate: %d\n", globalRespirationRate);
+        respFilterout = Resp_ProcessCurrSample((int32_t)sensor_sample.bioz_sample);
+        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        m_resp_sample_counter++;
+
+        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
+        {
+            m_resp_sample_counter = 0;
+            computed_data.rr = globalRespirationRate;
+            printf("Respiration: %d\n", globalRespirationRate);
+
+        }
+        
 
         if (n_buffer_count > 99)
         {
@@ -269,7 +277,7 @@ void data_thread(void)
 
             printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+            printf("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
