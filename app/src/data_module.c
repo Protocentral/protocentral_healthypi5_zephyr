@@ -63,8 +63,8 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate = 0;
-int16_t resWaveBuff, respFilterout;
+volatile uint32_t globalRespirationRate = 0;
+int32_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
@@ -258,10 +258,16 @@ void data_thread(void)
 
         dec++;
 
-        respFilterout = Resp_ProcessCurrSample((uint16_t)sensor_sample.bioz_sample);
+        respFilterout = Resp_ProcessCurrSample((int32_t)sensor_sample.bioz_sample);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-        computed_data.rr = globalRespirationRate;
-        //printk("Respiration rate: %d\n", globalRespirationRate);
+        m_resp_sample_counter++;
+
+        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
+        {
+            m_resp_sample_counter = 0;
+            computed_data.rr = globalRespirationRate;
+            printf("Respiration: %d\n", globalRespirationRate);
+        }
 
         if (n_buffer_count > 99)
         {
@@ -281,16 +287,16 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-        }
-        respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
-        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
+            respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
+            RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
 
-        m_resp_sample_counter++;
+            m_resp_sample_counter++;
 
-        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
-        {
-            m_resp_sample_counter = 0;
-            computed_data.rr = globalRespirationRate;
+            if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
+            {
+                m_resp_sample_counter = 0;
+                computed_data.rr = globalRespirationRate;
+            }
         }
 
         k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);

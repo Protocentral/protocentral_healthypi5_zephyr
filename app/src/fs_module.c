@@ -31,28 +31,6 @@ static struct fs_mount_t lfs_storage_mnt = {
 
 struct fs_mount_t *mp = &lfs_storage_mnt;
 
-// SD Storage
-
-#include <ff.h>
-
-/*
- *  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
- *  in ffconf.h
- */
-#define DISK_DRIVE_NAME "SDMMC"
-#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
-
-static FATFS fat_fs;
-/* mounting info */
-static struct fs_mount_t mp_sd = {
-	.type = FS_FATFS,
-    .flags = FS_MOUNT_FLAG_NO_FORMAT,
-    .storage_dev = (void *)DISK_DRIVE_NAME,
-	.fs_data = &fat_fs,
-};
-
-static const char *disk_mount_pt = DISK_MOUNT_PT;
-
 static int littlefs_flash_erase(unsigned int id)
 {
     const struct flash_area *pfa;
@@ -158,13 +136,6 @@ static int lsdir(const char *path)
     return res;
 }
 
-void sd_fs_init(void)
-{
-    mp_sd.mnt_point = disk_mount_pt;
-
-    int res = fs_mount(&mp_sd);
-}
-
 void fs_module_init(void)
 {
     int rc;
@@ -197,6 +168,4 @@ void fs_module_init(void)
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
         // goto out;
     }
-    
-    //sd_fs_init();
 }
