@@ -202,6 +202,8 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
 
 #define TEMP_CALC_BUFFER_LENGTH 125
 
+
+
 void data_thread(void)
 {
     printk("Data Thread starting\n");
@@ -225,6 +227,11 @@ void data_thread(void)
 
     int dec = 0;
     volatile int8_t n_buffer_count; // data length
+
+     #define SAMPLE_BUFF_WATERMARK 4
+
+    int32_t ecg_sample_buffer[64];
+    int sample_buffer_count = 0;
 
     for (;;)
     {
@@ -269,13 +276,7 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-#ifdef CONFIG_BT
-            if (settings_send_ble_enabled)
-            {
-                ble_ecg_notify(sensor_sample.ecg_sample, 1);
-            }
 
-#endif
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
@@ -309,6 +310,18 @@ void data_thread(void)
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
 #endif
 
+#ifdef CONFIG_BT
+        if (settings_send_ble_enabled)
+        {
+            ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
+            if(sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            {
+                ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
+                sample_buffer_count = 0;
+            }
+        }
+#endif
+
         /****** Send to log queue if enabled ******/
 
         if (settings_log_data_enabled)
@@ -321,7 +334,7 @@ void data_thread(void)
     }
 }
 
-#define DATA_THREAD_STACKSIZE 2048
+#define DATA_THREAD_STACKSIZE 4096
 #define DATA_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);

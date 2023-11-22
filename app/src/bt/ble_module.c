@@ -31,11 +31,14 @@ static uint8_t temp_att_ble[2];
 #define HPI_TEMP_CHAR BT_UUID_DECLARE_16(BT_UUID_TEMPERATURE_VAL)
 
 // ECG/Resp Service
-#define HPI_ECG_RESP_SERV BT_UUID_DECLARE_16(0x1122)
-#define HPI_CHAR_ECG BT_UUID_DECLARE_16(0x1424)
+// 00001122-0000-1000-8000-00805f9b34fb
+static struct bt_uuid_128 hpi_ecg_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001122, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
 
-//babe4a4c-7789-11ed-a1eb-0242ac120002
-#define HPI_CHAR_RESP BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xbabe4a4c, 0x7789, 0x11ed, 0xa1eb, 0x0242ac120002))
+// 00001424-0000-1000-8000-00805f9b34fb
+static struct bt_uuid_128 hpi_ecg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001424, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
+
+// babe4a4c-7789-11ed-a1eb-0242ac120002
+static struct bt_uuid_128 hpi_resp_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xbabe4a4c, 0x7789, 0x11ed, 0xa1eb, 0x0242ac120002));
 
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
@@ -47,6 +50,24 @@ static void temp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value
 
 static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
+	ARG_UNUSED(attr);
+	switch (value)
+	{
+	case BT_GATT_CCC_NOTIFY:
+		printk("ECG/RESP CCCD subscribed");
+		break;
+
+	case BT_GATT_CCC_INDICATE:
+		// Start sending stuff via indications
+		break;
+
+	case 0:
+		printk("ECG/RESP CCCD unsubscribed");
+		break;
+
+	default:
+		printk("Error, CCCD has been set to an invalid value");
+	}
 }
 
 static const struct bt_data ad[] = {
@@ -75,22 +96,24 @@ BT_GATT_SERVICE_DEFINE(hpi_temp_service,
 					   BT_GATT_CCC(temp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
+static int ecg_char_val;
+static int resp_char_val;
+
 BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
-					   BT_GATT_PRIMARY_SERVICE(HPI_ECG_RESP_SERV),
-					   BT_GATT_CHARACTERISTIC(HPI_CHAR_ECG,
-											  BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
+					   BT_GATT_PRIMARY_SERVICE(&hpi_ecg_serv_uuid),
+					   BT_GATT_CHARACTERISTIC(&hpi_ecg_char_uuid.uuid,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 											  BT_GATT_PERM_READ,
-											  NULL, NULL, NULL),
-					   BT_GATT_CHARACTERISTIC(HPI_CHAR_RESP,
-											  BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
+											  NULL, NULL, &ecg_char_val),
+					   /*BT_GATT_CHARACTERISTIC(&hpi_resp_char_uuid.uuid,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY ,
 											  BT_GATT_PERM_READ,
-											  NULL, NULL, NULL),
+											  NULL, NULL, &resp_char_val),*/
 					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
 void ble_spo2_notify(uint16_t spo2_val)
 {
-
 	spo2_att_ble[0] = 0x00;
 	spo2_att_ble[1] = (uint8_t)spo2_val;
 	spo2_att_ble[2] = (uint8_t)(spo2_val >> 8);
@@ -100,10 +123,20 @@ void ble_spo2_notify(uint16_t spo2_val)
 	bt_gatt_notify(NULL, &hpi_spo2_service.attrs[2], &spo2_att_ble, sizeof(spo2_att_ble));
 }
 
-void ble_ecg_notify(uint16_t *ecg_data, uint8_t len)
+void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 {
-	//Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
-	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[2], ecg_data, len);
+	uint8_t out_data[128];
+
+	for(int i = 0; i < len; i++)
+	{
+		out_data[i*4] = (uint8_t)ecg_data[i];
+		out_data[i*4 + 1] = (uint8_t)(ecg_data[i] >> 8);
+		out_data[i*4 + 2] = (uint8_t)(ecg_data[i] >> 16);
+		out_data[i*4 + 3] = (uint8_t)(ecg_data[i] >> 24);
+	}
+
+	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
+	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len*4);
 }
 
 void ble_temp_notify(uint16_t temp_val)
