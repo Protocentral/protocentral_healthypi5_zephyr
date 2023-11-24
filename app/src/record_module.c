@@ -17,7 +17,7 @@ LOG_MODULE_REGISTER(record_module);
 
 extern struct fs_mount_t *mp;
 
-void record_write_to_file(int current_session_log_id, int current_session_log_counter, struct hpi_sensor_data_t *current_session_log_points)
+void record_write_to_file(int session_log_id, struct hpi_sensor_data_t *session_log_points, int session_log_length)
 {
     struct fs_file_t file;
     struct fs_statvfs sbuf;
@@ -28,12 +28,12 @@ void record_write_to_file(int current_session_log_id, int current_session_log_co
 
     char fname[30] = "/lfs/log/";
 
-    printf("Write to file... %d\n", current_session_log_id);
+    printf("Write to file... %d\n", session_log_id);
     char session_id_str[5];
-    sprintf(session_id_str, "%d", current_session_log_id);
+    sprintf(session_id_str, "%d", session_log_id);
     strcat(fname, session_id_str);
 
-    printf("Session Length: %d\n", current_session_log_counter);
+    printf("Session Length: %d\n", session_log_length);
 
     int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
     if (rc < 0)
@@ -43,9 +43,9 @@ void record_write_to_file(int current_session_log_id, int current_session_log_co
     // Session log header
     // rc=fs_write(&file, &current_session_log_, sizeof(current_session_log_id));
 
-    for (int i = 0; i < current_session_log_counter; i++)
+    for (int i = 0; i < session_log_length; i++)
     {
-        rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_data_t));
+        rc = fs_write(&file, &session_log_points[i], sizeof(struct hpi_sensor_data_t));
     }
 
     rc = fs_close(&file);
