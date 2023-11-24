@@ -233,6 +233,9 @@ void data_thread(void)
     int32_t ecg_sample_buffer[64];
     int sample_buffer_count = 0;
 
+    int16_t ppg_sample_buffer[64];
+    int ppg_sample_buffer_count = 0;
+
     for (;;)
     {
         k_msgq_get(&q_sample, &sensor_sample, K_FOREVER);
@@ -318,6 +321,13 @@ void data_thread(void)
             {
                 ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
                 sample_buffer_count = 0;
+            }
+
+            ppg_sample_buffer[ppg_sample_buffer_count++] = ((uint16_t)(sensor_sample.raw_ir/1000));
+            if(ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            {
+                ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
+                ppg_sample_buffer_count = 0;
             }
         }
 #endif

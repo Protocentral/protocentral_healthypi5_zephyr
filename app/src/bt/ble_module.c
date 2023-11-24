@@ -34,11 +34,22 @@ static uint8_t temp_att_ble[2];
 // 00001122-0000-1000-8000-00805f9b34fb
 static struct bt_uuid_128 hpi_ecg_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001122, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
 
+// ECG Characteristic
 // 00001424-0000-1000-8000-00805f9b34fb
 static struct bt_uuid_128 hpi_ecg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001424, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
 
+// RESP Characteristic
 // babe4a4c-7789-11ed-a1eb-0242ac120002
 static struct bt_uuid_128 hpi_resp_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xbabe4a4c, 0x7789, 0x11ed, 0xa1eb, 0x0242ac120002));
+
+// PPG Service
+// cd5c7491-4448-7db8-ae4c-d1da8cba36d0
+static struct bt_uuid_128 hpi_ppg_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5c7491, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+
+// PPG Characteristic
+// cd5c1525-4448-7db8-ae4c-d1da8cba36d0
+static struct bt_uuid_128 hpi_ppg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5c1525, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+
 
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
@@ -70,6 +81,9 @@ static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t v
 	}
 }
 
+static int ecg_char_val;
+static int resp_char_val;
+
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
@@ -96,19 +110,27 @@ BT_GATT_SERVICE_DEFINE(hpi_temp_service,
 					   BT_GATT_CCC(temp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
-static int ecg_char_val;
-static int resp_char_val;
+
 
 BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
 					   BT_GATT_PRIMARY_SERVICE(&hpi_ecg_serv_uuid),
 					   BT_GATT_CHARACTERISTIC(&hpi_ecg_char_uuid.uuid,
-											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, &ecg_char_val),
 					   /*BT_GATT_CHARACTERISTIC(&hpi_resp_char_uuid.uuid,
 											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY ,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, &resp_char_val),*/
+					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
+								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
+
+BT_GATT_SERVICE_DEFINE(hpi_ppg_service,
+					   BT_GATT_PRIMARY_SERVICE(&hpi_ppg_serv_uuid),
+					   BT_GATT_CHARACTERISTIC(&hpi_ppg_char_uuid.uuid,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+											  BT_GATT_PERM_READ,
+											  NULL, NULL, NULL),
 					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
@@ -137,6 +159,20 @@ void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 
 	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
 	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len*4);
+}
+
+void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
+{
+	uint8_t out_data[128];
+
+	for(int i = 0; i < len; i++)
+	{
+		out_data[i*2+1] = (uint8_t)ppg_data[i];
+		out_data[i*2] = (uint8_t)(ppg_data[i] >> 8);
+	}
+
+	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
+	bt_gatt_notify(NULL, &hpi_ppg_service.attrs[1], &out_data, len*2);
 }
 
 void ble_temp_notify(uint16_t temp_val)
@@ -215,7 +251,7 @@ static void bt_ready(void)
 
 	if (IS_ENABLED(CONFIG_SETTINGS))
 	{
-		settings_load();
+		//settings_load();
 	}
 
 	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
@@ -294,5 +330,5 @@ void ble_module_init()
 
 	bt_ready();
 
-	bt_conn_auth_cb_register(&auth_cb_display);
+	//bt_conn_auth_cb_register(&auth_cb_display);
 }
