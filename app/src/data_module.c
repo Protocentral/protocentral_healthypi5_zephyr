@@ -323,7 +323,7 @@ void data_thread(void)
                 sample_buffer_count = 0;
             }
 
-            ppg_sample_buffer[ppg_sample_buffer_count++] = ((uint16_t)(sensor_sample.raw_ir/1000));
+            ppg_sample_buffer[ppg_sample_buffer_count++] = ((int16_t)(sensor_sample.raw_ir>>16));
             if(ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
             {
                 ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);

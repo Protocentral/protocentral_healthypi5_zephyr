@@ -167,8 +167,8 @@ void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
 
 	for(int i = 0; i < len; i++)
 	{
-		out_data[i*2+1] = (uint8_t)ppg_data[i];
-		out_data[i*2] = (uint8_t)(ppg_data[i] >> 8);
+		out_data[i*2] = (uint8_t)ppg_data[i];
+		out_data[i*2+1] = (uint8_t)(ppg_data[i] >> 8);
 	}
 
 	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
