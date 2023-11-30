@@ -390,7 +390,7 @@ int32_t Resp_ProcessCurrSample(int32_t CurrAqsSample)
 void RESP_Algorithm_Interface(int32_t CurrSample, volatile uint32_t *RespirationRate)
 {
   static int32_t prev_data[64] = {0};
-  char i;
+  int i=0;
   long Mac = 0;
   prev_data[0] = CurrSample;
 
