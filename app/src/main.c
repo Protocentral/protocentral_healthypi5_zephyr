@@ -21,10 +21,6 @@ LOG_MODULE_REGISTER(healthypi5, LOG_LEVEL);
 
 int main(void)
 {
-#ifdef CONFIG_BT
-	ble_module_init();
-#endif
-
 	printk("\nHealthyPi 5 RP2040 started !! FW version: %d.%d.%d \n\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
 
 	return 0;
