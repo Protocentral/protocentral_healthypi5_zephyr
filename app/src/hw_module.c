@@ -159,7 +159,7 @@ static void button_isr_down(const struct device *port, struct gpio_callback *cb,
     ARG_UNUSED(pins);
 
     k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
-    //k_sem_give(&sem_down_key_pressed);
+    // k_sem_give(&sem_down_key_pressed);
 }
 
 static void leds_init()
@@ -364,10 +364,13 @@ void hw_thread(void)
 
     usb_init();
 
+#ifdef CONFIG_BT
+    ble_module_init();
+#endif
+
     for (;;)
     {
         // Housekeeping
-
         global_batt_level = read_battery_level();
 #ifdef CONFIG_DISPLAY
         hpi_disp_update_batt_level(global_batt_level);
