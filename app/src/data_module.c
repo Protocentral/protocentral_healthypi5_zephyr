@@ -63,8 +63,8 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint32_t globalRespirationRate = 0;
-int32_t resWaveBuff, respFilterout;
+volatile uint8_t globalRespirationRate=0;
+int16_t resWaveBuff,respFilterout;
 long timeElapsed = 0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
@@ -261,15 +261,18 @@ void data_thread(void)
 
         dec++;
 
-        respFilterout = Resp_ProcessCurrSample((int32_t)sensor_sample.bioz_sample);
+        //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
+        resWaveBuff = (int16_t)(sensor_sample.bioz_sample) ;
+        //printf("resWaveBuff: %d\n", resWaveBuff);
+        respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
-        m_resp_sample_counter++;
+        m_resp_sample_counter++;       
 
         if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
         {
             m_resp_sample_counter = 0;
-            computed_data.rr = globalRespirationRate;
-            //printf("Respiration: %d\n", globalRespirationRate);
+            computed_data.rr = (uint32_t)globalRespirationRate;
+                        
         }
 
 

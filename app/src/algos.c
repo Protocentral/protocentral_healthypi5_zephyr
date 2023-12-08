@@ -6,14 +6,16 @@
 
 #include "algos.h"
 
-int RESP_Second_Prev_Sample = 0;
-int RESP_Prev_Sample = 0;
-int RESP_Current_Sample = 0;
-int RESP_Next_Sample = 0;
-int RESP_Second_Next_Sample = 0;
-uint8_t Respiration_Rate = 0;
-int32_t RESP_WorkingBuff[2 * FILTERORDER];
-int32_t Pvev_DC_Sample = 0, Pvev_Sample = 0;
+int RESP_Second_Prev_Sample = 0 ;
+int RESP_Prev_Sample = 0 ;
+int RESP_Current_Sample = 0 ;
+int RESP_Next_Sample = 0 ;
+int RESP_Second_Next_Sample = 0 ;
+
+uint8_t Respiration_Rate = 0 ;
+
+int16_t RESP_WorkingBuff[2 * FILTERORDER];
+int16_t Pvev_DC_Sample=0, Pvev_Sample=0;
 
 static int32_t an_x[BUFFER_SIZE];
 static int32_t an_y[BUFFER_SIZE];
@@ -29,7 +31,7 @@ const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97,
                                      28, 27, 26, 25, 23, 22, 21, 20, 19, 17, 16, 15, 14, 12, 11, 10, 9, 7, 6, 5,
                                      3, 2, 1};
 
-int32_t RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    125,    122,    118,    113,  /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
+int16_t  RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    125,    122,    118,    113,  /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
                                       106,     97,     88,     77,     65,     52,     38,     24,      8,
                                        -8,    -25,    -42,    -59,    -76,    -93,   -110,   -126,   -142,
                                      -156,   -170,   -183,   -194,   -203,   -211,   -217,   -221,   -223,
@@ -46,7 +48,7 @@ int32_t RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    12
                                      -221,   -217,   -211,   -203,   -194,   -183,   -170,   -156,   -142,
                                      -126,   -110,    -93,    -76,    -59,    -42,    -25,     -8,      8,
                                        24,     38,     52,     65,     77,     88,     97,    106,    113,
-                                      118,    122,    125,    127,    127,    126,    124,    120       };
+                                      118,    122,    125,    127,    127,    126,    124,    120   };
 
 void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
@@ -332,130 +334,130 @@ void hpi_sort_indices_descend(int32_t *pn_x, int32_t *pn_indx, int32_t n_size)
   }
 }
 
-void Resp_FilterProcess(int32_t *RESP_WorkingBuff, int32_t *CoeffBuf, int32_t *FilterOut)
+void Resp_FilterProcess(int16_t * RESP_WorkingBuff, int16_t * CoeffBuf, int16_t* FilterOut)
 {
-  int32_t acc = 0; // accumulator for MACs
-  int k;
-  // perform the multiply-accumulate
-  for (k = 0; k < 161; k++)
+  int32_t acc=0;     // accumulator for MACs
+  int  k;
+// perform the multiply-accumulate
+  for ( k = 0; k < 161; k++ )
   {
-    acc += (int32_t)(*CoeffBuf++) * (int32_t)(*RESP_WorkingBuff--);
+      acc += (int32_t)(*CoeffBuf++) * (int32_t)(*RESP_WorkingBuff--);
   }
   // saturate the result
-  if (acc > 0x3fffffff)
+  if ( acc > 0x3fffffff )
   {
-    acc = 0x3fffffff;
-  }
-
-  else if (acc < -0x40000000)
+      acc = 0x3fffffff;
+  } 
+  
+  else if ( acc < -0x40000000 )
   {
     acc = -0x40000000;
   }
 
   // convert from Q30 to Q15
-  *FilterOut = (int32_t)(acc >> 15);
+  *FilterOut = (int16_t)(acc >> 15);
 }
 
-int32_t Resp_ProcessCurrSample(int32_t CurrAqsSample)
+int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
 {
-  static uint32_t bufStart = 0, bufCur = FILTERORDER - 1;
-  int32_t temp1, temp2; //, RESPData;
-  int32_t RESPData;
+  static uint16_t bufStart=0, bufCur = FILTERORDER-1, FirstFlag = 1;    
+  int16_t temp1, temp2;//, RESPData;
+  int16_t RESPData;
   /* Count variable*/
-  int32_t FiltOut;
+  uint16_t Cur_Chan;
+  int16_t FiltOut; 
   temp1 = NRCOEFF * Pvev_DC_Sample;
-  Pvev_DC_Sample = (CurrAqsSample - Pvev_Sample) + temp1;
+  Pvev_DC_Sample = (CurrAqsSample  - Pvev_Sample) + temp1;
   Pvev_Sample = CurrAqsSample;
   temp2 = Pvev_DC_Sample;
-  RESPData = (int32_t)temp2;
-  RESPData = CurrAqsSample;
+  RESPData = (int16_t) temp2;   
+  RESPData = CurrAqsSample;   
   /* Store the DC removed value in RESP_WorkingBuff buffer in millivolts range*/
   RESP_WorkingBuff[bufCur] = RESPData;
-  Resp_FilterProcess(&RESP_WorkingBuff[bufCur], RespCoeffBuf, (int32_t *)&FiltOut);
+  Resp_FilterProcess(&RESP_WorkingBuff[bufCur],RespCoeffBuf,(int16_t*)&FiltOut);
   /* Store the DC removed value in Working buffer in millivolts range*/
   RESP_WorkingBuff[bufStart] = RESPData;
-  /* Store the filtered out sample to the LeadInfo buffer*/
+  /* Store the filtered out sample to the LeadInfo buffer*/  
   bufCur++;
   bufStart++;
-
-  if (bufStart >= (FILTERORDER - 1))
+  
+  if ( bufStart  >= (FILTERORDER-1))
   {
-    bufStart = 0;
-    bufCur = FILTERORDER - 1;
+    bufStart=0; 
+    bufCur = FILTERORDER-1;
   }
 
   return FiltOut;
 }
-
-void RESP_Algorithm_Interface(int32_t CurrSample, volatile uint32_t *RespirationRate)
+  
+void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRate)
 {
-  static int32_t prev_data[64] = {0};
-  int i=0;
-  long Mac = 0;
+  static int16_t prev_data[64] ={0};
+  char i;
+  long Mac=0;
   prev_data[0] = CurrSample;
-
-  for (i = 63; i > 0; i--)
+  
+  for ( i=63; i > 0; i--)
   {
     Mac += prev_data[i];
-    prev_data[i] = prev_data[i - 1];
-  }
+    prev_data[i] = prev_data[i-1];
 
+  }
+  
   Mac += CurrSample;
-  CurrSample = (int32_t)Mac >> 1;
-  RESP_Second_Prev_Sample = RESP_Prev_Sample;
-  RESP_Prev_Sample = RESP_Current_Sample;
-  RESP_Current_Sample = RESP_Next_Sample;
-  RESP_Next_Sample = RESP_Second_Next_Sample;
-  RESP_Second_Next_Sample = CurrSample; // << 3 ;
-  Respiration_Rate_Detection(RESP_Second_Next_Sample, RespirationRate);
+  CurrSample = (int16_t) Mac >> 1;
+  RESP_Second_Prev_Sample = RESP_Prev_Sample ;
+  RESP_Prev_Sample = RESP_Current_Sample ;
+  RESP_Current_Sample = RESP_Next_Sample ;
+  RESP_Next_Sample = RESP_Second_Next_Sample ;
+  RESP_Second_Next_Sample = CurrSample;// << 3 ;
+  Respiration_Rate_Detection(RESP_Second_Next_Sample,RespirationRate);
 }
 
-void Respiration_Rate_Detection(int32_t Resp_wave, volatile uint32_t *RespirationRate)
-{
-  static uint32_t skipCount = 0, SampleCount = 0, TimeCnt = 0, SampleCountNtve = 0, PtiveCnt = 0, NtiveCnt = 0;
-  static int32_t MinThreshold = 0x7FFF, MaxThreshold = 0x8000, PrevSample = 0, PrevPrevSample = 0, PrevPrevPrevSample = 0;
-  static int32_t MinThresholdNew = 0x7FFF, MaxThresholdNew = 0x8000, AvgThreshold = 0;
-  static unsigned char startCalc = 0, PtiveEdgeDetected = 0, NtiveEdgeDetected = 0, peakCount = 0;
-  static uint32_t PeakCount[8];
+void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationRate)
+{ 
+  static uint16_t skipCount = 0, SampleCount = 0,TimeCnt=0, SampleCountNtve=0, PtiveCnt =0,NtiveCnt=0 ;
+  static int16_t MinThreshold = 0x7FFF, MaxThreshold = 0x8000, PrevSample = 0, PrevPrevSample = 0, PrevPrevPrevSample =0;
+  static int16_t MinThresholdNew = 0x7FFF, MaxThresholdNew = 0x8000, AvgThreshold = 0;
+  static unsigned char startCalc=0, PtiveEdgeDetected=0, NtiveEdgeDetected=0, peakCount = 0;
+  static uint16_t PeakCount[8];   
   SampleCount++;
   SampleCountNtve++;
-  TimeCnt++;
-
-  if (Resp_wave < MinThresholdNew)
+  TimeCnt++; 
+  
+  if (Resp_wave < MinThresholdNew) 
   {
     MinThresholdNew = Resp_wave;
   }
-
-  if (Resp_wave > MaxThresholdNew)
+  
+  if (Resp_wave > MaxThresholdNew) 
   {
     MaxThresholdNew = Resp_wave;
   }
-
+  
   if (SampleCount > 1000)
   {
-    SampleCount = 0;
+    SampleCount =0;
   }
   if (SampleCountNtve > 1000)
   {
-    SampleCountNtve = 0;
+    SampleCountNtve =0;
   }
-
-  if (startCalc == 1)
+  
+  if ( startCalc == 1)
   {
-
+    
     if (TimeCnt >= 500)
     {
-      TimeCnt = 0;
-
-      if ((MaxThresholdNew - MinThresholdNew) > 400)
+      TimeCnt =0;
+      
+      if ( (MaxThresholdNew - MinThresholdNew) > 400)
       {
-        MaxThreshold = MaxThresholdNew;
-        MinThreshold = MinThresholdNew;
+        MaxThreshold = MaxThresholdNew; 
+        MinThreshold =  MinThresholdNew;
         AvgThreshold = MaxThreshold + MinThreshold;
         AvgThreshold = AvgThreshold >> 1;
-      }
-      else
-      {
+      }else{
 
         startCalc = 0;
         Respiration_Rate = 0;
@@ -464,75 +466,72 @@ void Respiration_Rate_Detection(int32_t Resp_wave, volatile uint32_t *Respiratio
     PrevPrevPrevSample = PrevPrevSample;
     PrevPrevSample = PrevSample;
     PrevSample = Resp_wave;
-
-    if (skipCount == 0)
+    
+    if ( skipCount == 0)
     {
-
+      
       if (PrevPrevPrevSample < AvgThreshold && Resp_wave > AvgThreshold)
       {
-
-        if (SampleCount > 40 && SampleCount < 700)
+        
+        if ( SampleCount > 40 &&  SampleCount < 700)
         {
           PtiveEdgeDetected = 1;
           PtiveCnt = SampleCount;
           skipCount = 4;
         }
-
+        
         SampleCount = 0;
       }
-
+      
       if (PrevPrevPrevSample < AvgThreshold && Resp_wave > AvgThreshold)
       {
-
-        if (SampleCountNtve > 40 && SampleCountNtve < 700)
+        
+        if ( SampleCountNtve > 40 &&  SampleCountNtve < 700)
         {
           NtiveEdgeDetected = 1;
           NtiveCnt = SampleCountNtve;
           skipCount = 4;
         }
-
+        
         SampleCountNtve = 0;
       }
-
-      if (PtiveEdgeDetected == 1 && NtiveEdgeDetected == 1)
+      
+      if (PtiveEdgeDetected ==1 && NtiveEdgeDetected ==1)
       {
         PtiveEdgeDetected = 0;
-        NtiveEdgeDetected = 0;
-
+        NtiveEdgeDetected =0;
+        
         if (abs(PtiveCnt - NtiveCnt) < 5)
         {
           PeakCount[peakCount++] = PtiveCnt;
           PeakCount[peakCount++] = NtiveCnt;
-
-          if (peakCount == 8)
+          
+          if( peakCount == 8)
           {
             peakCount = 0;
-            PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] +
-                       PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
+            PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
+            PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
             PtiveCnt = PtiveCnt >> 3;
-            Respiration_Rate = 6000 / PtiveCnt; // 60 * 125/SampleCount;
+            Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
           }
         }
       }
-    }
-    else
-    {
+    
+    }else{
       skipCount--;
     }
-  }
-  else
-  {
+  }else{
     TimeCnt++;
-
+    
     if (TimeCnt >= 500)
     {
       TimeCnt = 0;
-
-      if ((MaxThresholdNew - MinThresholdNew) > 400)
+     
+      if ( (MaxThresholdNew - MinThresholdNew) > 400)
       {
         startCalc = 1;
-        MaxThreshold = MaxThresholdNew;
-        MinThreshold = MinThresholdNew;
+        MaxThreshold = MaxThresholdNew; 
+        MinThreshold =  MinThresholdNew;
         AvgThreshold = MaxThreshold + MinThreshold;
         AvgThreshold = AvgThreshold >> 1;
         PrevPrevPrevSample = Resp_wave;
@@ -542,5 +541,6 @@ void Respiration_Rate_Detection(int32_t Resp_wave, volatile uint32_t *Respiratio
     }
   }
 
-  *RespirationRate=(uint32_t)Respiration_Rate;
+  *RespirationRate=(uint8_t)Respiration_Rate;
+  //printf("Respiration: %d\n", *RespirationRate);
 }
