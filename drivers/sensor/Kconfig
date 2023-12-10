@@ -4,4 +4,5 @@ if SENSOR
 rsource "max30001/Kconfig"
 rsource "max30205/Kconfig"
 rsource "afe4400/Kconfig"
+rsource "max32664/Kconfig"
 endif # SENSOR

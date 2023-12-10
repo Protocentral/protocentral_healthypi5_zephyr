@@ -1,0 +1,36 @@
+# Available runners configured by board.cmake.
+runners:
+- nrfjprog
+- nrfutil
+- jlink
+
+# Default flash runner if --runner is not given.
+flash-runner: nrfjprog
+
+# Default debug runner if --runner is not given.
+debug-runner: jlink
+
+# Common runner configuration values.
+config:
+  board_dir: /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340
+  # Build outputs:
+  elf_file: zephyr.elf
+  hex_file: zephyr.hex
+  bin_file: zephyr.bin
+  # Host tools:
+  gdb: /opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb
+  openocd: /opt/homebrew/bin/openocd
+  openocd_search:
+    - /opt/nordic/ncs/toolchains/20d68df7e5/opt/zephyr-sdk/sysroots/arm64-pokysdk-linux/usr/share/openocd/scripts
+
+# Runner specific arguments
+args:
+  nrfjprog:
+    - --softreset
+  nrfutil:
+    []
+
+  jlink:
+    - --dt-flash=y
+    - --device=nrf5340_xxaa_app
+    - --speed=40000

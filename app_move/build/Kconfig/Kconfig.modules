@@ -1,0 +1,48 @@
+menu "healthypi5_zephyr (/Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr)"
+osource "/Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/Kconfig"
+config ZEPHYR_HEALTHYPI5_ZEPHYR_MODULE
+	bool
+	default y
+endmenu
+menu "cmsis (/Users/akw/Documents/GitHub/my_workspace/modules/hal/cmsis)"
+osource "$(ZEPHYR_CMSIS_KCONFIG)"
+config ZEPHYR_CMSIS_MODULE
+	bool
+	default y
+endmenu
+menu "fatfs (/Users/akw/Documents/GitHub/my_workspace/modules/fs/fatfs)"
+osource "$(ZEPHYR_FATFS_KCONFIG)"
+config ZEPHYR_FATFS_MODULE
+	bool
+	default y
+endmenu
+menu "hal_nordic (/Users/akw/Documents/GitHub/my_workspace/modules/hal/nordic)"
+osource "$(ZEPHYR_HAL_NORDIC_KCONFIG)"
+config ZEPHYR_HAL_NORDIC_MODULE
+	bool
+	default y
+endmenu
+menu "hal_rpi_pico (/Users/akw/Documents/GitHub/my_workspace/modules/hal/rpi_pico)"
+osource "$(ZEPHYR_HAL_RPI_PICO_KCONFIG)"
+config ZEPHYR_HAL_RPI_PICO_MODULE
+	bool
+	default y
+endmenu
+menu "littlefs (/Users/akw/Documents/GitHub/my_workspace/modules/fs/littlefs)"
+osource "$(ZEPHYR_LITTLEFS_KCONFIG)"
+config ZEPHYR_LITTLEFS_MODULE
+	bool
+	default y
+endmenu
+menu "lvgl (/Users/akw/Documents/GitHub/my_workspace/modules/lib/gui/lvgl)"
+osource "/Users/akw/Documents/GitHub/my_workspace/modules/lib/gui/lvgl/Kconfig"
+config ZEPHYR_LVGL_MODULE
+	bool
+	default y
+endmenu
+menu "zcbor (/Users/akw/Documents/GitHub/my_workspace/modules/lib/zcbor)"
+osource "$(ZEPHYR_ZCBOR_KCONFIG)"
+config ZEPHYR_ZCBOR_MODULE
+	bool
+	default y
+endmenu

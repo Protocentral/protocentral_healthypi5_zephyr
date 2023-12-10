@@ -4,3 +4,4 @@
 add_subdirectory_ifdef(CONFIG_SENSOR_MAX30001 max30001)
 add_subdirectory_ifdef(CONFIG_SENSOR_MAX30205 max30205)
 add_subdirectory_ifdef(CONFIG_SENSOR_AFE4400  afe4400)
+add_subdirectory_ifdef(CONFIG_SENSOR_MAX32664 max32664)

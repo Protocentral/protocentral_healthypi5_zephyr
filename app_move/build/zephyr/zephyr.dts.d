@@ -1,0 +1,33 @@
+empty_file.o: \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/misc/empty_file.c \
+ /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340/healthypi_fit_nrf5340_cpuapp.dts \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf5340_cpuapp_qkaa.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/common/mem.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf5340_cpuapp.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/armv8-m.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/common/skeleton.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf_common.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/adc/adc.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/adc/nrf-adc.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/dt-util.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_macro.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_internal.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_loops.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_listify.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_internal_is_eq.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_internal_util_inc.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_internal_util_dec.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/sys/util_internal_util_x2.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/gpio/gpio.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/i2c/i2c.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/pinctrl/nrf-pinctrl.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/include/zephyr/dt-bindings/pwm/pwm.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/common/freq.h \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/override.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf5340_cpuapp_peripherals.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf5340_cpuapp_ipc.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/zephyr/dts/arm/nordic/nrf5340_cpuapp_peripherals_ns.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340/healthypi_fit_nrf5340_cpuapp_common.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340/healthypi_fit_nrf5340_cpuapp_common-pinctrl.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340/healthypi_fit_nrf5340_cpuapp_partition_conf.dtsi \
+ /Users/akw/Documents/GitHub/my_workspace/healthypi5_zephyr/boards/arm/healthypi_fit_nrf5340/nrf5340_shared_sram_planning_conf.dtsi
