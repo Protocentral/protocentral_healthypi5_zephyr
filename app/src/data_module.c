@@ -39,7 +39,7 @@ const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, 
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
-static bool settings_send_usb_enabled = true;
+static bool settings_send_usb_enabled = false;
 static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
@@ -262,7 +262,7 @@ void data_thread(void)
         dec++;
 
         //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
-        resWaveBuff = (int16_t)(sensor_sample.bioz_sample) ;
+        resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
         //printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
@@ -272,6 +272,7 @@ void data_thread(void)
         {
             m_resp_sample_counter = 0;
             computed_data.rr = (uint32_t)globalRespirationRate;
+            //printf("globalRespirationRate: %d\n", globalRespirationRate);
                         
         }
 
