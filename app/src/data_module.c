@@ -288,14 +288,9 @@ void data_thread(void)
 
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
             // computed_data.rr = -999;
+            computed_data.spo2_valid = ch_spo2_valid;
+            computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
-            
-            if (ch_spo2_valid == 1)
-            {
-                computed_data.spo2_valid = ch_spo2_valid;
-                computed_data.spo2 = n_spo2;
-            }
-
 
 
 #ifdef CONFIG_BT
