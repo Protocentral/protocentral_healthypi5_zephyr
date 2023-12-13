@@ -29,6 +29,7 @@ static int max30205_sample_fetch(const struct device *dev,
 	m_read_reg_2(dev, MAX30205_TEMPERATURE, read_buf);
 	int16_t raw = read_buf[0] << 8 | read_buf[1];
 	data->temperature = raw * 0.00390625; // convert to temperature
+	/********* Temperature output is in degree C. Convert to F only on app side*/
 	data->temp_int = data->temperature * 1000;
 	return 0;
 }
