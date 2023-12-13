@@ -266,7 +266,8 @@ void data_thread(void)
         //printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
-        m_resp_sample_counter++;       
+        computed_data.rr = (uint32_t)globalRespirationRate;
+        /*m_resp_sample_counter++;       
 
         if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
         {
@@ -274,7 +275,7 @@ void data_thread(void)
             computed_data.rr = (uint32_t)globalRespirationRate;
             //printf("globalRespirationRate: %d\n", globalRespirationRate);
                         
-        }
+        }*/
 
 
         if (n_buffer_count > 99)
@@ -285,30 +286,26 @@ void data_thread(void)
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
             // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
-            computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
             // computed_data.rr = -999;
             computed_data.hr_valid = ch_hr_valid;
-            computed_data.spo2_valid = ch_spo2_valid;
+            
+            if (ch_spo2_valid == 1)
+            {
+                computed_data.spo2_valid = ch_spo2_valid;
+                computed_data.spo2 = n_spo2;
+            }
+
+
 
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-
+            
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
-        /*respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
-        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-
-        m_resp_sample_counter++;
-
-        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
-        {
-            m_resp_sample_counter = 0;
-            computed_data.rr = globalRespirationRate;
-        }*/
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
