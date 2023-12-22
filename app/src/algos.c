@@ -31,6 +31,7 @@ const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97,
                                      28, 27, 26, 25, 23, 22, 21, 20, 19, 17, 16, 15, 14, 12, 11, 10, 9, 7, 6, 5,
                                      3, 2, 1};
 
+
 int16_t  RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    125,    122,    118,    113,  /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
                                       106,     97,     88,     77,     65,     52,     38,     24,      8,
                                        -8,    -25,    -42,    -59,    -76,    -93,   -110,   -126,   -142,
@@ -392,9 +393,11 @@ int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
   
 void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRate)
 {
+
   static int16_t prev_data[64] ={0};
   char i;
   long Mac=0;
+
   prev_data[0] = CurrSample;
   
   for ( i=63; i > 0; i--)
@@ -541,6 +544,8 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
     }
   }
 
+
   *RespirationRate=(uint8_t)Respiration_Rate;
   //printf("Respiration: %d\n", *RespirationRate);
 }
+
