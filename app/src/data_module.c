@@ -70,6 +70,7 @@ long timeElapsed = 0;
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
+
     DataPacket[0] = ecg_sample;
     DataPacket[1] = ecg_sample >> 8;
     DataPacket[2] = ecg_sample >> 16;
@@ -267,14 +268,14 @@ void data_thread(void)
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
-        /*m_resp_sample_counter++;       
+        /*m_resp_sample_counter++;
 
         if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
         {
             m_resp_sample_counter = 0;
             computed_data.rr = (uint32_t)globalRespirationRate;
             //printf("globalRespirationRate: %d\n", globalRespirationRate);
-                        
+
         }*/
 
 
@@ -297,7 +298,7 @@ void data_thread(void)
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
 #endif
-            
+
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
@@ -308,7 +309,7 @@ void data_thread(void)
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+                         (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
