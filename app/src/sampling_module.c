@@ -60,7 +60,8 @@ void sampling_thread(void)
             sensor_sample_fetch(max30205_dev);
             struct sensor_value temp_sample;
             sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
-            last_read_temp_value = temp_sample.val1;
+            // Convert to degree F
+            last_read_temp_value = (temp_sample.val1 * 9 / 5) + 32000; 
             //printk("Temp: %d\n", last_read_temp_value);
         }
         else
