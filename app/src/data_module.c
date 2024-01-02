@@ -39,7 +39,7 @@ const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, 
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
-static bool settings_send_usb_enabled = false;
+static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
