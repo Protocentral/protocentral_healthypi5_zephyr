@@ -98,7 +98,8 @@ enum hpi_sensor_data_type
     HPI_SENSOR_DATA_ECG = 0x01,
     HPI_SENSOR_DATA_PPG,
     HPI_SENSOR_DATA_RESP,
-    HPI_SENSOR_DATA_TEMP
+    HPI_SENSOR_DATA_TEMP,
+    HPI_SENSOR_DATA_HRV,
 };
 
 enum hpi_disp_screens
@@ -107,6 +108,7 @@ enum hpi_disp_screens
     HPI_DISP_SCR_ECG,
     HPI_DISP_SCR_PPG,
     HPI_DISP_SCR_RESP,
+    HPI_DISP_SCR_HRV,
 };
 
 uint8_t hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
@@ -115,6 +117,8 @@ lv_obj_t *scr_chart_single;
 lv_obj_t *scr_chart_single_ecg;
 lv_obj_t *scr_chart_single_resp;
 lv_obj_t *scr_chart_single_ppg;
+lv_obj_t *scr_chart_single_hrv;
+lv_obj_t *scr_hrv_vitals;
 
 static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
@@ -239,6 +243,7 @@ void down_key_event_handler()
 
 void hpi_disp_switch_screen(void)
 {
+    printk("hpi_disp_curr_screen %d",hpi_disp_curr_screen);
     switch (hpi_disp_curr_screen)
     {
     case HPI_DISP_SCR_ECG:
@@ -248,7 +253,13 @@ void hpi_disp_switch_screen(void)
         draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
         break;
     case HPI_DISP_SCR_RESP:
-        draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
+        //printk("Draw HRV screen");
+        //stream_hrv_vitals_scr(scr_hrv_vitals);
+        draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_chart_single_hrv);
+        break;
+    case HPI_DISP_SCR_HRV:
+        //printk("Draw ECG screen");
+        draw_chart_single_scr(HPI_SENSOR_DATA_EG, scr_chart_single_ecg);
         break;
     default:
         break;
@@ -300,6 +311,14 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
     lv_obj_add_style(label_sym_ble, &style_batt_sym, LV_STATE_DEFAULT);
     lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 0);
+}
+
+void draw_hrv_screen(lv_obj_t *parent)
+{
+    label_hr = lv_label_create(parent);
+    lv_label_set_text(label_hr, "HR");
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
+    lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 }
 
 void draw_footer(lv_obj_t *parent)
@@ -532,6 +551,17 @@ void hpi_disp_draw_plot(float plot_data)
     }
 }
 
+
+void stream_hrv_vitals_scr(lv_obj_t *scr_obj)
+{
+    if (scr_obj == NULL)
+    {
+        scr_obj = lv_obj_create(NULL);
+        draw_hrv_screen(scr_obj);
+    }
+    lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
+}
+
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
 {
     // lv_obj_clean(scr_obj);
@@ -563,8 +593,11 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
 
         if (m_data_type == HPI_SENSOR_DATA_ECG)
         {
+            printk("lv_chart_add_series");
             ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+            printk("hpi_disp_curr_screen");
             hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
+            printk("lv_label_set_text");
             lv_label_set_text(label_chart_title, "Showing ECG");
         }
         else if (m_data_type == HPI_SENSOR_DATA_PPG)
@@ -578,6 +611,13 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
             ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
             hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
             lv_label_set_text(label_chart_title, "Showing RESP");
+        }
+
+        else if (m_data_type == HPI_SENSOR_DATA_HRV)
+        {
+            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+            hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
+            lv_label_set_text(label_chart_title, "Showing HRV");
         }
 
         lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
@@ -658,7 +698,7 @@ void draw_scr_welcome(void)
     lv_anim_set_var(&a, label_icon);
     lv_anim_set_values(&a, 0, 100);
     lv_anim_set_time(&a, 4000);
-    lv_anim_set_playback_delay(&a, 100);
+    lv_anim_set_playback_delay(&a, 100); 
     lv_anim_set_playback_time(&a, 300);
     lv_anim_set_repeat_delay(&a, 500);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
@@ -726,6 +766,14 @@ void display_screens_thread(void)
         {
             hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
         }
+
+        else if (hpi_disp_curr_screen == HPI_DISP_SCR_HRV)
+        {
+            hpi_disp_draw_plot((sensor_sample.raw_ir) / 1000.0000);
+        }
+
+
+
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
