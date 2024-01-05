@@ -7,3 +7,13 @@ struct hpi_computed_data_t {
     uint8_t hr_valid;
     uint8_t spo2_valid;
 };
+
+struct hpi_computed_hrv_t {
+    float hrv_max;
+    float hrv_min;
+    float mean;
+    float sdnn;
+    float pnn;
+    float rmssd; 
+};
+
