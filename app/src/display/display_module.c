@@ -38,42 +38,24 @@ static lv_obj_t *label_hr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
-static lv_obj_t *label_hrvmax;
-static lv_obj_t *label_hrvmin;
-static lv_obj_t *label_sdnn;
-static lv_obj_t *label_rmssd;
-static lv_obj_t *label_mean;
-static lv_obj_t *label_pnn;
-
 
 // LVGL Screens
 lv_obj_t *scr_home;
 lv_obj_t *scr_menu;
 lv_obj_t *scr_charts_all;
 lv_obj_t *scr_charts_single;
-lv_obj_t *block_hrvmax;
-lv_obj_t *block_hrvmin;
-lv_obj_t *block_mean;
-
 
 static lv_style_t style_sub;
 static lv_style_t style_hr;
 static lv_style_t style_spo2;
 static lv_style_t style_rr;
 static lv_style_t style_temp;
-static lv_style_t style_hrvmax;
-static lv_style_t style_hrvmin;
-static lv_style_t style_mean;
-static lv_style_t style_sdnn;
-static lv_style_t style_rmssd;
-static lv_style_t style_pnn;
 static lv_style_t style_scr_back;
 static lv_style_t style_batt_sym;
 static lv_style_t style_h1;
 static lv_style_t style_h2;
 static lv_style_t style_info;
 static lv_style_t style_icon;
-
 
 // static lv_obj_t *roller_session_select;
 // static lv_obj_t *label_current_mode;
@@ -116,8 +98,7 @@ enum hpi_sensor_data_type
     HPI_SENSOR_DATA_ECG = 0x01,
     HPI_SENSOR_DATA_PPG,
     HPI_SENSOR_DATA_RESP,
-    HPI_SENSOR_DATA_TEMP,
-    HPI_SENSOR_DATA_HRV,
+    HPI_SENSOR_DATA_TEMP
 };
 
 enum hpi_disp_screens
@@ -126,7 +107,6 @@ enum hpi_disp_screens
     HPI_DISP_SCR_ECG,
     HPI_DISP_SCR_PPG,
     HPI_DISP_SCR_RESP,
-    HPI_DISP_SCR_HRV,
 };
 
 uint8_t hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
@@ -135,7 +115,6 @@ lv_obj_t *scr_chart_single;
 lv_obj_t *scr_chart_single_ecg;
 lv_obj_t *scr_chart_single_resp;
 lv_obj_t *scr_chart_single_ppg;
-lv_obj_t *scr_hrv_vitals;
 
 static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
@@ -210,36 +189,6 @@ void display_init_styles()
     lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_LIME));
     lv_style_set_text_font(&style_temp, &lv_font_montserrat_42);
 
-    // HRV max label style
-    lv_style_init(&style_hrvmax);
-    lv_style_set_text_color(&style_hrvmax, lv_palette_main(LV_PALETTE_GREEN));
-    lv_style_set_text_font(&style_hrvmax, &lv_font_montserrat_42);
-
-    // HRV min label style
-    lv_style_init(&style_hrvmin);
-    lv_style_set_text_color(&style_hrvmin, lv_palette_main(LV_PALETTE_PINK));
-    lv_style_set_text_font(&style_hrvmin, &lv_font_montserrat_42);
-
-    // HR Number label style
-    lv_style_init(&style_mean);
-    lv_style_set_text_color(&style_mean, lv_palette_main(LV_PALETTE_RED));
-    lv_style_set_text_font(&style_mean, &lv_font_montserrat_42);
-
-    // SpO2 label style
-    lv_style_init(&style_pnn);
-    lv_style_set_text_color(&style_pnn, lv_palette_main(LV_PALETTE_YELLOW));
-    lv_style_set_text_font(&style_pnn, &lv_font_montserrat_42);
-
-    // RR label style
-    lv_style_init(&style_rmssd);
-    lv_style_set_text_color(&style_rmssd, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_text_font(&style_rmssd, &lv_font_montserrat_42);
-
-    // Temp label style
-    lv_style_init(&style_sdnn);
-    lv_style_set_text_color(&style_sdnn, lv_palette_main(LV_PALETTE_LIME));
-    lv_style_set_text_font(&style_sdnn, &lv_font_montserrat_42);
-
     // Icon welcome screen style
     lv_style_init(&style_icon);
     lv_style_set_text_color(&style_icon, lv_palette_main(LV_PALETTE_YELLOW));
@@ -299,9 +248,6 @@ void hpi_disp_switch_screen(void)
         draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
         break;
     case HPI_DISP_SCR_RESP:
-        stream_hrv_vitals_scr(HPI_SENSOR_DATA_HRV, scr_hrv_vitals);
-        break;
-    case HPI_DISP_SCR_HRV:
         draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
         break;
     default:
@@ -354,46 +300,6 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
     lv_obj_add_style(label_sym_ble, &style_batt_sym, LV_STATE_DEFAULT);
     lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 0);
-}
-
-void draw_hrv_screen(lv_obj_t *parent)
-{
-    /*block_hrvmax = lv_obj_create(parent);
-    lv_obj_set_height(block_hrvmax,120);
-    lv_obj_set_width(block_hrvmax,150);
-    lv_obj_align(block_hrvmax, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_set_style_border_color(block_hrvmax,lv_palette_main(LV_PALETTE_ORANGE),0);
-
-    block_hrvmin = lv_obj_create(parent);
-    lv_obj_set_height(block_hrvmin,120);
-    lv_obj_set_width(block_hrvmin,150);
-    lv_obj_align_to(block_hrvmin,block_hrvmax, LV_ALIGN_TOP_LEFT, 165, 0);
-    lv_obj_set_style_border_color(block_hrvmin,lv_palette_main(LV_PALETTE_ORANGE),0);
-
-    block_mean = lv_obj_create(parent);
-    lv_obj_set_height(block_mean,120);
-    lv_obj_set_width(block_mean,150);
-    lv_obj_align_to(block_mean,block_hrvmax, LV_ALIGN_TOP_LEFT, 180, 0);
-    lv_obj_set_style_border_color(block_mean,lv_palette_main(LV_PALETTE_ORANGE),0);*/
-    
-    // HR Number label
-    /*label_hrvmax = lv_label_create(parent);
-    lv_label_set_text(label_hrvmax, "---");
-    lv_obj_align(label_hrvmax, LV_ALIGN_TOP_LEFT, 10, 35);
-    lv_obj_add_style(label_hrvmax, &style_hrvmax, LV_STATE_DEFAULT);
-
-    // HR Title label
-    lv_obj_t *label_hrvmax_title = lv_label_create(parent);
-    lv_label_set_text(label_hrvmax_title, "HRV MAX");
-    lv_obj_align_to(label_hrvmax_title, label_hrvmax, LV_ALIGN_TOP_LEFT, 5, -35);
-    lv_obj_add_style(label_hrvmax_title, &style_h2, LV_STATE_DEFAULT);
-
-    // HR BPM Subscript label
-    lv_obj_t *label_hrvmax_sub = lv_label_create(parent);
-    lv_label_set_text(label_hrvmax_sub, "bpm");
-    lv_obj_align_to(label_hrvmax_sub, label_hrvmax, LV_ALIGN_TOP_LEFT, 5, 50);
-    lv_obj_add_style(label_hrvmax_sub, &style_sub, LV_STATE_DEFAULT);*/
-
 }
 
 void draw_footer(lv_obj_t *parent)
@@ -580,41 +486,6 @@ void hpi_disp_update_rr(int rr)
     lv_label_set_text(label_rr, buf);
 }
 
-void hpi_disp_update_hrv(float hrv_max,float hrv_min,float mean,float pnn,float rmssd,float sdnn)
-{
-    if (label_hrvmax == NULL)
-        return;
-
-    if (label_hrvmin == NULL)
-        return;
-
-    if (label_mean == NULL)
-        return;
-
-    if (label_pnn == NULL)
-        return;
-
-    if (label_rmssd == NULL)
-        return;
-
-    if (label_sdnn == NULL)
-        return;
-
-    char buf[32];
-    sprintf(buf, "%f", hrv_max);
-    lv_label_set_text(label_hrvmax, buf);
-    sprintf(buf, "%f", hrv_min);
-    lv_label_set_text(label_hrvmin, buf);
-    sprintf(buf, "%f", mean);
-    lv_label_set_text(label_mean, buf);
-    sprintf(buf, "%f", sdnn);
-    lv_label_set_text(label_sdnn, buf);
-    sprintf(buf, "%f", rmssd);
-    lv_label_set_text(label_rmssd, buf);
-    sprintf(buf, "%f", pnn);
-    lv_label_set_text(label_pnn, buf);
-}
-
 void hpi_disp_add_samples(int num_samples)
 {
     gx += num_samples;
@@ -661,24 +532,6 @@ void hpi_disp_draw_plot(float plot_data)
     }
 }
 
-
-void stream_hrv_vitals_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
-{
-    if (scr_obj == NULL)
-    {   
-        //scr_obj = lv_obj_create(NULL);
-        //draw_hrv_screen(scr_obj);
-        //lv_obj_add_style(scr_obj, &style_scr_back, 0);
-
-        scr_obj = lv_obj_create(NULL);
-        draw_hrv_screen(scr_obj);
-        draw_header(scr_obj, true);
-        lv_obj_add_style(scr_obj, &style_scr_back, 0);
-        hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
-    }
-    lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
-}
-
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
 {
     // lv_obj_clean(scr_obj);
@@ -688,6 +541,7 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
         scr_obj = lv_obj_create(NULL);
         draw_footer(scr_obj);
         draw_header(scr_obj, true);
+
         lv_obj_add_style(scr_obj, &style_scr_back, 0);
 
         // lv_group_t *g1 = lv_group_create();
@@ -723,9 +577,9 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
         {
             ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
             hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
-            printk("HPI_DISP_SCR_RESP %d",hpi_disp_curr_screen);
             lv_label_set_text(label_chart_title, "Showing RESP");
         }
+
         lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
     }
 
@@ -804,7 +658,7 @@ void draw_scr_welcome(void)
     lv_anim_set_var(&a, label_icon);
     lv_anim_set_values(&a, 0, 100);
     lv_anim_set_time(&a, 4000);
-    lv_anim_set_playback_delay(&a, 100); 
+    lv_anim_set_playback_delay(&a, 100);
     lv_anim_set_playback_time(&a, 300);
     lv_anim_set_repeat_delay(&a, 500);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
@@ -848,13 +702,11 @@ void display_screens_thread(void)
     //  draw_scr_menu("A\nB\n");
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
-    struct hpi_computed_hrv_t hrv_data;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
     // draw_scr_welcome();
-
 
     int sample_count = 0;
     while (1)
@@ -873,11 +725,6 @@ void display_screens_thread(void)
         else if (hpi_disp_curr_screen == HPI_DISP_SCR_RESP)
         {
             hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
-        }
-
-        else if (hpi_disp_curr_screen == HPI_DISP_SCR_HRV)
-        {
-            hpi_disp_update_hrv(hrv_data.hrv_max,hrv_data.hrv_min,hrv_data.mean,hrv_data.pnn,hrv_data.rmssd,hrv_data.sdnn);
         }
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
