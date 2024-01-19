@@ -67,6 +67,8 @@ volatile uint8_t globalRespirationRate=0;
 int16_t resWaveBuff,respFilterout;
 long timeElapsed = 0;
 
+uint8_t hrv_vitals[7];
+
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
@@ -292,6 +294,12 @@ void data_thread(void)
             computed_data.spo2_valid = ch_spo2_valid;
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
+
+            if (computed_data.hr_valid == 1)
+            {
+                hrv_vitals  = calculate_hrv (uint8_t(computed_data.hr));
+                printk("HRV_vitals");
+            }
 
 
 #ifdef CONFIG_BT

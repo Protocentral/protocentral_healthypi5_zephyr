@@ -6,6 +6,19 @@
 
 #include "algos.h"
 
+int rear = -1;
+int k=0;
+unsigned int array[MAX];
+int min_hrv=0;
+int max_hrv=0;
+float mean_hrv;
+float sdnn;
+float rmssd;
+float pnn;
+int max_t=0;
+int min_t=0;
+uint8_t hrv_array[7];
+
 int RESP_Second_Prev_Sample = 0 ;
 int RESP_Prev_Sample = 0 ;
 int RESP_Current_Sample = 0 ;
@@ -548,4 +561,117 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
   *RespirationRate=(uint8_t)Respiration_Rate;
   //printf("Respiration: %d\n", *RespirationRate);
 }
+
+uint8_t* calculate_hrv (uint8_t hr)
+{  
+  k++;
+
+  if(rear == MAX-1)
+  {
+    
+    for(int i=0;i<(MAX-1);i++)
+    {
+      array[i]=array[i+1];
+    }
+
+    array[MAX-1] = hr;   
+  }
+  else
+  {     
+    rear++;
+    array[rear] = hr;
+  }
+
+  if(k>=MAX)
+  { 
+    max_hrv = HRVMAX(array);
+    min_hrv = HRVMIN(array);
+    mean_hrv = mean(array) * 100;
+    sdnn = sdnn_ff(array) * 100;
+    pnn_rmssd(array, &pnn, &rmssd) 
+    pnn = pnn * 100;
+    rmssd = rmssd * 100;
+
+    hrv_array[0]= mean_hrv;
+    hrv_array[1] = max_hrv;
+    hrv_array[2] = min_hrv;
+    hrv_array[3] = mean_hrv;
+    hrv_array[4]= sdnn;
+    hrv_array[5]= pnn;
+    hrv_array[6]=rmsd;
+  }
+
+}
+
+int HRVMAX(unsigned int array[])
+{  
+  for(int i=0;i<MAX;i++)
+  {
+    if(array[i]>max_t)
+    {
+      max_t = array[i];
+    }
+  }
+  return max_t;
+}
+
+int HRVMIN(unsigned int array[])
+{   
+  min_t = max_hrv;
+  for(int i=0;i<MAX;i++)
+  {
+    if(array[i]< min_t)
+    {
+      min_t = array[i]; 
+    }
+  }
+  return min_t;
+}
+
+float mean(unsigned int array[])
+{ 
+  int sum = 0;
+  for(int i=0;i<(MAX);i++);
+  {
+    sum = sum + array[i];
+  }
+  return ((float)sum)/ MAX;
+} 
+
+float sdnn_ff(unsigned int array[])
+{
+  int sumsdnn = 0;
+  int diff;
+
+  for(int i=0;i<(MAX);i++)
+  {
+    diff = (array[i]-(mean_hrv)) * (array[i]-(mean_hrv));
+    sumsdnn = sumsdnn + diff;   
+  }
+  return sqrt(sumsdnn/(MAX));
+}
+
+void pnn_rmssd(unsigned int array[], float *pnn50, float *rmssd)
+{ 
+  unsigned int pnn_rmssd[MAX];
+  count = 0;
+  sqsum = 0;
+
+  for(int i=0;i<(MAX-2);i++)
+  {
+    pnn_rmssd[i]= abs(array[i+1] - array[i]);
+    sqsum = sqsum + (pnn_rmssd[i]*pnn_rmssd[i]);
+
+    if(pnn50[i]>50)
+    {
+      count = count + 1;    
+    }
+
+  }
+  *pnn50 = ((float)count/MAX)*100;
+  *rmssd = rmssd = sqrt(sqsum/(MAX-1));
+}
+
+
+
 
