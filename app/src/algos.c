@@ -3,21 +3,9 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
-
+#include <math.h>
 #include "algos.h"
-
-int rear = -1;
-int k=0;
-unsigned int array[MAX];
-int min_hrv=0;
-int max_hrv=0;
-float mean_hrv;
-float sdnn;
-float rmssd;
-float pnn;
-int max_t=0;
-int min_t=0;
-uint8_t hrv_array[7];
+#include "data_module.h"
 
 int RESP_Second_Prev_Sample = 0 ;
 int RESP_Prev_Sample = 0 ;
@@ -63,6 +51,22 @@ int16_t  RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    1
                                      -126,   -110,    -93,    -76,    -59,    -42,    -25,     -8,      8,
                                        24,     38,     52,     65,     77,     88,     97,    106,    113,
                                       118,    122,    125,    127,    127,    126,    124,    120   };
+
+int rear = -1;
+int k=0;
+unsigned int array[HRV_LIMIT];
+int min_hrv=0;
+int max_hrv=0;
+float mean_hrv;
+float sdnn;
+float rmssd;
+float pnn;
+int max_t=0;
+int min_t=0;
+bool ready_flag = false;
+
+//hpi_computed_hrv_t hrv_calculated;
+
 
 void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
@@ -562,50 +566,39 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
   //printf("Respiration: %d\n", *RespirationRate);
 }
 
-uint8_t* calculate_hrv (uint8_t hr)
+void calculate_hrv (int32_t heart_rate, int32_t *hrv_max, int32_t *hrv_min, float *mean, float *sdnn, float *pnn, float *rmssd, bool *hrv_ready_flag)
 {  
   k++;
 
-  if(rear == MAX-1)
-  {
-    
-    for(int i=0;i<(MAX-1);i++)
+  if(rear == HRV_LIMIT-1)
+  { 
+    for(int i=0;i<(HRV_LIMIT-1);i++)               
     {
-      array[i]=array[i+1];
+      array[i]=array[i+ 1];
     }
 
-    array[MAX-1] = hr;   
+    array[HRV_LIMIT-1] = heart_rate;   
   }
   else
   {     
     rear++;
-    array[rear] = hr;
+    array[rear] = heart_rate;
   }
 
-  if(k>=MAX)
+  if(k>=HRV_LIMIT)
   { 
-    max_hrv = HRVMAX(array);
-    min_hrv = HRVMIN(array);
-    mean_hrv = mean(array) * 100;
-    sdnn = sdnn_ff(array) * 100;
-    pnn_rmssd(array, &pnn, &rmssd) 
-    pnn = pnn * 100;
-    rmssd = rmssd * 100;
-
-    hrv_array[0]= mean_hrv;
-    hrv_array[1] = max_hrv;
-    hrv_array[2] = min_hrv;
-    hrv_array[3] = mean_hrv;
-    hrv_array[4]= sdnn;
-    hrv_array[5]= pnn;
-    hrv_array[6]=rmsd;
+    *hrv_max = calculate_hrvmax(array);
+    *hrv_min = calculate_hrvmin(array);
+    *mean = calculate_mean(array);
+    *sdnn = calculate_sdnn(array);
+    calculate_pnn_rmssd(array, pnn, rmssd);
+    *hrv_ready_flag= true;
   }
-
 }
 
-int HRVMAX(unsigned int array[])
+int calculate_hrvmax(unsigned int array[])
 {  
-  for(int i=0;i<MAX;i++)
+  for(int i=0;i<HRV_LIMIT;i++)
   {
     if(array[i]>max_t)
     {
@@ -615,10 +608,10 @@ int HRVMAX(unsigned int array[])
   return max_t;
 }
 
-int HRVMIN(unsigned int array[])
+int calculate_hrvmin(unsigned int array[])
 {   
   min_t = max_hrv;
-  for(int i=0;i<MAX;i++)
+  for(int i=0;i<HRV_LIMIT;i++)
   {
     if(array[i]< min_t)
     {
@@ -628,48 +621,48 @@ int HRVMIN(unsigned int array[])
   return min_t;
 }
 
-float mean(unsigned int array[])
+float calculate_mean(unsigned int array[])
 { 
   int sum = 0;
-  for(int i=0;i<(MAX);i++);
+  for(int i=0;i<(HRV_LIMIT);i++)
   {
     sum = sum + array[i];
   }
-  return ((float)sum)/ MAX;
+  return ((float)sum)/ HRV_LIMIT;
 } 
 
-float sdnn_ff(unsigned int array[])
+float calculate_sdnn(unsigned int array[])
 {
   int sumsdnn = 0;
   int diff;
 
-  for(int i=0;i<(MAX);i++)
+  for(int i=0;i<(HRV_LIMIT);i++)
   {
     diff = (array[i]-(mean_hrv)) * (array[i]-(mean_hrv));
     sumsdnn = sumsdnn + diff;   
   }
-  return sqrt(sumsdnn/(MAX));
+  return sqrt(sumsdnn/(HRV_LIMIT));
 }
 
-void pnn_rmssd(unsigned int array[], float *pnn50, float *rmssd)
+void calculate_pnn_rmssd(unsigned int array[], float *pnn50, float *rmssd)
 { 
-  unsigned int pnn_rmssd[MAX];
-  count = 0;
-  sqsum = 0;
+  unsigned int pnn_rmssd[HRV_LIMIT];
+  int count = 0;
+  int sqsum = 0;
 
-  for(int i=0;i<(MAX-2);i++)
+  for(int i=0;i<(HRV_LIMIT-2);i++)
   {
     pnn_rmssd[i]= abs(array[i+1] - array[i]);
     sqsum = sqsum + (pnn_rmssd[i]*pnn_rmssd[i]);
 
-    if(pnn50[i]>50)
+    if(pnn_rmssd[i]>50)
     {
       count = count + 1;    
     }
 
   }
-  *pnn50 = ((float)count/MAX)*100;
-  *rmssd = rmssd = sqrt(sqsum/(MAX-1));
+  *pnn50 = ((float)count/HRV_LIMIT);
+  *rmssd = sqrt(sqsum/(HRV_LIMIT-1));
 }
 
 

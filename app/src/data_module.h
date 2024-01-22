@@ -9,12 +9,16 @@ struct hpi_computed_data_t {
 };
 
 struct hpi_computed_hrv_t {
-    float hrv_max;
-    float hrv_min;
+    int32_t hrv_max;
+    int32_t hrv_min;
     float mean;
     float sdnn;
     float pnn;
     float rmssd; 
+    bool hrv_ready_flag;
 };
+
+
+
 
 

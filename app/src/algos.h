@@ -7,8 +7,7 @@
 
 #define FILTERORDER 161 /* DC Removal Numerator Coeff*/
 #define NRCOEFF (0.992)
-
-#define MAX  20
+#define HRV_LIMIT 20
 
 void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid);
 void hpi_find_peak(int32_t *pn_locs, int32_t *n_npks, int32_t *pn_x, int32_t n_size, int32_t n_min_height, int32_t n_min_distance, int32_t n_max_num);
@@ -22,9 +21,10 @@ int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample);
 void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRate);
 void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationRate);
 
-void pnn_rmssd(unsigned int array[], float *pnn50, float *rmssd);
-float sdnn_ff(unsigned int array[]);
-float mean(unsigned int array[]);
-int HRVMIN(unsigned int array[]);
-int HRVMAX(unsigned int array[]);
-uint8_t* calculate_hrv (uint8_t hr);
+void calculate_pnn_rmssd(unsigned int array[], float *pnn50, float *rmssd);
+float calculate_sdnn(unsigned int array[]);
+float calculate_mean(unsigned int array[]);
+int calculate_hrvmin(unsigned int array[]);
+int calculate_hrvmax(unsigned int array[]);
+//struct calculate_hrv(uint8_t heart_rate);
+void calculate_hrv (int32_t heart_rate, int32_t *hrv_max, int32_t *hrv_min, float *mean, float *sdnn, float *pnn, float *rmssd, bool *hrv_ready_flag);

@@ -50,6 +50,8 @@ extern struct k_msgq q_sample;
 extern struct k_msgq q_plot;
 
 K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
+K_MSGQ_DEFINE(q_hrv_computed_val, sizeof(struct hpi_computed_hrv_t), 100, 1);
+
 
 #define SAMPLING_FREQ 104 // in Hz.
 
@@ -67,7 +69,14 @@ volatile uint8_t globalRespirationRate=0;
 int16_t resWaveBuff,respFilterout;
 long timeElapsed = 0;
 
-uint8_t hrv_vitals[7];
+struct hpi_computed_hrv_t hrv_calculated;
+int32_t hrv_max;
+int32_t hrv_min;
+float hrv_mean;
+float hrv_sdnn; 
+float hrv_pnn;
+float hrv_rmssd;
+bool hrv_ready_flag=false;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -213,6 +222,7 @@ void data_thread(void)
 
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    //struct hpi_computed_hrv_t hrv_data;
 
     record_init_session_log();
 
@@ -287,7 +297,7 @@ void data_thread(void)
 
             // printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+            //printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
             // computed_data.rr = -999;
@@ -295,11 +305,22 @@ void data_thread(void)
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
 
-            if (computed_data.hr_valid == 1)
+            calculate_hrv (sensor_sample.hr, &hrv_max, &hrv_min, &hrv_mean, &hrv_sdnn, &hrv_pnn, &hrv_rmssd, &hrv_ready_flag);
+            if (hrv_ready_flag == true)
             {
-                hrv_vitals  = calculate_hrv (uint8_t(computed_data.hr));
-                printk("HRV_vitals");
+                hrv_calculated.hrv_ready_flag = hrv_ready_flag;
+                hrv_calculated.hrv_max = hrv_max;
+                hrv_calculated.hrv_min = hrv_min;
+                hrv_calculated.mean = hrv_mean;
+                hrv_calculated.sdnn = hrv_sdnn;
+                hrv_calculated.pnn = hrv_pnn;
+                hrv_calculated.rmssd = hrv_rmssd;
+                printk("mean: %f, max: %d, min: %d, sdnn: %f, pnn: %f, rmssd:%f\n", hrv_calculated.mean, hrv_calculated.hrv_max, hrv_calculated.hrv_min, hrv_calculated.sdnn, hrv_calculated.pnn, hrv_calculated.rmssd);
+
             }
+
+            
+
 
 
 #ifdef CONFIG_BT
@@ -308,6 +329,7 @@ void data_thread(void)
 #endif
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
+            k_msgq_put(&q_hrv_computed_val, &hrv_calculated, K_NO_WAIT);
         }
 
 
