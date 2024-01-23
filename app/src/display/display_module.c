@@ -44,6 +44,7 @@ lv_obj_t *scr_home;
 lv_obj_t *scr_menu;
 lv_obj_t *scr_charts_all;
 lv_obj_t *scr_charts_single;
+lv_obj_t *scr_hrv;
 
 static lv_style_t style_sub;
 static lv_style_t style_hr;
@@ -98,7 +99,8 @@ enum hpi_sensor_data_type
     HPI_SENSOR_DATA_ECG = 0x01,
     HPI_SENSOR_DATA_PPG,
     HPI_SENSOR_DATA_RESP,
-    HPI_SENSOR_DATA_TEMP
+    HPI_SENSOR_DATA_TEMP,
+    HPI_SENSOR_DATA_HRV
 };
 
 enum hpi_disp_screens
@@ -107,6 +109,7 @@ enum hpi_disp_screens
     HPI_DISP_SCR_ECG,
     HPI_DISP_SCR_PPG,
     HPI_DISP_SCR_RESP,
+    HPI_DISP_SCR_HRV
 };
 
 uint8_t hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
@@ -242,13 +245,16 @@ void hpi_disp_switch_screen(void)
     switch (hpi_disp_curr_screen)
     {
     case HPI_DISP_SCR_ECG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
+        draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg,true);
         break;
     case HPI_DISP_SCR_PPG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
+        draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp,true);
         break;
     case HPI_DISP_SCR_RESP:
-        draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
+        draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_hrv,false);
+        break;
+    case HPI_DISP_SCR_HRV:
+        draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
     default:
         break;
@@ -302,7 +308,7 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 0);
 }
 
-void draw_footer(lv_obj_t *parent)
+void draw_footer(lv_obj_t *parent,bool default_style)
 {
     /*static lv_style_t style;
     lv_style_init(&style);
@@ -312,84 +318,86 @@ void draw_footer(lv_obj_t *parent)
     lv_style_set_pad_all(&style, 0);
     lv_obj_add_style(parent, &style, 0);
     */
+    if (default_style == true)
+    {
+        // HR Number label
+        label_hr = lv_label_create(parent);
+        lv_label_set_text(label_hr, "---");
+        lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
+        lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
-    // HR Number label
-    label_hr = lv_label_create(parent);
-    lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
-    lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
+        // HR Title label
+        lv_obj_t *label_hr_title = lv_label_create(parent);
+        lv_label_set_text(label_hr_title, "HR");
+        lv_obj_align_to(label_hr_title, label_hr, LV_ALIGN_TOP_MID, 0, -15);
+        lv_obj_add_style(label_hr_title, &style_sub, LV_STATE_DEFAULT);
 
-    // HR Title label
-    lv_obj_t *label_hr_title = lv_label_create(parent);
-    lv_label_set_text(label_hr_title, "HR");
-    lv_obj_align_to(label_hr_title, label_hr, LV_ALIGN_TOP_MID, 0, -15);
-    lv_obj_add_style(label_hr_title, &style_sub, LV_STATE_DEFAULT);
+        // HR BPM Subscript label
+        lv_obj_t *label_hr_sub = lv_label_create(parent);
+        lv_label_set_text(label_hr_sub, "bpm");
+        lv_obj_align_to(label_hr_sub, label_hr, LV_ALIGN_BOTTOM_MID, 0, 10);
+        lv_obj_add_style(label_hr_sub, &style_sub, LV_STATE_DEFAULT);
 
-    // HR BPM Subscript label
-    lv_obj_t *label_hr_sub = lv_label_create(parent);
-    lv_label_set_text(label_hr_sub, "bpm");
-    lv_obj_align_to(label_hr_sub, label_hr, LV_ALIGN_BOTTOM_MID, 0, 10);
-    lv_obj_add_style(label_hr_sub, &style_sub, LV_STATE_DEFAULT);
+        // HR BPM Subscript label
+        lv_obj_t *label_hr_status = lv_label_create(parent);
+        lv_label_set_text(label_hr_status, "ON");
+        lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
+        // lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
 
-    // HR BPM Subscript label
-    lv_obj_t *label_hr_status = lv_label_create(parent);
-    lv_label_set_text(label_hr_status, "ON");
-    lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
-    // lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
+        // SPO2 Number label
+        label_spo2 = lv_label_create(parent);
+        lv_label_set_text(label_spo2, "---");
+        lv_obj_align_to(label_spo2, label_hr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+        lv_obj_add_style(label_spo2, &style_spo2, LV_STATE_DEFAULT);
 
-    // SPO2 Number label
-    label_spo2 = lv_label_create(parent);
-    lv_label_set_text(label_spo2, "---");
-    lv_obj_align_to(label_spo2, label_hr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
-    lv_obj_add_style(label_spo2, &style_spo2, LV_STATE_DEFAULT);
+        // SpO2 Title label
+        lv_obj_t *label_spo2_title = lv_label_create(parent);
+        lv_label_set_text(label_spo2_title, "SpO2");
+        lv_obj_align_to(label_spo2_title, label_spo2, LV_ALIGN_TOP_MID, 0, -15);
+        lv_obj_add_style(label_spo2_title, &style_sub, LV_STATE_DEFAULT);
 
-    // SpO2 Title label
-    lv_obj_t *label_spo2_title = lv_label_create(parent);
-    lv_label_set_text(label_spo2_title, "SpO2");
-    lv_obj_align_to(label_spo2_title, label_spo2, LV_ALIGN_TOP_MID, 0, -15);
-    lv_obj_add_style(label_spo2_title, &style_sub, LV_STATE_DEFAULT);
+        // SpO2 % label
+        lv_obj_t *label_spo2_sub = lv_label_create(parent);
+        lv_label_set_text(label_spo2_sub, "%");
+        lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
+        lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
 
-    // SpO2 % label
-    lv_obj_t *label_spo2_sub = lv_label_create(parent);
-    lv_label_set_text(label_spo2_sub, "%");
-    lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
-    lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
+        // RR Number label
+        label_rr = lv_label_create(parent);
+        lv_label_set_text(label_rr, "---");
+        lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+        lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
 
-    // RR Number label
-    label_rr = lv_label_create(parent);
-    lv_label_set_text(label_rr, "---");
-    lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
-    lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
+        // RR Title label
+        lv_obj_t *label_rr_title = lv_label_create(parent);
+        lv_label_set_text(label_rr_title, "Resp Rate");
+        lv_obj_align_to(label_rr_title, label_rr, LV_ALIGN_TOP_MID, 0, -15);
+        lv_obj_add_style(label_rr_title, &style_sub, LV_STATE_DEFAULT);
 
-    // RR Title label
-    lv_obj_t *label_rr_title = lv_label_create(parent);
-    lv_label_set_text(label_rr_title, "Resp Rate");
-    lv_obj_align_to(label_rr_title, label_rr, LV_ALIGN_TOP_MID, 0, -15);
-    lv_obj_add_style(label_rr_title, &style_sub, LV_STATE_DEFAULT);
+        // RR Sub BPM label
+        lv_obj_t *label_rr_sub = lv_label_create(parent);
+        lv_label_set_text(label_rr_sub, "bpm");
+        lv_obj_align_to(label_rr_sub, label_rr, LV_ALIGN_BOTTOM_MID, 0, 10);
+        lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
 
-    // RR Sub BPM label
-    lv_obj_t *label_rr_sub = lv_label_create(parent);
-    lv_label_set_text(label_rr_sub, "bpm");
-    lv_obj_align_to(label_rr_sub, label_rr, LV_ALIGN_BOTTOM_MID, 0, 10);
-    lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
+        // Temp Number label
+        label_temp = lv_label_create(parent);
+        lv_label_set_text(label_temp, "---");
+        lv_obj_align_to(label_temp, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+        lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
 
-    // Temp Number label
-    label_temp = lv_label_create(parent);
-    lv_label_set_text(label_temp, "---");
-    lv_obj_align_to(label_temp, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
-    lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
+        // Temp label
+        lv_obj_t *label_temp_title = lv_label_create(parent);
+        lv_label_set_text(label_temp_title, "Temperature");
+        lv_obj_align_to(label_temp_title, label_temp, LV_ALIGN_TOP_MID, 0, -15);
+        lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
-    // Temp label
-    lv_obj_t *label_temp_title = lv_label_create(parent);
-    lv_label_set_text(label_temp_title, "Temperature");
-    lv_obj_align_to(label_temp_title, label_temp, LV_ALIGN_TOP_MID, 0, -15);
-    lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
-
-    // Temp Sub deg C label
-    lv_obj_t *label_temp_sub = lv_label_create(parent);
-    lv_label_set_text(label_temp_sub, "°F");
-    lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
-    lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
+        // Temp Sub deg C label
+        lv_obj_t *label_temp_sub = lv_label_create(parent);
+        lv_label_set_text(label_temp_sub, "°F");
+        lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
+        lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
+    }
 
     lv_obj_t *label_menu = lv_label_create(parent);
     lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
@@ -532,55 +540,71 @@ void hpi_disp_draw_plot(float plot_data)
     }
 }
 
-void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
+void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_style)
 {
     // lv_obj_clean(scr_obj);
 
     if (scr_obj == NULL)
     {
         scr_obj = lv_obj_create(NULL);
-        draw_footer(scr_obj);
-        draw_header(scr_obj, true);
-
-        lv_obj_add_style(scr_obj, &style_scr_back, 0);
-
-        // lv_group_t *g1 = lv_group_create();
-
-        // Create Chart 1
-        chart1 = lv_chart_create(scr_obj);
-        lv_obj_set_size(chart1, 460, 180);
-        lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
-
-        lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
-        lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
-        lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
-        lv_chart_set_div_line_count(chart1, 0, 0);
-        lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
-
-        lv_obj_set_pos(chart1, 10, 25);
-
-        lv_obj_t *label_chart_title = lv_label_create(scr_obj);
-
-        if (m_data_type == HPI_SENSOR_DATA_ECG)
+        if (default_style == true)
         {
-            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-            hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
-            lv_label_set_text(label_chart_title, "Showing ECG");
-        }
-        else if (m_data_type == HPI_SENSOR_DATA_PPG)
+            //scr_obj = lv_obj_create(NULL);
+            draw_footer(scr_obj,default_style);
+            draw_header(scr_obj, true);
+
+            lv_obj_add_style(scr_obj, &style_scr_back, 0);
+
+            // lv_group_t *g1 = lv_group_create();
+
+            // Create Chart 1
+            chart1 = lv_chart_create(scr_obj);
+            lv_obj_set_size(chart1, 460, 180);
+            lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
+
+            lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
+            lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
+            lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
+            lv_chart_set_div_line_count(chart1, 0, 0);
+            lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
+
+            lv_obj_set_pos(chart1, 10, 25);
+
+            lv_obj_t *label_chart_title = lv_label_create(scr_obj);
+
+            if (m_data_type == HPI_SENSOR_DATA_ECG)
+            {
+                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+                hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
+                lv_label_set_text(label_chart_title, "Showing ECG");
+            }
+            else if (m_data_type == HPI_SENSOR_DATA_PPG)
+            {
+                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
+                hpi_disp_curr_screen = HPI_DISP_SCR_PPG;
+                lv_label_set_text(label_chart_title, "Showing PPG");
+            }
+            else if (m_data_type == HPI_SENSOR_DATA_RESP)
+            {
+                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+                hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
+                lv_label_set_text(label_chart_title, "Showing RESP");
+            }
+
+            lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);        }
+        else
         {
-            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
-            hpi_disp_curr_screen = HPI_DISP_SCR_PPG;
-            lv_label_set_text(label_chart_title, "Showing PPG");
-        }
-        else if (m_data_type == HPI_SENSOR_DATA_RESP)
-        {
-            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
-            hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
-            lv_label_set_text(label_chart_title, "Showing RESP");
+            draw_footer(scr_obj,default_style);
+            draw_header(scr_obj, true);
+            lv_obj_add_style(scr_obj, &style_scr_back, 0);
+
+            if (m_data_type == HPI_SENSOR_DATA_HRV)
+            {
+                hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
+            }
+
         }
 
-        lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
     }
 
     lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
@@ -704,7 +728,7 @@ void display_screens_thread(void)
     struct hpi_computed_data_t computed_data;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
-    draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
+    draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
 
     // draw_scr_welcome();
 
@@ -726,6 +750,7 @@ void display_screens_thread(void)
         {
             hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
         }
+
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
