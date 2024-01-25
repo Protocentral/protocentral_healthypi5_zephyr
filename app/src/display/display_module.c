@@ -38,6 +38,14 @@ static lv_obj_t *label_hr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
+static lv_obj_t *label_max_hrv;
+static lv_obj_t *label_min_hrv;
+static lv_obj_t *label_mean_hrv;
+static lv_obj_t *label_sdnn_hrv;
+static lv_obj_t *label_pnn_hrv;
+static lv_obj_t *label_rmssd_hrv;
+
+//static lv_obj_t *block_max_hrv;
 
 // LVGL Screens
 lv_obj_t *scr_home;
@@ -47,6 +55,7 @@ lv_obj_t *scr_charts_single;
 lv_obj_t *scr_hrv;
 
 static lv_style_t style_sub;
+static lv_style_t style_hrv_titles;
 static lv_style_t style_hr;
 static lv_style_t style_spo2;
 static lv_style_t style_rr;
@@ -93,6 +102,7 @@ extern struct k_sem sem_down_key_pressed;
 
 K_MSGQ_DEFINE(q_plot, sizeof(struct hpi_sensor_data_t), 100, 1);
 extern struct k_msgq q_computed_val;
+extern struct k_msgq q_hrv_computed_val;
 
 enum hpi_sensor_data_type
 {
@@ -118,6 +128,7 @@ lv_obj_t *scr_chart_single;
 lv_obj_t *scr_chart_single_ecg;
 lv_obj_t *scr_chart_single_resp;
 lv_obj_t *scr_chart_single_ppg;
+lv_obj_t *scr_hrv_screen;
 
 static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
@@ -171,6 +182,10 @@ void display_init_styles()
     lv_style_init(&style_sub);
     lv_style_set_text_color(&style_sub, lv_color_white());
     lv_style_set_text_font(&style_sub, &lv_font_montserrat_16);
+
+    lv_style_init(&style_hrv_titles);
+    lv_style_set_text_color(&style_hrv_titles, lv_color_white());
+    lv_style_set_text_font(&style_hrv_titles, &lv_font_montserrat_24);
 
     // HR Number label style
     lv_style_init(&style_hr);
@@ -242,6 +257,7 @@ void down_key_event_handler()
 
 void hpi_disp_switch_screen(void)
 {
+    printk("%d\n", hpi_disp_curr_screen);
     switch (hpi_disp_curr_screen)
     {
     case HPI_DISP_SCR_ECG:
@@ -251,12 +267,18 @@ void hpi_disp_switch_screen(void)
         draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp,true);
         break;
     case HPI_DISP_SCR_RESP:
-        draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_hrv,false);
+        //printk("switch to HRV");
+        printk(" HPI_DISP_SCR_RESP %d\n", HPI_DISP_SCR_RESP);
+        draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_hrv_screen,false);
+        //draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
     case HPI_DISP_SCR_HRV:
+        printk(" HPI_DISP_SCR_HRV %d\n", HPI_DISP_SCR_HRV);
+        //printk("Switch to ECG");
         draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
     default:
+        //printk("default");
         break;
     }
 }
@@ -398,7 +420,6 @@ void draw_footer(lv_obj_t *parent,bool default_style)
         lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
         lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
     }
-
     lv_obj_t *label_menu = lv_label_create(parent);
     lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
     lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
@@ -478,6 +499,65 @@ void hpi_disp_update_spo2(int spo2)
     lv_label_set_text(label_spo2, buf);
 }
 
+void hpi_disp_update_hrv( int hrv_max, int hrv_min, float mean, float sdnn, float pnn, float rmssd, bool hrv_ready_flag)
+{
+    if (label_max_hrv == NULL)
+        return;
+    
+    if (label_min_hrv == NULL)
+        return;
+
+    if (label_mean_hrv == NULL)
+        return;
+
+    if (label_sdnn_hrv == NULL)
+        return;
+
+    if (label_pnn_hrv == NULL)
+        return;
+
+    if (label_rmssd_hrv == NULL)
+        return;
+
+    if (hrv_ready_flag == true)
+    {
+        lv_label_set_text(label_max_hrv, "---");
+        lv_label_set_text(label_min_hrv, "---");
+        lv_label_set_text(label_mean_hrv, "---");
+        lv_label_set_text(label_sdnn_hrv, "---");
+        lv_label_set_text(label_pnn_hrv, "---");
+        lv_label_set_text(label_rmssd_hrv, "---");
+        return;
+    }
+
+    char buf[32];
+    sprintf(buf, "%d", hrv_max);
+    lv_label_set_text(label_max_hrv, buf);
+    memset(buf, 0, sizeof(buf));
+
+    sprintf(buf, "%d", hrv_min);
+    lv_label_set_text(label_min_hrv, buf);
+    memset(buf, 0, sizeof(buf));
+
+    sprintf(buf, "%2.f", (double)(mean));
+    lv_label_set_text(label_mean_hrv, buf);
+    memset(buf, 0, sizeof(buf));
+
+    sprintf(buf, "%2.f", (double)(pnn * 100));
+    lv_label_set_text(label_pnn_hrv, buf);
+    memset(buf, 0, sizeof(buf));
+
+
+    sprintf(buf, "%2.f", (double)(rmssd * 100));
+    lv_label_set_text(label_rmssd_hrv, buf);
+    memset(buf, 0, sizeof(buf));
+
+
+    sprintf(buf, "%2.f", (double)(sdnn * 100));
+    lv_label_set_text(label_sdnn_hrv, buf);
+
+}
+
 void hpi_disp_update_rr(int rr)
 {
     if (label_rr == NULL)
@@ -540,6 +620,100 @@ void hpi_disp_draw_plot(float plot_data)
     }
 }
 
+void draw_hrv_screen(lv_obj_t *parent)
+{
+    label_max_hrv = lv_label_create(parent);
+    lv_label_set_text(label_max_hrv, "---");
+    lv_obj_align(label_max_hrv, LV_ALIGN_TOP_LEFT, 20, 60);
+    lv_obj_add_style(label_max_hrv, &style_hr, LV_STATE_DEFAULT);
+
+    // HR Title label
+    lv_obj_t *label_max_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_max_hrv_title, "HR MAX");
+    lv_obj_align_to(label_max_hrv_title, label_max_hrv, LV_ALIGN_TOP_MID, -10, -40);
+    lv_obj_add_style(label_max_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_max_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_max_hrv_sub, "bpm");
+    lv_obj_align_to(label_max_hrv_sub, label_max_hrv, LV_ALIGN_BOTTOM_MID, 0, 20);
+    lv_obj_add_style(label_max_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+
+    label_mean_hrv = lv_label_create(parent);
+    lv_label_set_text(label_mean_hrv, "---");
+    lv_obj_align_to(label_mean_hrv, label_max_hrv, LV_ALIGN_OUT_RIGHT_TOP, 125, 0);
+    lv_obj_add_style(label_mean_hrv, &style_spo2, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_mean_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_mean_hrv_title, "HR MEAN");
+    lv_obj_align_to(label_mean_hrv_title, label_mean_hrv, LV_ALIGN_TOP_MID, -15, -40);
+    lv_obj_add_style(label_mean_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_mean_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_mean_hrv_sub, "bpm");
+    lv_obj_align_to(label_mean_hrv_sub, label_mean_hrv, LV_ALIGN_BOTTOM_MID, -5, 20);
+    lv_obj_add_style(label_mean_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+
+    label_min_hrv = lv_label_create(parent);
+    lv_label_set_text(label_min_hrv, "---");
+    lv_obj_align_to(label_min_hrv, label_max_hrv, LV_ALIGN_OUT_RIGHT_TOP, 300, 0);
+    lv_obj_add_style(label_min_hrv, &style_rr, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_min_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_min_hrv_title, "HR MIN");
+    lv_obj_align_to(label_min_hrv_title, label_min_hrv, LV_ALIGN_TOP_MID, 0, -40);
+    lv_obj_add_style(label_min_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_min_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_min_hrv_sub, "bpm");
+    lv_obj_align_to(label_min_hrv_sub, label_min_hrv, LV_ALIGN_BOTTOM_MID, 0, 20);
+    lv_obj_add_style(label_min_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+
+    label_sdnn_hrv = lv_label_create(parent);
+    lv_label_set_text(label_sdnn_hrv, "---");
+    lv_obj_align(label_sdnn_hrv, LV_ALIGN_TOP_LEFT, 10, 190);
+    lv_obj_add_style(label_sdnn_hrv, &style_hr, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_sdnn_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_sdnn_hrv_title, "SDNN");
+    lv_obj_align_to(label_sdnn_hrv_title, label_sdnn_hrv, LV_ALIGN_TOP_MID, -2, -40);
+    lv_obj_add_style(label_sdnn_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_sdnn_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_sdnn_hrv_sub, "%");
+    lv_obj_align_to(label_sdnn_hrv_sub, label_sdnn_hrv, LV_ALIGN_BOTTOM_MID, 0, 20);
+    lv_obj_add_style(label_sdnn_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+
+    label_pnn_hrv = lv_label_create(parent);
+    lv_label_set_text(label_pnn_hrv, "---");
+    lv_obj_align_to(label_pnn_hrv, label_sdnn_hrv, LV_ALIGN_TOP_MID, 170, 0);
+    lv_obj_add_style(label_pnn_hrv, &style_spo2, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_pnn_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_pnn_hrv_title, "PNN50");
+    lv_obj_align_to(label_pnn_hrv_title, label_pnn_hrv, LV_ALIGN_TOP_MID, -3, -40);
+    lv_obj_add_style(label_pnn_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_pnn_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_pnn_hrv_sub, "%");
+    lv_obj_align_to(label_pnn_hrv_sub, label_pnn_hrv, LV_ALIGN_BOTTOM_MID, 0, 20);
+    lv_obj_add_style(label_pnn_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+
+    label_rmssd_hrv = lv_label_create(parent);
+    lv_label_set_text(label_rmssd_hrv, "---");
+    lv_obj_align_to(label_rmssd_hrv, label_sdnn_hrv, LV_ALIGN_OUT_RIGHT_TOP, 300, 0);
+    lv_obj_add_style(label_rmssd_hrv, &style_rr, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_rmssd_hrv_title = lv_label_create(parent);
+    lv_label_set_text(label_rmssd_hrv_title, "RMSSD");
+    lv_obj_align_to(label_rmssd_hrv_title, label_rmssd_hrv, LV_ALIGN_TOP_MID, -5, -40);
+    lv_obj_add_style(label_rmssd_hrv_title, &style_hrv_titles, LV_STATE_DEFAULT);
+
+    lv_obj_t *label_rmssd_hrv_sub = lv_label_create(parent);
+    lv_label_set_text(label_rmssd_hrv_sub, "%");
+    lv_obj_align_to(label_rmssd_hrv_sub, label_rmssd_hrv, LV_ALIGN_BOTTOM_MID, 0, 20);
+    lv_obj_add_style(label_rmssd_hrv_sub, &style_sub, LV_STATE_DEFAULT);
+}
+
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_style)
 {
     // lv_obj_clean(scr_obj);
@@ -549,7 +723,6 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_
         scr_obj = lv_obj_create(NULL);
         if (default_style == true)
         {
-            //scr_obj = lv_obj_create(NULL);
             draw_footer(scr_obj,default_style);
             draw_header(scr_obj, true);
 
@@ -596,8 +769,8 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_
         {
             draw_footer(scr_obj,default_style);
             draw_header(scr_obj, true);
+            draw_hrv_screen(scr_obj);
             lv_obj_add_style(scr_obj, &style_scr_back, 0);
-
             if (m_data_type == HPI_SENSOR_DATA_HRV)
             {
                 hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
@@ -726,6 +899,8 @@ void display_screens_thread(void)
     //  draw_scr_menu("A\nB\n");
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    struct hpi_computed_hrv_t hrv_data;
+
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
@@ -736,6 +911,7 @@ void display_screens_thread(void)
     while (1)
     {
         k_msgq_get(&q_plot, &sensor_sample, K_FOREVER);
+
 
         if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
         {
@@ -773,6 +949,11 @@ void display_screens_thread(void)
             // hpi_disp_update_hr(computed_data.hr);
             hpi_disp_update_spo2(computed_data.spo2);
             hpi_disp_update_rr(computed_data.rr);
+        }
+        if (k_msgq_get(&q_hrv_computed_val, &hrv_data, K_NO_WAIT) == 0)
+        {
+            hpi_disp_update_hrv(hrv_data.hrv_max, hrv_data.hrv_min, hrv_data.mean, hrv_data.sdnn, hrv_data.pnn, hrv_data.rmssd, hrv_data.hrv_ready_flag);
+
         }
 
         lv_task_handler();
