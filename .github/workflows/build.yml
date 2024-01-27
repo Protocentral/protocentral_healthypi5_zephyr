@@ -28,21 +28,31 @@ jobs:
         run: |
           rm -rf *.uf2
           west build -p auto -b healthypi5_rp2040 app
-          mv build/zephyr/zephyr.uf2 healthypi5_base.uf2
+          mv build/zephyr/zephyr.uf2 healthypi5_base_${{ github.ref_name }}.uf2
 
       - name: Build display firmware
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
           west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf
-          mv build/zephyr/zephyr.uf2 healthypi5_display.uf2
+          mv build/zephyr/zephyr.uf2 healthypi5_display_${{ github.ref_name }}.uf2
 
       - name: Build BLE firmware
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
           west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf
-          mv build/zephyr/zephyr.uf2 healthypi5_ble.uf2
+          mv build/zephyr/zephyr.uf2 healthypi5_ble_${{ github.ref_name }}.uf2
+      
+      - name: Build BLE firmware with MCUBoot
+        working-directory: healthypi5_zephyr
+        run: |
+          west build -t pristine
+          west build -p auto -b healthypi5_rp2040 app --sysbuild "-DEXTRA_CONF_FILE=overlay-boot.conf;overlay-bt.conf" "-DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_mcuboot.overlay"
+          hexmerge.py -o build/merged_boot.hex --no-start-addr build/mcuboot/zephyr/zephyr.hex build/app/zephyr/zephyr.signed.hex
+          hex2bin.py build/merged_boot.hex build/merged_boot.bin
+          ../zephyr/scripts/build/uf2conv.py build/merged_boot.bin --convert -f 0xe48bff56 -b 0x10000000 -o build/merged_boot.uf2
+          mv build/merged_boot.uf2 healthypi5_ble_boot_${{ github.ref_name }}.uf2
       
       - name: Upload release assets
         uses: ncipollo/release-action@v1
