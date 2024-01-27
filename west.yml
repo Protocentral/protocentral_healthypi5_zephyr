@@ -25,3 +25,8 @@ manifest:
           - zcbor  
           - tinycrypt
           - fatfs
+          - libmetal
+          - mbedtls
+          - liblc3
+          - net-tools
+          - picolibc

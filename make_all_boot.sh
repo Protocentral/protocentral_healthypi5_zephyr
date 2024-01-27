@@ -1,0 +1,1 @@
+west build -p auto -b healthypi5_rp2040 app --sysbuild "-DEXTRA_CONF_FILE=overlay-boot.conf;overlay-display.conf;overlay-bt.conf" "-DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_display.overlay;healthypi5_rp2040_mcuboot.overlay"
