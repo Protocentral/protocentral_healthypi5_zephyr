@@ -6,19 +6,17 @@
 #include <zephyr/drivers/led.h>
 #include <zephyr/drivers/uart.h>
 
-#include <zephyr/drivers/uart.h>
-
 #include <stdio.h>
-
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/fuel_gauge.h>
 #include <zephyr/sys/ring_buffer.h>
-
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/usb/usbd.h>
 
-#include "max30001.h"
+#include <zephyr/input/input.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 
+#include "max30001.h"
 #include "sys_sm_module.h"
 #include "hw_module.h"
 #include "fs_module.h"
@@ -53,20 +51,8 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
-enum button_evt
-{
-    BUTTON_EVT_PRESSED,
-    BUTTON_EVT_RELEASED
-};
-
-/// @brief GPIO Button Support
-static struct gpio_dt_spec button_ok = GPIO_DT_SPEC_GET_OR(DT_ALIAS(keyok), gpios, {0});
-static struct gpio_dt_spec button_up = GPIO_DT_SPEC_GET_OR(DT_ALIAS(keyup), gpios, {0});
-static struct gpio_dt_spec button_down = GPIO_DT_SPEC_GET_OR(DT_ALIAS(keydown), gpios, {0});
-
-static struct gpio_callback button_ok_cb;
-static struct gpio_callback button_up_cb;
-static struct gpio_callback button_down_cb;
+static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
+uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
 
@@ -81,88 +67,12 @@ struct ring_buf ringbuf_usb_cdc;
 
 #define MAX30001_DEVICE_NODE DT_ALIAS(max30001)
 const struct device *const max30001_dev = DEVICE_DT_GET(MAX30001_DEVICE_NODE);
-
 #define AFE4400_DEVICE_NODE DT_ALIAS(afe4400)
 const struct device *const afe4400_dev = DEVICE_DT_GET(AFE4400_DEVICE_NODE);
-
-// #define MAX30205_DEVICE_NODE DT_ALIAS(max30205)
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
-
 const struct device *fg_dev;
 
-#define GPIO_DEBOUNCE_TIME K_MSEC(500)
-
-uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
-
 uint8_t global_batt_level = 0;
-
-static void cooldown_expired_isr_ok(struct k_work *work)
-{
-    ARG_UNUSED(work);
-
-    // int val = gpio_pin_get_dt(&button_ok);
-    // enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
-    m_key_pressed = GPIO_KEYPAD_KEY_OK;
-    k_sem_give(&sem_ok_key_pressed);
-}
-
-static K_WORK_DELAYABLE_DEFINE(cooldown_work_ok, cooldown_expired_isr_ok);
-
-static void cooldown_expired_isr_up(struct k_work *work)
-{
-    ARG_UNUSED(work);
-
-    // int val = gpio_pin_get_dt(&button_ok);
-    // enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
-    m_key_pressed = GPIO_KEYPAD_KEY_UP;
-    k_sem_give(&sem_up_key_pressed);
-}
-
-static K_WORK_DELAYABLE_DEFINE(cooldown_work_up, cooldown_expired_isr_up);
-
-static void cooldown_expired_isr_down(struct k_work *work)
-{
-    ARG_UNUSED(work);
-
-    // int val = gpio_pin_get_dt(&button_ok);
-    // enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
-    m_key_pressed = GPIO_KEYPAD_KEY_DOWN;
-    k_sem_give(&sem_down_key_pressed);
-}
-
-static K_WORK_DELAYABLE_DEFINE(cooldown_work_down, cooldown_expired_isr_down);
-
-static void button_isr_ok(const struct device *port,
-                          struct gpio_callback *cb,
-                          uint32_t pins)
-{
-    ARG_UNUSED(port);
-    ARG_UNUSED(cb);
-    ARG_UNUSED(pins);
-
-    k_work_reschedule(&cooldown_work_ok, GPIO_DEBOUNCE_TIME);
-}
-
-static void button_isr_up(const struct device *port,
-                          struct gpio_callback *cb,
-                          uint32_t pins)
-{
-    ARG_UNUSED(port);
-    ARG_UNUSED(cb);
-    ARG_UNUSED(pins);
-
-    k_work_reschedule(&cooldown_work_up, GPIO_DEBOUNCE_TIME);
-}
-
-static void button_isr_down(const struct device *port, struct gpio_callback *cb, uint32_t pins)
-{
-    ARG_UNUSED(port);
-    ARG_UNUSED(cb);
-    ARG_UNUSED(pins);
-
-    k_work_reschedule(&cooldown_work_down, GPIO_DEBOUNCE_TIME);
-    // k_sem_give(&sem_down_key_pressed);
-}
 
 static void leds_init()
 {
@@ -191,35 +101,6 @@ static void leds_init()
     }
 
     gpio_pin_set_dt(&led_green, 0);
-}
-
-static void buttons_init(void)
-{
-    int ret;
-
-    // Configure buttons GPIO
-    // printk("Initing GPIO\n");
-
-    if (!device_is_ready(button_ok.port))
-    {
-        return;
-    }
-
-    ret = gpio_pin_configure_dt(&button_ok, GPIO_INPUT);
-    ret = gpio_pin_configure_dt(&button_up, GPIO_INPUT);
-    ret = gpio_pin_configure_dt(&button_down, GPIO_INPUT);
-
-    gpio_init_callback(&button_ok_cb, button_isr_ok, BIT(button_ok.pin));
-    gpio_init_callback(&button_up_cb, button_isr_up, BIT(button_up.pin));
-    gpio_init_callback(&button_down_cb, button_isr_down, BIT(button_down.pin));
-
-    ret = gpio_add_callback(button_ok.port, &button_ok_cb);
-    ret = gpio_add_callback(button_up.port, &button_up_cb);
-    ret = gpio_add_callback(button_down.port, &button_down_cb);
-
-    ret = gpio_pin_interrupt_configure_dt(&button_ok, GPIO_INT_EDGE_TO_ACTIVE);
-    ret = gpio_pin_interrupt_configure_dt(&button_up, GPIO_INT_EDGE_TO_ACTIVE);
-    ret = gpio_pin_interrupt_configure_dt(&button_down, GPIO_INT_EDGE_TO_ACTIVE);
 }
 
 void send_usb_cdc(const char *buf, size_t len)
@@ -367,6 +248,36 @@ uint8_t read_battery_level(void)
     return batt_level;
 }
 
+static void gpio_keys_cb_handler(struct input_event *evt)
+{
+    printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",
+           evt->dev->name, evt->code, evt->value);
+    if(evt->value==1)
+    {
+        switch (evt->code)
+        {
+        case INPUT_KEY_ENTER:
+            //m_key_pressed = GPIO_KEYPAD_KEY_OK;
+            LOG_INF("OK Key Pressed");
+            k_sem_give(&sem_ok_key_pressed);
+            break;
+        case INPUT_KEY_UP:
+            //m_key_pressed = GPIO_KEYPAD_KEY_UP;
+            LOG_INF("UP Key Pressed");
+            k_sem_give(&sem_up_key_pressed);
+            break;
+        case INPUT_KEY_DOWN:
+            //m_key_pressed = GPIO_KEYPAD_KEY_DOWN;
+            LOG_INF("DOWN Key Pressed");
+            k_sem_give(&sem_down_key_pressed);
+            break;
+        default:
+            break;
+        }
+    }
+}
+INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
+
 void hw_thread(void)
 {
     if (!device_is_ready(max30001_dev))
@@ -394,7 +305,7 @@ void hw_thread(void)
     }
 
     leds_init();
-    buttons_init();
+    //buttons_init();
 
     fs_module_init();
 
