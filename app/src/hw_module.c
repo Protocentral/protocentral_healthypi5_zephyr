@@ -65,10 +65,8 @@ K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
 
-#define MAX30001_DEVICE_NODE DT_ALIAS(max30001)
-const struct device *const max30001_dev = DEVICE_DT_GET(MAX30001_DEVICE_NODE);
-#define AFE4400_DEVICE_NODE DT_ALIAS(afe4400)
-const struct device *const afe4400_dev = DEVICE_DT_GET(AFE4400_DEVICE_NODE);
+const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
+const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 const struct device *fg_dev;
 
@@ -305,14 +303,11 @@ void hw_thread(void)
     }
 
     leds_init();
-    //buttons_init();
-
     fs_module_init();
 
     // init_settings();
 
     printk("HW Thread started\n");
-    // printk("Initing...\n");
 
     k_sem_give(&sem_hw_inited);
 

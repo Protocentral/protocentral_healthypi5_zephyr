@@ -20,9 +20,6 @@
 		zephyr,shell-uart = &uart0; //&cdc_acm_uart0;
 		zephyr,code-partition = &code_partition;
 		zephyr,bt-uart = &uart1;
-		//zephyr,uart-mcumgr = &uart1;//&uart0;
-		//zephyr,display = &ili9488; //&st7789v;
-		//zephyr,keyboard-scan = &kscan_input;
 	};
 
 	leds {
@@ -86,12 +83,6 @@
 
 		watchdog0 = &wdt0;
 		pwm-led0 = &pwm_led0;
-
-		//esp-uart = &uart1;
-
-		max30001 = &max30001;
-		afe4400 = &afe4400;
-		max30205 = &max30205;
 	};
 };
 
@@ -176,8 +167,6 @@
 		reg = <0x6a>;
 	};
 };
-
-
 
 &spi0 {
 	clock-frequency = <DT_FREQ_M(8)>;
