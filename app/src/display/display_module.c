@@ -268,12 +268,12 @@ void hpi_disp_switch_screen(void)
         break;
     case HPI_DISP_SCR_RESP:
         //printk("switch to HRV");
-        printk(" HPI_DISP_SCR_RESP %d\n", HPI_DISP_SCR_RESP);
+        //printk(" HPI_DISP_SCR_RESP %d\n", HPI_DISP_SCR_RESP);
         draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_hrv_screen,false);
         //draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
     case HPI_DISP_SCR_HRV:
-        printk(" HPI_DISP_SCR_HRV %d\n", HPI_DISP_SCR_HRV);
+        //printk(" HPI_DISP_SCR_HRV %d\n", HPI_DISP_SCR_HRV);
         //printk("Switch to ECG");
         draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
@@ -953,6 +953,7 @@ void display_screens_thread(void)
         if (k_msgq_get(&q_hrv_computed_val, &hrv_data, K_NO_WAIT) == 0)
         {
             hpi_disp_update_hrv(hrv_data.hrv_max, hrv_data.hrv_min, hrv_data.mean, hrv_data.sdnn, hrv_data.pnn, hrv_data.rmssd, hrv_data.hrv_ready_flag);
+            printk("flag: %d, mean: %f, max: %d, min: %d, sdnn: %f, pnn: %f, rmssd:%f\n", hrv_data.hrv_ready_flag,hrv_data.mean, hrv_data.hrv_max, hrv_data.hrv_min, hrv_data.sdnn, hrv_data.pnn, hrv_data.rmssd);
 
         }
 

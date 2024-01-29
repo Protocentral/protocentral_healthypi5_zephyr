@@ -274,22 +274,10 @@ void data_thread(void)
 
         dec++;
 
-        //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
         resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
-        //printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
-        /*m_resp_sample_counter++;
-
-        if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
-        {
-            m_resp_sample_counter = 0;
-            computed_data.rr = (uint32_t)globalRespirationRate;
-            //printf("globalRespirationRate: %d\n", globalRespirationRate);
-
-        }*/
-
 
         if (n_buffer_count > 99)
         {
@@ -306,14 +294,6 @@ void data_thread(void)
             computed_data.hr_valid = ch_hr_valid;
 
             calculate_hrv (sensor_sample.hr, &hrv_max, &hrv_min, &hrv_mean, &hrv_sdnn, &hrv_pnn, &hrv_rmssd, &hrv_ready_flag);
-            /*hrv_calculated.hrv_ready_flag = true;
-            hrv_calculated.hrv_max = 65;
-            hrv_calculated.hrv_min = 61;
-            hrv_calculated.mean = 63.0;
-            hrv_calculated.sdnn = 0.4;
-            hrv_calculated.pnn = 0.5;
-            hrv_calculated.rmssd = 1.3;*/
-            
             if (hrv_ready_flag == true)
             {
                 hrv_calculated.hrv_ready_flag = hrv_ready_flag;
@@ -322,10 +302,8 @@ void data_thread(void)
                 hrv_calculated.mean = hrv_mean;
                 hrv_calculated.sdnn = hrv_sdnn;
                 hrv_calculated.pnn = hrv_pnn;
-                hrv_calculated.rmssd = hrv_rmssd;*
-
-                printk("mean: %f, max: %d, min: %d, sdnn: %f, pnn: %f, rmssd:%f\n", hrv_calculated.mean, hrv_calculated.hrv_max, hrv_calculated.hrv_min, hrv_calculated.sdnn, hrv_calculated.pnn, hrv_calculated.rmssd);
-
+                hrv_calculated.rmssd = hrv_rmssd;
+                //printk("mean: %f, max: %d, min: %d, sdnn: %f, pnn: %f, rmssd:%f\n", hrv_calculated.mean, hrv_calculated.hrv_max, hrv_calculated.hrv_min, hrv_calculated.sdnn, hrv_calculated.pnn, hrv_calculated.rmssd);
             }
 
             
