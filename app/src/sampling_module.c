@@ -7,14 +7,14 @@
 #include "sampling_module.h"
 #include "sys_sm_module.h"
 
-//#include "display_screens.h"
+// #include "display_screens.h"
 
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 extern const struct device *const max30205_dev;
 
-#define SAMPLING_INTERVAL_MS          6     // Time between samples in milliseconds  
-#define TEMP_SAMPLING_INTERVAL_COUNT  125   // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
+#define SAMPLING_INTERVAL_MS 6           // Time between samples in milliseconds
+#define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
 K_MSGQ_DEFINE(q_sample, sizeof(struct hpi_sensor_data_t), 100, 1);
 
@@ -24,7 +24,7 @@ void sampling_thread(void)
 
     int sample_count = 0;
 
-    int32_t last_read_temp_value=0;
+    int32_t last_read_temp_value = 0;
 
     for (;;)
     {
@@ -54,15 +54,18 @@ void sampling_thread(void)
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_RED, &red_sample);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_IR, &ir_sample);
 
-        if(sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
+        if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
             sample_count = 0;
             sensor_sample_fetch(max30205_dev);
             struct sensor_value temp_sample;
             sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
             // Convert to degree F
-            last_read_temp_value = (temp_sample.val1 * 9 / 5) + 32000; 
-            //printk("Temp: %d\n", last_read_temp_value);
+            if (temp_sample.val1 > 0)
+            {
+                last_read_temp_value = (temp_sample.val1 * 9 / 5) + 32000;
+            }
+            // printk("Temp: %d\n", last_read_temp_value);
         }
         else
         {
@@ -80,11 +83,9 @@ void sampling_thread(void)
         sensor_sample.rtor = rtor_sample.val1;
         sensor_sample.hr = hr_sample.val1;
 
-        //printk("%d ", sensor_sample.ecg_sample);
+        // printk("%d ", sensor_sample.ecg_sample);
 
         k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
-
-       
 
         // busy loop until next value should be grabbed
         // while (k_timer_status_get(&next_val_timer) <= 0);
