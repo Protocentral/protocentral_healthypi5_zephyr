@@ -52,7 +52,6 @@ lv_obj_t *scr_home;
 lv_obj_t *scr_menu;
 lv_obj_t *scr_charts_all;
 lv_obj_t *scr_charts_single;
-lv_obj_t *scr_hrv;
 
 static lv_style_t style_sub;
 static lv_style_t style_hrv_titles;
@@ -257,7 +256,6 @@ void down_key_event_handler()
 
 void hpi_disp_switch_screen(void)
 {
-    printk("%d\n", hpi_disp_curr_screen);
     switch (hpi_disp_curr_screen)
     {
     case HPI_DISP_SCR_ECG:
@@ -267,14 +265,9 @@ void hpi_disp_switch_screen(void)
         draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp,true);
         break;
     case HPI_DISP_SCR_RESP:
-        //printk("switch to HRV");
-        //printk(" HPI_DISP_SCR_RESP %d\n", HPI_DISP_SCR_RESP);
-        draw_chart_single_scr(HPI_SENSOR_DATA_HRV, scr_hrv_screen,false);
-        //draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
+        draw_hrv_vitals_scr(HPI_SENSOR_DATA_HRV, scr_hrv_screen,false);
         break;
     case HPI_DISP_SCR_HRV:
-        //printk(" HPI_DISP_SCR_HRV %d\n", HPI_DISP_SCR_HRV);
-        //printk("Switch to ECG");
         draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg,true);
         break;
     default:
@@ -714,6 +707,23 @@ void draw_hrv_screen(lv_obj_t *parent)
     lv_obj_add_style(label_rmssd_hrv_sub, &style_sub, LV_STATE_DEFAULT);
 }
 
+void draw_hrv_vitals_scr(uint8_t m_data_type, lv_obj_t *scr_obj,bool default_style)
+{
+    if (scr_obj == NULL)
+    {
+        scr_obj = lv_obj_create(NULL);
+        draw_footer(scr_obj,default_style);
+        draw_header(scr_obj, true);
+        draw_hrv_screen(scr_obj);
+        lv_obj_add_style(scr_obj, &style_scr_back, 0);
+        if (m_data_type == HPI_SENSOR_DATA_HRV)
+        {
+            hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
+        }
+    }
+    lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
+}
+
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_style)
 {
     // lv_obj_clean(scr_obj);
@@ -721,63 +731,48 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj, bool default_
     if (scr_obj == NULL)
     {
         scr_obj = lv_obj_create(NULL);
-        if (default_style == true)
+        draw_footer(scr_obj,default_style);
+        draw_header(scr_obj, true);
+
+        lv_obj_add_style(scr_obj, &style_scr_back, 0);
+
+        // lv_group_t *g1 = lv_group_create();
+
+        // Create Chart 1
+        chart1 = lv_chart_create(scr_obj);
+        lv_obj_set_size(chart1, 460, 180);
+        lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
+
+        lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
+        lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
+        lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
+        lv_chart_set_div_line_count(chart1, 0, 0);
+        lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
+
+        lv_obj_set_pos(chart1, 10, 25);
+
+        lv_obj_t *label_chart_title = lv_label_create(scr_obj);
+
+        if (m_data_type == HPI_SENSOR_DATA_ECG)
         {
-            draw_footer(scr_obj,default_style);
-            draw_header(scr_obj, true);
-
-            lv_obj_add_style(scr_obj, &style_scr_back, 0);
-
-            // lv_group_t *g1 = lv_group_create();
-
-            // Create Chart 1
-            chart1 = lv_chart_create(scr_obj);
-            lv_obj_set_size(chart1, 460, 180);
-            lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
-
-            lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
-            lv_chart_set_point_count(chart1, DISP_WINDOW_SIZE);
-            lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
-            lv_chart_set_div_line_count(chart1, 0, 0);
-            lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
-
-            lv_obj_set_pos(chart1, 10, 25);
-
-            lv_obj_t *label_chart_title = lv_label_create(scr_obj);
-
-            if (m_data_type == HPI_SENSOR_DATA_ECG)
-            {
-                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-                hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
-                lv_label_set_text(label_chart_title, "Showing ECG");
-            }
-            else if (m_data_type == HPI_SENSOR_DATA_PPG)
-            {
-                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
-                hpi_disp_curr_screen = HPI_DISP_SCR_PPG;
-                lv_label_set_text(label_chart_title, "Showing PPG");
-            }
-            else if (m_data_type == HPI_SENSOR_DATA_RESP)
-            {
-                ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
-                hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
-                lv_label_set_text(label_chart_title, "Showing RESP");
-            }
-
-            lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);        }
-        else
+            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+            hpi_disp_curr_screen = HPI_DISP_SCR_ECG;
+            lv_label_set_text(label_chart_title, "Showing ECG");
+        }
+        else if (m_data_type == HPI_SENSOR_DATA_PPG)
         {
-            draw_footer(scr_obj,default_style);
-            draw_header(scr_obj, true);
-            draw_hrv_screen(scr_obj);
-            lv_obj_add_style(scr_obj, &style_scr_back, 0);
-            if (m_data_type == HPI_SENSOR_DATA_HRV)
-            {
-                hpi_disp_curr_screen = HPI_DISP_SCR_HRV;
-            }
-
+            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
+            hpi_disp_curr_screen = HPI_DISP_SCR_PPG;
+            lv_label_set_text(label_chart_title, "Showing PPG");
+        }
+        else if (m_data_type == HPI_SENSOR_DATA_RESP)
+        {
+            ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+            hpi_disp_curr_screen = HPI_DISP_SCR_RESP;
+            lv_label_set_text(label_chart_title, "Showing RESP");
         }
 
+        lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_MID, 0, 20);
     }
 
     lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
