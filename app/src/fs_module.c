@@ -6,7 +6,6 @@
 
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
-#include <zephyr/storage/disk_access.h>
 
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/settings/settings.h>
@@ -30,6 +29,28 @@ static struct fs_mount_t lfs_storage_mnt = {
 };
 
 struct fs_mount_t *mp = &lfs_storage_mnt;
+
+#if defined(CONFIG_FAT_FILESYSTEM_ELM)
+
+#include <ff.h>
+
+/*
+ *  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
+ *  in ffconf.h
+ */
+#define DISK_DRIVE_NAME "SD"
+#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
+
+static FATFS fat_fs;
+/* mounting info */
+static struct fs_mount_t mp_sd = {
+	.type = FS_FATFS,
+	.fs_data = &fat_fs,
+};
+
+#endif /* CONFIG_FAT_FILESYSTEM_ELM */
+
+
 
 static int littlefs_flash_erase(unsigned int id)
 {

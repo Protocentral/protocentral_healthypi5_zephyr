@@ -40,7 +40,7 @@ extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
 static bool settings_send_usb_enabled = true;
-static bool settings_send_ble_enabled = false;
+static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
 static bool settings_log_data_enabled = false;       // true;
@@ -63,13 +63,14 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint32_t globalRespirationRate = 0;
-int32_t resWaveBuff, respFilterout;
+volatile uint8_t globalRespirationRate=0;
+int16_t resWaveBuff,respFilterout;
 long timeElapsed = 0;
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
+
     DataPacket[0] = ecg_sample;
     DataPacket[1] = ecg_sample >> 8;
     DataPacket[2] = ecg_sample >> 16;
@@ -111,13 +112,6 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
         send_usb_cdc(DataPacketHeader, 5);
         send_usb_cdc(DataPacket, DATA_LEN);
         send_usb_cdc(DataPacketFooter, 2);
-    }
-
-    if (settings_send_ble_enabled)
-    {
-        // cmdif_send_ble_data(DataPacketHeader, 5);
-        cmdif_send_ble_data(DataPacket, DATA_LEN);
-        // cmdif_send_ble_data(DataPacketFooter, 2);
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -208,6 +202,8 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
 }
 
 #define TEMP_CALC_BUFFER_LENGTH 125
+#define RESP_CALC_BUFFER_LENGTH 125
+
 
 void data_thread(void)
 {
@@ -232,6 +228,14 @@ void data_thread(void)
 
     int dec = 0;
     volatile int8_t n_buffer_count; // data length
+
+     #define SAMPLE_BUFF_WATERMARK 4
+
+    int32_t ecg_sample_buffer[64];
+    int sample_buffer_count = 0;
+
+    int16_t ppg_sample_buffer[64];
+    int ppg_sample_buffer_count = 0;
 
     for (;;)
     {
@@ -258,30 +262,37 @@ void data_thread(void)
 
         dec++;
 
-        respFilterout = Resp_ProcessCurrSample((int32_t)sensor_sample.bioz_sample);
-        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-        m_resp_sample_counter++;
+        //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
+        resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
+        //printf("resWaveBuff: %d\n", resWaveBuff);
+        respFilterout = Resp_ProcessCurrSample(resWaveBuff);
+        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        computed_data.rr = (uint32_t)globalRespirationRate;
+        /*m_resp_sample_counter++;
 
-        if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
+        if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
         {
             m_resp_sample_counter = 0;
-            computed_data.rr = globalRespirationRate;
-            printf("Respiration: %d\n", globalRespirationRate);
-        }
+            computed_data.rr = (uint32_t)globalRespirationRate;
+            //printf("globalRespirationRate: %d\n", globalRespirationRate);
+
+        }*/
+
 
         if (n_buffer_count > 99)
         {
             n_buffer_count = 0;
 
-            //printf("Calculating SPO2...\n");
+            // printf("Calculating SPO2...\n");
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            //printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
+            // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
-            computed_data.spo2 = n_spo2;
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
             // computed_data.rr = -999;
-            computed_data.hr_valid = ch_hr_valid;
             computed_data.spo2_valid = ch_spo2_valid;
+            computed_data.spo2 = n_spo2;
+            computed_data.hr_valid = ch_hr_valid;
+
 
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
@@ -290,16 +301,9 @@ void data_thread(void)
             respFilterout = Resp_ProcessCurrSample((int16_t)(sensor_sample.bioz_sample >> 16));
             RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
 
-            m_resp_sample_counter++;
-
-            if (m_resp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
-            {
-                m_resp_sample_counter = 0;
-                computed_data.rr = globalRespirationRate;
-            }
+            k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 
-        k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
@@ -307,7 +311,7 @@ void data_thread(void)
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
                 sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+                         (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
@@ -319,6 +323,26 @@ void data_thread(void)
 #ifdef CONFIG_DISPLAY
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
 #endif
+
+#ifdef CONFIG_BT
+        if (settings_send_ble_enabled)
+        {
+            ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
+            if(sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            {
+                ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
+                sample_buffer_count = 0;
+            }
+
+            ppg_sample_buffer[ppg_sample_buffer_count++] = ((int16_t)(sensor_sample.raw_ir>>16));
+            if(ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            {
+                ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
+                ppg_sample_buffer_count = 0;
+            }
+        }
+#endif
+
         /****** Send to log queue if enabled ******/
 
         if (settings_log_data_enabled)
@@ -331,7 +355,7 @@ void data_thread(void)
     }
 }
 
-#define DATA_THREAD_STACKSIZE 2048
+#define DATA_THREAD_STACKSIZE 4096
 #define DATA_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
