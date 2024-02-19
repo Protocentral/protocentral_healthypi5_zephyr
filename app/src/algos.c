@@ -486,12 +486,12 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
         SampleCount = 0;
       }
       
-      if (PtiveEdgeDetected == 1)
+      if (PtiveEdgeDetected ==1)
       {
         PtiveEdgeDetected = 0;
-
+        
         PeakCount[peakCount++] = PtiveCnt;
-          
+        
         if( peakCount == 8)
         {
           peakCount = 0;
