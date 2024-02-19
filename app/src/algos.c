@@ -486,38 +486,21 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
         SampleCount = 0;
       }
       
-      if (PrevPrevPrevSample < AvgThreshold && Resp_wave > AvgThreshold)
-      {
-        
-        if ( SampleCountNtve > 40 &&  SampleCountNtve < 700)
-        {
-          NtiveEdgeDetected = 1;
-          NtiveCnt = SampleCountNtve;
-          skipCount = 4;
-        }
-        
-        SampleCountNtve = 0;
-      }
-      
-      if (PtiveEdgeDetected ==1 && NtiveEdgeDetected ==1)
+      if (PtiveEdgeDetected == 1)
       {
         PtiveEdgeDetected = 0;
-        NtiveEdgeDetected =0;
-        
-        if (abs(PtiveCnt - NtiveCnt) < 5)
-        {
-          PeakCount[peakCount++] = PtiveCnt;
-          PeakCount[peakCount++] = NtiveCnt;
+
+        PeakCount[peakCount++] = PtiveCnt;
           
-          if( peakCount == 8)
-          {
-            peakCount = 0;
-            PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
-            PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
-            PtiveCnt = PtiveCnt >> 3;
-            Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
-          }
+        if( peakCount == 8)
+        {
+          peakCount = 0;
+          PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
+          PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
+          PtiveCnt = PtiveCnt >> 3;
+          Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
         }
+        
       }
     
     }else{
