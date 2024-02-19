@@ -262,9 +262,7 @@ void data_thread(void)
 
         dec++;
 
-        //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
         resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
-        //printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;

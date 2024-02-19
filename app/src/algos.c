@@ -427,6 +427,8 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
   SampleCount++;
   SampleCountNtve++;
   TimeCnt++; 
+
+  //printk("%d\n",Resp_wave);
   
   if (Resp_wave < MinThresholdNew) 
   {
@@ -494,11 +496,20 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
         
         if( peakCount == 8)
         {
-          peakCount = 0;
-          PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
-          PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
+          //peakCount = 0;
+          PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
           PtiveCnt = PtiveCnt >> 3;
-          Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
+          peakCount = 7;
+
+          for (int i=0;i<7;i++)
+          {
+            PeakCount[i] = PeakCount[i+1];
+          }
+
+          if (6000/PtiveCnt <= 40)
+          {
+            Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
+          }
         }
         
       }
