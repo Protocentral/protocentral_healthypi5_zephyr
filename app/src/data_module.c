@@ -62,6 +62,8 @@ struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
+int16_t respiration_sample_min = 0;
+int m_resp_sample_counter = 0;
 
 volatile uint8_t globalRespirationRate=0;
 int16_t resWaveBuff,respFilterout;
@@ -215,7 +217,7 @@ void data_thread(void)
     record_init_session_log();
 
     int m_temp_sample_counter = 0;
-    int m_resp_sample_counter = 0;
+    
 
     int32_t n_spo2;       // SPO2 value
     int32_t n_heart_rate; // heart rate value
@@ -263,10 +265,23 @@ void data_thread(void)
         dec++;
 
         resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
-        respFilterout = Resp_ProcessCurrSample(resWaveBuff);
-        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
-        computed_data.rr = (uint32_t)globalRespirationRate;
-        /*m_resp_sample_counter++;
+        printk("%d\n",resWaveBuff);
+        if (m_resp_sample_counter < RESP_CALC_BUFFER_LENGTH)
+        {
+            if (resWaveBuff < respiration_sample_min)
+                respiration_sample_min = resWaveBuff;
+            m_resp_sample_counter++;
+        }
+        else
+        {
+            if (respiration_sample_min < 0)
+                resWaveBuff = resWaveBuff + (-1 * respiration_sample_min);
+
+            respFilterout = Resp_ProcessCurrSample(resWaveBuff);
+            RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+            computed_data.rr = (uint32_t)globalRespirationRate;
+        }
+            /*m_resp_sample_counter++;
 
         if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
         {

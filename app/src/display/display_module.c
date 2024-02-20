@@ -740,10 +740,10 @@ void display_screens_thread(void)
 
         if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
         {
-            printk("Got computed data");
-            printk("SpO2: %d", computed_data.spo2);
-            printk("HR: %d", computed_data.hr);
-            printk("RR: %d\n", computed_data.rr);
+            //printk("Got computed data");
+            //printk("SpO2: %d", computed_data.spo2);
+            //printk("HR: %d", computed_data.hr);
+            //printk("RR: %d\n", computed_data.rr);
 
             // hpi_disp_update_hr(computed_data.hr);
             hpi_disp_update_spo2(computed_data.spo2);
