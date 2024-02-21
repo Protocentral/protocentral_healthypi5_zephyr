@@ -63,7 +63,9 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 int16_t respiration_sample_min = 0;
+int16_t respiration_sample_sum, respiration_sample_mean ;
 int m_resp_sample_counter = 0;
+float resp_dc_component;
 
 volatile uint8_t globalRespirationRate=0;
 int16_t resWaveBuff,respFilterout;
@@ -260,16 +262,18 @@ void data_thread(void)
             aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
             n_buffer_count++;
             dec = 0;
+            
         }
 
         dec++;
 
         resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
-        printk("%d\n",resWaveBuff);
+        //printk("%d\n",resWaveBuff);
         if (m_resp_sample_counter < RESP_CALC_BUFFER_LENGTH)
         {
             if (resWaveBuff < respiration_sample_min)
                 respiration_sample_min = resWaveBuff;
+            respiration_sample_sum += resWaveBuff;
             m_resp_sample_counter++;
         }
         else
@@ -277,26 +281,18 @@ void data_thread(void)
             if (respiration_sample_min < 0)
                 resWaveBuff = resWaveBuff + (-1 * respiration_sample_min);
 
-            respFilterout = Resp_ProcessCurrSample(resWaveBuff);
+            resp_dc_component = respiration_sample_sum / 125;
+            respFilterout = Resp_ProcessCurrSample(resWaveBuff - resp_dc_component);
             RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
             computed_data.rr = (uint32_t)globalRespirationRate;
         }
-            /*m_resp_sample_counter++;
-
-        if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
-        {
-            m_resp_sample_counter = 0;
-            computed_data.rr = (uint32_t)globalRespirationRate;
-            //printf("globalRespirationRate: %d\n", globalRespirationRate);
-
-        }*/
-
 
         if (n_buffer_count > 99)
         {
             n_buffer_count = 0;
 
             // printf("Calculating SPO2...\n");
+            
             hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
             // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
