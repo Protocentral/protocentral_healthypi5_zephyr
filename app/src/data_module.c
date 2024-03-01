@@ -62,11 +62,11 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate=0;
-int16_t resWaveBuff,respFilterout;
+volatile uint8_t globalRespirationRate = 0;
+int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
 
-//Externs
+// Externs
 extern struct k_msgq q_sample;
 extern struct k_msgq q_plot;
 extern const struct device *const max30001_dev;
@@ -206,9 +206,6 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
     log_buffer[current_session_log_counter].temp = temp;
 }
 
-
-
-
 void data_thread(void)
 {
     printk("Data Thread starting\n");
@@ -267,11 +264,11 @@ void data_thread(void)
 
         dec++;
 
-        //printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
-        resWaveBuff = (int16_t)(sensor_sample.bioz_sample>>4) ;
-        //printf("resWaveBuff: %d\n", resWaveBuff);
+        // printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
+        resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
+        // printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
-        RESP_Algorithm_Interface(respFilterout,&globalRespirationRate);
+        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
         /*m_resp_sample_counter++;
 
@@ -282,7 +279,6 @@ void data_thread(void)
             //printf("globalRespirationRate: %d\n", globalRespirationRate);
 
         }*/
-
 
         if (n_buffer_count > 99)
         {
@@ -298,15 +294,14 @@ void data_thread(void)
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
 
-
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
+            
 #endif
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
-
 
         /***** Send to USB if enabled *****/
         if (settings_send_usb_enabled)
@@ -327,33 +322,31 @@ void data_thread(void)
         k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
 #endif
 
-//#ifdef CONFIG_BT
+#ifdef CONFIG_BT
         if (settings_send_ble_enabled)
         {
             ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
-            if(sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            if (sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
             {
                 ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
                 sample_buffer_count = 0;
             }
 
-            ppg_sample_buffer[ppg_sample_buffer_count++] = ((int16_t)(sensor_sample.raw_ir>>16));
-            if(ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            ppg_sample_buffer[ppg_sample_buffer_count++] = ((int16_t)(sensor_sample.raw_ir >> 16));
+            if (ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
             {
                 ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
                 ppg_sample_buffer_count = 0;
             }
 
             resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_sample;
-            if(resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+            if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
             {
                 ble_resp_notify(resp_sample_buffer, resp_sample_buffer_count);
                 resp_sample_buffer_count = 0;
             }
-
-
         }
-//#endif
+#endif
 
         /****** Send to log queue if enabled ******/
 
