@@ -50,6 +50,10 @@ static struct bt_uuid_128 hpi_ppg_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCOD
 // cd5c1525-4448-7db8-ae4c-d1da8cba36d0
 static struct bt_uuid_128 hpi_ppg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5c1525, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
 
+// Resp rate Characteristic
+//  cd5ca86f-4448-7db8-ae4c-d1da8cba36d0
+static struct bt_uuid_128 hpi_resp_rate_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5ca86f, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
 }
@@ -115,16 +119,20 @@ BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
 											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_WRITE,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, &ecg_char_val),
-					   /*BT_GATT_CHARACTERISTIC(&hpi_resp_char_uuid.uuid,
-											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY ,
+					   BT_GATT_CHARACTERISTIC(&hpi_resp_char_uuid.uuid,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 											  BT_GATT_PERM_READ,
-											  NULL, NULL, &resp_char_val),*/
+											  NULL, NULL, &resp_char_val),
 					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
 BT_GATT_SERVICE_DEFINE(hpi_ppg_service,
 					   BT_GATT_PRIMARY_SERVICE(&hpi_ppg_serv_uuid),
 					   BT_GATT_CHARACTERISTIC(&hpi_ppg_char_uuid.uuid,
+											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+											  BT_GATT_PERM_READ,
+											  NULL, NULL, NULL),
+					   BT_GATT_CHARACTERISTIC(&hpi_resp_rate_char_uuid.uuid,
 											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, NULL),
@@ -142,6 +150,11 @@ void ble_spo2_notify(uint16_t spo2_val)
 	bt_gatt_notify(NULL, &hpi_spo2_service.attrs[2], &spo2_att_ble, sizeof(spo2_att_ble));
 }
 
+void ble_resp_rate_notify(uint16_t resp_rate)
+{
+	bt_gatt_notify(NULL, &hpi_ppg_service.attrs[3], &resp_rate, sizeof(resp_rate));
+}
+
 void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 {
 	uint8_t out_data[128];
@@ -156,6 +169,22 @@ void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 
 	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
 	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
+}
+
+void ble_resp_notify(int32_t *resp_data, uint8_t len)
+{
+	uint8_t out_data[128];
+
+	for (int i = 0; i < len; i++)
+	{
+		out_data[i * 4] = (uint8_t)resp_data[i];
+		out_data[i * 4 + 1] = (uint8_t)(resp_data[i] >> 8);
+		out_data[i * 4 + 2] = (uint8_t)(resp_data[i] >> 16);
+		out_data[i * 4 + 3] = (uint8_t)(resp_data[i] >> 24);
+	}
+
+	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
+	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[2], &out_data, len * 4);
 }
 
 void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
