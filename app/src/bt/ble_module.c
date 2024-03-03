@@ -134,7 +134,9 @@ BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, NULL),
 					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
-								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
+								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+
+);
 
 BT_GATT_SERVICE_DEFINE(hpi_ppg_resp_service,
 					   BT_GATT_PRIMARY_SERVICE(UUID_HPI_PPG_SERV),
@@ -142,7 +144,7 @@ BT_GATT_SERVICE_DEFINE(hpi_ppg_resp_service,
 											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, NULL),
-					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
+					   BT_GATT_CCC(spo2_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 					   BT_GATT_CHARACTERISTIC(UUID_HPI_RESP_RATE_CHAR,
 											  BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
