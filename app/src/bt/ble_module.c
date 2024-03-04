@@ -30,35 +30,22 @@ static uint8_t temp_att_ble[2];
 #define HPI_TEMP_SERVICE BT_UUID_DECLARE_16(BT_UUID_HTS_VAL)
 #define HPI_TEMP_CHAR BT_UUID_DECLARE_16(BT_UUID_TEMPERATURE_VAL)
 
-// ECG/Resp Service
-// 00001122-0000-1000-8000-00805f9b34fb
-// static struct bt_uuid_128 hpi_ecg_resp_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001122, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
-
+// ECG/Resp Service 00001122-0000-1000-8000-00805f9b34fb
 #define UUID_HPI_ECG_RESP_SERV BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x00001122, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb))
 
-// ECG Characteristic
-// 00001424-0000-1000-8000-00805f9b34fb
-// static struct bt_uuid_128 hpi_ecg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0x00001424, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
+// ECG Characteristic 00001424-0000-1000-8000-00805f9b34fb
 #define UUID_HPI_ECG_CHAR BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x00001424, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb))
 
-// RESP Characteristic
-// babe4a4c-7789-11ed-a1eb-0242ac120002
-// static struct bt_uuid_128 hpi_resp_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xbabe4a4c, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb));
+// RESP Characteristic babe4a4c-7789-11ed-a1eb-0242ac120002
 #define UUID_HPI_RESP_CHAR BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xbabe4a4c, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb))
 
-// PPG Service
-// cd5c7491-4448-7db8-ae4c-d1da8cba36d0
-// static struct bt_uuid_128 hpi_ppg_serv_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5c7491, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+// PPG Service cd5c7491-4448-7db8-ae4c-d1da8cba36d0
 #define UUID_HPI_PPG_SERV BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xcd5c7491, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0))
 
-// PPG Characteristic
-// cd5c1525-4448-7db8-ae4c-d1da8cba36d0
-// static struct bt_uuid_128 hpi_ppg_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5c1525, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+// PPG Characteristic cd5c1525-4448-7db8-ae4c-d1da8cba36d0
 #define UUID_HPI_PPG_CHAR BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xcd5c1525, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0))
 
-// Resp rate Characteristic
-//  cd5ca86f-4448-7db8-ae4c-d1da8cba36d0
-// static struct bt_uuid_128 hpi_resp_rate_char_uuid = BT_UUID_INIT_128(BT_UUID_128_ENCODE(0xcd5ca86f, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0));
+// Resp rate Characteristic cd5ca86f-4448-7db8-ae4c-d1da8cba36d0
 #define UUID_HPI_RESP_RATE_CHAR BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xcd5ca86f, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0))
 
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
@@ -90,9 +77,6 @@ static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t v
 		printk("Error, CCCD has been set to an invalid value");
 	}
 }
-
-static int ecg_char_val;
-static int resp_char_val;
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -134,9 +118,7 @@ BT_GATT_SERVICE_DEFINE(hpi_ecg_resp_service,
 											  BT_GATT_PERM_READ,
 											  NULL, NULL, NULL),
 					   BT_GATT_CCC(ecg_resp_on_cccd_changed,
-								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-
-);
+								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
 
 BT_GATT_SERVICE_DEFINE(hpi_ppg_resp_service,
 					   BT_GATT_PRIMARY_SERVICE(UUID_HPI_PPG_SERV),
@@ -181,7 +163,6 @@ void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(ecg_data[i] >> 24);
 	}
 
-	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
 	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
 }
 
@@ -197,7 +178,6 @@ void ble_resp_notify(int32_t *resp_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(resp_data[i] >> 24);
 	}
 
-	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
 	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
 }
 
@@ -211,7 +191,6 @@ void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
 		out_data[i * 2 + 1] = (uint8_t)(ppg_data[i] >> 8);
 	}
 
-	// Attribute table: 0 = Service, 1 = Primary service, 2 = ECG, 3 = RESP, 4 = CCC
 	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[1], &out_data, len * 2);
 }
 
