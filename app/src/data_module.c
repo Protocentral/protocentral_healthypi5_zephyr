@@ -297,6 +297,7 @@ void data_thread(void)
 #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
+            ble_resp_rate_notify(computed_data.rr);
             
 #endif
 
@@ -332,7 +333,7 @@ void data_thread(void)
                 sample_buffer_count = 0;
             }
 
-            ppg_sample_buffer[ppg_sample_buffer_count++] = ((int16_t)(sensor_sample.raw_ir >> 16));
+            ppg_sample_buffer[ppg_sample_buffer_count++] = (int16_t)((sensor_sample.raw_ir/1000));
             if (ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
             {
                 ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
