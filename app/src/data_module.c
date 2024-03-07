@@ -62,6 +62,10 @@ uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
+int16_t respiration_sample_min = 0;
+int16_t respiration_sample_sum, respiration_sample_mean ;
+int m_resp_sample_counter = 0;
+float resp_dc_component;
 volatile uint8_t globalRespirationRate = 0;
 int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
@@ -265,20 +269,31 @@ void data_thread(void)
         dec++;
 
         // printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
-        resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
-        // printf("resWaveBuff: %d\n", resWaveBuff);
-        respFilterout = Resp_ProcessCurrSample(resWaveBuff);
+        /*resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
+        respFilterout = Resp_Low_Pass_Filter(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-        computed_data.rr = (uint32_t)globalRespirationRate;
-        /*m_resp_sample_counter++;
+        computed_data.rr = (uint32_t)globalRespirationRate;*/
 
-        if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
+        resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
+        
+        if (m_resp_sample_counter < RESP_CALC_BUFFER_LENGTH)
         {
-            m_resp_sample_counter = 0;
-            computed_data.rr = (uint32_t)globalRespirationRate;
-            //printf("globalRespirationRate: %d\n", globalRespirationRate);
+            if (resWaveBuff < respiration_sample_min)
+                respiration_sample_min = resWaveBuff;
+            respiration_sample_sum += resWaveBuff;
+            m_resp_sample_counter++;
+        }
+        else
+        {
+            if (respiration_sample_min < 0)
+                resWaveBuff = resWaveBuff + (-1 * respiration_sample_min);
 
-        }*/
+            resp_dc_component = respiration_sample_sum / 125;
+            resWaveBuff = Resp_ProcessCurrSample(resWaveBuff - resp_dc_component);
+            RESP_Algorithm_Interface(resWaveBuff,&globalRespirationRate);
+            computed_data.rr = (uint32_t)globalRespirationRate;
+        }
+
 
         if (n_buffer_count > 99)
         {
