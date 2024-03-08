@@ -250,7 +250,7 @@ void data_thread(void)
         {
             m_temp_sample_counter = 0;
 #ifdef CONFIG_BT
-            ble_temp_notify(sensor_sample.temp);
+            ble_temp_notify((int16_t)sensor_sample.temp);
 #endif
         }
 
