@@ -63,9 +63,9 @@ void sampling_thread(void)
             // Convert to degree F
             if (temp_sample.val1 > 0)
             {
-                last_read_temp_value = (temp_sample.val1 * 9 / 5) + 32000;
+                last_read_temp_value = temp_sample.val1;//(temp_sample.val1 * 9 / 5) + 32000;
             }
-            // printk("Temp: %d\n", last_read_temp_value);
+            //printk("Temp: %d\n", last_read_temp_value);
         }
         else
         {

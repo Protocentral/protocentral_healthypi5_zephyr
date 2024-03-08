@@ -194,13 +194,17 @@ void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
 	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[1], &out_data, len * 2);
 }
 
-void ble_temp_notify(uint16_t temp_val)
+void ble_temp_notify(int16_t temp_val)
 {
-	temp_val = temp_val / 10;
-	temp_att_ble[0] = (uint8_t)temp_val;
-	temp_att_ble[1] = (uint8_t)(temp_val >> 8);
 
-	bt_gatt_notify(NULL, &hpi_temp_service.attrs[2], &temp_att_ble, sizeof(temp_att_ble));
+	uint16_t temp_val_uint16 = temp_val;
+
+	temp_val_uint16 = temp_val_uint16/10;
+
+	temp_att_ble[0] = temp_val_uint16 & 0xFF;
+	temp_att_ble[1] = (temp_val_uint16 >> 8) & 0xFF;
+
+	bt_gatt_notify(NULL, &hpi_temp_service.attrs[1], &temp_att_ble, sizeof(temp_att_ble));
 }
 
 void ble_hrs_notify(uint16_t hr_val)
