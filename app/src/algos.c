@@ -51,7 +51,7 @@ int16_t  RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    1
                                        24,     38,     52,     65,     77,     88,     97,    106,    113,
                                       118,    122,    125,    127,    127,    126,    124,    120   };
 
-void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
+void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, uint16_t power_ir_average,int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
 
   uint32_t un_ir_mean;
@@ -77,6 +77,14 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   }
 
   un_ir_mean = un_ir_mean / n_ir_buffer_length;
+
+  if ((un_ir_mean - power_ir_average) < 100)
+  {
+    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
+    *pch_spo2_valid = 0;
+    return;
+  }
+
 
   // remove DC and invert signal so that we can use peak detector as valley detector
   for (k = 0; k < n_ir_buffer_length; k++)
@@ -117,6 +125,7 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
 
   // since we flipped signal, we use peak detector as valley detector
   hpi_find_peak(an_ir_valley_locs, &n_npks, an_x, BUFFER_SIZE, n_th1, 4, 15); // peak_height, peak_distance, max_num_peaks
+  
   n_peak_interval_sum = 0;
 
   if (n_npks >= 2)

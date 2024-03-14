@@ -222,12 +222,17 @@ void data_thread(void)
 
     uint16_t aun_ir_buffer[100];  // infrared LED sensor data
     uint16_t aun_red_buffer[100]; // red LED sensor data
+    uint16_t power_ir_buffer[32];
+    uint16_t power_ir_average;
 
     int8_t ch_spo2_valid; // indicator to show if the SPO2 calculation is valid
     int8_t ch_hr_valid;   // indicator to show if the heart rate calculation is valid
 
     int dec = 0;
     volatile int8_t n_buffer_count; // data length
+    volatile int8_t power_ir_buffer_count; // data length
+    
+    bool power_up_data_ready = false;
 
      #define SAMPLE_BUFF_WATERMARK 4
 
@@ -252,12 +257,36 @@ void data_thread(void)
 #endif
         }
 
+        /*printf("raw_ir %d raw_red %d\n",(uint16_t)sensor_sample.raw_ir,(uint16_t)sensor_sample.raw_red);
+
+        aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
+        aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
+        n_buffer_count++;*/
+
         if (dec == 20)
         {
             aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
             aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
             n_buffer_count++;
             dec = 0;
+        }
+
+        if (power_ir_buffer_count < 32)
+        {
+            power_ir_buffer[power_ir_buffer_count] = (uint16_t)sensor_sample.raw_ir;
+            power_ir_buffer_count++;
+        }
+        else
+        {
+            if (power_up_data_ready == false)
+            {
+                for (int i=0;i<32;i++)
+                {
+                    power_ir_average += power_ir_buffer[i];
+                }
+                power_ir_average = power_ir_average/32;
+                power_up_data_ready = true; 
+            }
         }
 
         dec++;
@@ -281,10 +310,11 @@ void data_thread(void)
 
         if (n_buffer_count > 99)
         {
+            //n_buffer_count = 75;
             n_buffer_count = 0;
 
             // printf("Calculating SPO2...\n");
-            hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
+            hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, power_ir_average,&n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
             // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
 
             computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
@@ -292,6 +322,12 @@ void data_thread(void)
             computed_data.spo2_valid = ch_spo2_valid;
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
+
+            /*for (int i=0;i<75;i++)
+            {
+                aun_ir_buffer[n_buffer_count] = aun_ir_buffer[n_buffer_count+25];
+                aun_red_buffer[n_buffer_count] = aun_red_buffer[n_buffer_count+25];
+            }*/
 
 
 #ifdef CONFIG_BT
