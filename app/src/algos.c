@@ -64,9 +64,11 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   int32_t n_spo2_calc;
   int32_t n_y_dc_max, n_x_dc_max;
   int32_t n_y_dc_max_idx = 0;
+  int32_t probe_error_count = 0;
   int32_t n_x_dc_max_idx = 0;
   int32_t an_ratio[5], n_ratio_average;
   int32_t n_nume, n_denom;
+  static uint16_t probeErrorThreshold = 9500;
 
   // calculates DC mean and subtract DC from ir
   un_ir_mean = 0;
@@ -74,11 +76,15 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     un_ir_mean += pun_ir_buffer[k];
+    if (pun_ir_buffer[k] <= probeErrorThreshold)
+      probe_error_count++;
   }
-
+  
   un_ir_mean = un_ir_mean / n_ir_buffer_length;
+  //printk("un_ir_mean %d power_ir_average %d probe_error_count %d",un_ir_mean,power_ir_average,probe_error_count);
 
-  if ((un_ir_mean - power_ir_average) < 100)
+  
+  if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50))
   {
     *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
     *pch_spo2_valid = 0;

@@ -223,7 +223,8 @@ void data_thread(void)
     uint16_t aun_ir_buffer[100];  // infrared LED sensor data
     uint16_t aun_red_buffer[100]; // red LED sensor data
     uint16_t power_ir_buffer[32];
-    uint16_t power_ir_average;
+    static uint16_t power_ir_average= 0; 
+
 
     int8_t ch_spo2_valid; // indicator to show if the SPO2 calculation is valid
     int8_t ch_hr_valid;   // indicator to show if the heart rate calculation is valid
@@ -257,9 +258,8 @@ void data_thread(void)
 #endif
         }
 
-        /*printf("raw_ir %d raw_red %d\n",(uint16_t)sensor_sample.raw_ir,(uint16_t)sensor_sample.raw_red);
 
-        aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
+        /*aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
         aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
         n_buffer_count++;*/
 
@@ -267,6 +267,8 @@ void data_thread(void)
         {
             aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
             aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
+            //printf("raw_ir %d raw_red %d\n",(uint16_t)sensor_sample.raw_ir,(uint16_t)sensor_sample.raw_red);
+            
             n_buffer_count++;
             dec = 0;
         }
