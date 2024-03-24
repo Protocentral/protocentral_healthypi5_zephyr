@@ -40,18 +40,22 @@ K_SEM_DEFINE(sem_hw_inited, 0, 1);
 #define HW_THREAD_STACKSIZE 1024
 #define HW_THREAD_PRIORITY 7
 
-// Peripheral Device Pointers
-const struct device *fg_dev;
-
-// GPIO LEDs
+// GPIO LEDs and switches
 static const struct gpio_dt_spec led_green = GPIO_DT_SPEC_GET(DT_ALIAS(ledgreen), gpios);
 static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), gpios);
-
-#define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
-
-const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
-
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
+
+// USB CDC UART
+static const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
+
+static const struct device *const rpi_uart_dev = DEVICE_DT_GET(DT_ALIAS(rpi_uart));
+
+// Peripheral Device Pointers
+const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
+const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
+const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
+const struct device *const fg_dev =  DEVICE_DT_GET_ANY(maxim_max17048);;
+
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
@@ -64,11 +68,6 @@ K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
 #define RING_BUF_SIZE 1024
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
-
-const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
-const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
-const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
-const struct device *fg_dev;
 
 uint8_t global_batt_level = 0;
 
@@ -276,6 +275,15 @@ static void gpio_keys_cb_handler(struct input_event *evt)
 }
 INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
+void rpi_uart_send(uint8_t *buf, uint16_t len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        uart_poll_out(rpi_uart_dev, buf[i]);
+    }
+}
+
+
 void hw_thread(void)
 {
     if (!device_is_ready(max30001_dev))
@@ -296,10 +304,15 @@ void hw_thread(void)
         // return;
     }
 
-    fg_dev = DEVICE_DT_GET_ANY(maxim_max17048);
+
     if (!device_is_ready(fg_dev))
     {
         printk("No device found...\n");
+    }
+
+    if(!device_is_ready(rpi_uart_dev))
+    {
+        printk("RPI UART not found\n");
     }
 
     leds_init();

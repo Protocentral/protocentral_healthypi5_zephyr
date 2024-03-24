@@ -51,7 +51,7 @@ const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, 
 
 static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
-static bool settings_send_rpi_uart_enabled = false;
+static bool settings_send_rpi_uart_enabled = true;
 
 static bool settings_log_data_enabled = false;       // true;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
@@ -121,9 +121,9 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
 
     if (settings_send_rpi_uart_enabled)
     {
-        // send_rpi_uart(DataPacketHeader, 5);
-        // send_rpi_uart(DataPacket, DATA_LEN);
-        // send_rpi_uart(DataPacketFooter, 2);
+        rpi_uart_send(DataPacketHeader, 5);
+        rpi_uart_send(DataPacket, DATA_LEN);
+        rpi_uart_send(DataPacketFooter, 2);
     }
 }
 
