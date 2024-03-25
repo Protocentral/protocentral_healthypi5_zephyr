@@ -26,8 +26,6 @@
 #define CES_CMDIF_PKT_STOP 0x0B
 #define DATA_LEN 22
 
-#define SAMPLING_FREQ 104 // in Hz.
-
 #define LOG_SAMPLE_RATE_SPS 125
 #define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
 #define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
@@ -37,24 +35,16 @@
 
 #define SAMPLE_BUFF_WATERMARK 4
 
-K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
-
-enum hpi5_data_format
-{
-    DATA_FMT_OPENVIEW,
-    DATA_FMT_PLAIN_TEXT,
-} hpi5_data_format_t;
+// Operating mode settings
+static bool settings_send_usb_enabled = true;
+static bool settings_send_ble_enabled = true;
+static bool settings_send_rpi_uart_enabled = true;
+static bool settings_log_data_enabled = false;       // true;
+static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 char DataPacket[DATA_LEN];
 const char DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
-
-static bool settings_send_usb_enabled = true;
-static bool settings_send_ble_enabled = true;
-static bool settings_send_rpi_uart_enabled = true;
-
-static bool settings_log_data_enabled = false;       // true;
-static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 
@@ -65,6 +55,8 @@ char session_id_str[15];
 volatile uint8_t globalRespirationRate = 0;
 int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
+
+K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
 
 // Externs
 extern struct k_msgq q_sample;
@@ -213,8 +205,6 @@ void data_thread(void)
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
 
-    record_init_session_log();
-
     int m_temp_sample_counter = 0;
     int m_resp_sample_counter = 0;
 
@@ -238,6 +228,8 @@ void data_thread(void)
 
     int32_t resp_sample_buffer[64];
     int resp_sample_buffer_count = 0;
+
+    record_init_session_log();
 
     for (;;)
     {
