@@ -18,6 +18,7 @@ int16_t RESP_WorkingBuff[2 * FILTERORDER];
 int16_t Pvev_DC_Sample=0, Pvev_Sample=0;
 
 static int32_t an_x[BUFFER_SIZE];
+static int32_t an_x_1[BUFFER_SIZE];
 static int32_t an_y[BUFFER_SIZE];
 
 const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97, 98, 98, 98, 98, 98, 99, 99, 99, 99,
@@ -64,40 +65,64 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   int32_t n_spo2_calc;
   int32_t n_y_dc_max, n_x_dc_max;
   int32_t n_y_dc_max_idx = 0;
-  int32_t probe_error_count = 0;
+  int32_t probe_error_count;
   int32_t n_x_dc_max_idx = 0;
   int32_t an_ratio[5], n_ratio_average;
   int32_t n_nume, n_denom;
-  static uint16_t probeErrorThreshold = 9500;
+  static uint16_t probeErrorMinThreshold = 9500;
+  static uint16_t probeErrorMaxThreshold = 60000;
+  uint16_t slope_ppg;
+
 
   // calculates DC mean and subtract DC from ir
   un_ir_mean = 0;
+  probe_error_count = 0;
 
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     un_ir_mean += pun_ir_buffer[k];
-    if (pun_ir_buffer[k] <= probeErrorThreshold)
-      probe_error_count++;
+    //if ((pun_ir_buffer[k] <= probeErrorMinThreshold))
+    //  probe_error_count++;
   }
   
   un_ir_mean = un_ir_mean / n_ir_buffer_length;
   //printk("un_ir_mean %d power_ir_average %d probe_error_count %d",un_ir_mean,power_ir_average,probe_error_count);
 
-  
-  if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50))
+  /*if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50)) || (slope_ppg==0)
   {
     *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
     *pch_spo2_valid = 0;
     return;
-  }
-
+  }*/
 
   // remove DC and invert signal so that we can use peak detector as valley detector
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     an_x[k] = -1 * (pun_ir_buffer[k] - un_ir_mean);
+    an_x_1[k] = (pun_ir_buffer[k] - un_ir_mean);
+    if (((uint16_t)an_x[k] <= probeErrorMinThreshold))
+      probe_error_count++;
   }
 
+  slope_ppg = (uint16_t)(((uint16_t)an_x_1[99] - (uint16_t)an_x_1[0]) / 99);
+  if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50) || (slope_ppg == 0))
+  {
+    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
+    *pch_spo2_valid = 0;
+    *pn_heart_rate = 0;
+    *pch_hr_valid = 0;
+    return;
+  }
+  
+
+  /*if (slope_ppg==0)
+  {
+    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
+    *pch_spo2_valid = 0;
+    return;
+  }*/
+
+  
   // 4 pt Moving Average
   for (k = 0; k < BUFFER_SIZE - MA4_SIZE; k++)
   {
