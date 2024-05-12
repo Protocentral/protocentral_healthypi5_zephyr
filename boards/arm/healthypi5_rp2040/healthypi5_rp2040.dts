@@ -168,6 +168,15 @@
 	};
 };
 
+&timer {
+	status = "okay";
+};
+
+&clocks {
+	pinctrl-0 = <&clocks_default>;
+	pinctrl-names = "default";
+};
+
 &spi0 {
 	clock-frequency = <DT_FREQ_M(8)>;
 	status = "okay";
@@ -223,9 +232,6 @@
 };
 
 zephyr_udc0: &usbd {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-	};
 	status = "okay";
 };
 
