@@ -199,7 +199,7 @@ void ble_temp_notify(int16_t temp_val)
 
 	uint16_t temp_val_uint16 = temp_val;
 
-	temp_val_uint16 = temp_val_uint16/10;
+	temp_val_uint16 = temp_val_uint16 / 10;
 
 	temp_att_ble[0] = temp_val_uint16 & 0xFF;
 	temp_att_ble[1] = (temp_val_uint16 >> 8) & 0xFF;
