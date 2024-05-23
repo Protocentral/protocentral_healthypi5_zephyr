@@ -68,4 +68,7 @@
 			input-enable;
 		};
 	};
+	
+	clocks_default: clocks_default {
+	};
 };
