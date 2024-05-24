@@ -64,7 +64,7 @@
 
 	adc_default: adc_default {
 		group1 {
-			pinmux = <ADC_CH1_P27>, <ADC_CH2_P28>;
+			pinmux = <ADC_CH2_P28>;
 			input-enable;
 		};
 	};
