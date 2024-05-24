@@ -15,7 +15,7 @@
 	};
 };
 
-
+/*
 &spi1 {
 	clock-frequency = <DT_FREQ_M(48)>;
 	status = "okay";
@@ -26,9 +26,9 @@
 	ili9488: ili9488@0 {
 		compatible = "ilitek,ili9488";
 		spi-max-frequency = <48000000>;
-		reg = <0>;
-		cmd-data-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>; /* D7 */
-		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>; /* D10 */
+		reg = <0>
+		cmd-data-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>; /* D7 
+		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>; /* D10 
 		//pixel-format = <ILI9XXX_PIXEL_FORMAT_RGB888>;
 		width = <480>;
 		height = <320>;
@@ -40,6 +40,7 @@
 		ngamctrl = [ 00 16 19 03 0f 05 32 45 46 04 0e 0d 35 37 0f  ];
 	};
 };
+*/
 /*
 &pwm {
 	status = "okay";
