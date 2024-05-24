@@ -32,12 +32,6 @@
 	};
 };
 
-/*&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-	};
-};*/
-
 /*
 &spi1 {
 	clock-frequency = <DT_FREQ_M(48)>;
