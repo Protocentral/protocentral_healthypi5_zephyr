@@ -198,11 +198,12 @@ void fs_module_init(void)
         // goto out;
     }
 
-    do_sd();
+    //do_sd();
 }
 
 // SD Card Module Trial
 
+#ifdef CONFIG_FAT_FILESYSTEM_ELM
 void do_sd(void)
 {
     /* raw disk i/o */
@@ -255,3 +256,4 @@ void do_sd(void)
 
     fs_unmount(&mp_sd);
 }
+#endif /* CONFIG_FAT_FILESYSTEM_ELM */
