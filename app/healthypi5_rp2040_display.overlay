@@ -10,7 +10,7 @@
 	mipi_dbi {
 		compatible = "zephyr,mipi-dbi-spi";
 		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>;
-		dc-gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
+		dc-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>;
 		spi-dev = <&spi1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
