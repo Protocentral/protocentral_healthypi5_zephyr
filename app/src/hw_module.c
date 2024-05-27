@@ -37,7 +37,7 @@ K_SEM_DEFINE(sem_hw_inited, 0, 1);
 
 /****END EXTERNS****/
 
-#define HW_THREAD_STACKSIZE 8192
+#define HW_THREAD_STACKSIZE 1024
 #define HW_THREAD_PRIORITY 7
 
 // Peripheral Device Pointers
@@ -71,8 +71,6 @@ const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 const struct device *fg_dev;
 
 uint8_t global_batt_level = 0;
-
-
 
 static void leds_init()
 {
@@ -306,8 +304,6 @@ void hw_thread(void)
 
     leds_init();
     fs_module_init();
-
-    
 
     // init_settings();
 

@@ -34,7 +34,7 @@ jobs:
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_display.overlay
+          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf
           mv build/zephyr/zephyr.uf2 healthypi5_display.uf2
 
       - name: Build BLE firmware

@@ -237,12 +237,6 @@ zephyr_udc0: &usbd {
 	status = "okay";
 };
 
-&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-	};
-};
-
 /*&pwm {
 	pinctrl-0 = <&pwm_ch1b_default>;
 	pinctrl-names = "default";

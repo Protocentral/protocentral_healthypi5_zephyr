@@ -6,37 +6,14 @@
 	chosen {
 		zephyr,display = &ili9488; 
 	};
-
-	mipi_dbi {
-		compatible = "zephyr,mipi-dbi-spi";
-		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>;
-		dc-gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
-		spi-dev = <&spi1>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-	
-		ili9488: ili9488@0 {
-			compatible = "ilitek,ili9488";
-			reg = <0>;
-			mipi-max-frequency = <32000000>;
-			rotation = <270>;
-			width = <480>;
-			height = <320>;
-	
-			frmctr1 = [ a0 11  ];
-			pwctrl1 = [ 17 15  ];
-			pwctrl2 = [ 41  ];
-			pgamctrl = [ 00 03 09 08 16 0a 3f 78 4c 09 0a 08 16 1a 0f  ];
-			ngamctrl = [ 00 16 19 03 0f 05 32 45 46 04 0e 0d 35 37 0f  ];
-		};
-	};
 };
 
-/*&zephyr_udc0 {
+
+&zephyr_udc0 {
 	cdc_acm_uart0: cdc_acm_uart0 {
 		compatible = "zephyr,cdc-acm-uart";
 	};
-};*/
+};
 
 /*
 &spi1 {
@@ -49,9 +26,9 @@
 	ili9488: ili9488@0 {
 		compatible = "ilitek,ili9488";
 		spi-max-frequency = <48000000>;
-		reg = <0>;
-		cmd-data-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>;
-		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>; 
+		reg = <0>
+		cmd-data-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>; /* D7 
+		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>; /* D10 
 		//pixel-format = <ILI9XXX_PIXEL_FORMAT_RGB888>;
 		width = <480>;
 		height = <320>;
@@ -62,9 +39,8 @@
 		pgamctrl = [ 00 03 09 08 16 0a 3f 78 4c 09 0a 08 16 1a 0f  ];
 		ngamctrl = [ 00 16 19 03 0f 05 32 45 46 04 0e 0d 35 37 0f  ];
 	};
-};*/
-
-
+};
+*/
 /*
 &pwm {
 	status = "okay";

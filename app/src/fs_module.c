@@ -37,7 +37,6 @@ struct fs_mount_t *mp = &lfs_storage_mnt;
 
 #if defined(CONFIG_FAT_FILESYSTEM_ELM)
 
-#include <zephyr/storage/disk_access.h>
 #include <ff.h>
 
 /*
@@ -45,20 +44,18 @@ struct fs_mount_t *mp = &lfs_storage_mnt;
  *  in ffconf.h
  */
 #define DISK_DRIVE_NAME "SD"
-#define DISK_MOUNT_PT "/" DISK_DRIVE_NAME ":"
+#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
 
 static FATFS fat_fs;
 /* mounting info */
 static struct fs_mount_t mp_sd = {
-    .type = FS_FATFS,
-    .fs_data = &fat_fs,
+	.type = FS_FATFS,
+	.fs_data = &fat_fs,
 };
 
-static const char *disk_mount_pt = DISK_MOUNT_PT;
-
-void do_sd(void);
-
 #endif /* CONFIG_FAT_FILESYSTEM_ELM */
+
+
 
 static int littlefs_flash_erase(unsigned int id)
 {
@@ -197,63 +194,4 @@ void fs_module_init(void)
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
         // goto out;
     }
-
-    //do_sd();
 }
-
-// SD Card Module Trial
-
-#ifdef CONFIG_FAT_FILESYSTEM_ELM
-void do_sd(void)
-{
-    /* raw disk i/o */
-
-    static const char *disk_pdrv = DISK_DRIVE_NAME;
-    uint64_t memory_size_mb;
-    uint32_t block_count;
-    uint32_t block_size;
-
-    if (disk_access_init(disk_pdrv) != 0)
-    {
-        LOG_ERR("Storage init ERROR!");
-    }
-
-    if (disk_access_ioctl(disk_pdrv,
-                          DISK_IOCTL_GET_SECTOR_COUNT, &block_count))
-    {
-        LOG_ERR("Unable to get sector count");
-    }
-    LOG_INF("Block count %u", block_count);
-
-    if (disk_access_ioctl(disk_pdrv,
-                          DISK_IOCTL_GET_SECTOR_SIZE, &block_size))
-    {
-        LOG_ERR("Unable to get sector size");
-    }
-    printk("Sector size %u\n", block_size);
-
-    memory_size_mb = (uint64_t)block_count * block_size;
-    printk("Memory Size(MB) %u\n", (uint32_t)(memory_size_mb >> 20));
-
-    mp_sd.mnt_point = disk_mount_pt;
-
-    int res = fs_mount(&mp_sd);
-
-#if defined(CONFIG_FAT_FILESYSTEM_ELM)
-    if (res == FR_OK)
-    {
-#else
-    if (res == 0)
-    {
-#endif
-        printk("Disk mounted.\n");
-        lsdir(disk_mount_pt);
-    }
-    else
-    {
-        printk("Error mounting disk.\n");
-    }
-
-    fs_unmount(&mp_sd);
-}
-#endif /* CONFIG_FAT_FILESYSTEM_ELM */
