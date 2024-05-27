@@ -37,7 +37,7 @@ K_SEM_DEFINE(sem_hw_inited, 0, 1);
 
 /****END EXTERNS****/
 
-#define HW_THREAD_STACKSIZE 2048
+#define HW_THREAD_STACKSIZE 4096
 #define HW_THREAD_PRIORITY 7
 
 // Peripheral Device Pointers
@@ -119,7 +119,7 @@ static void interrupt_handler(const struct device *dev, void *user_data)
             int recv_len, rb_len;
             uint8_t buffer[64];
             size_t len = MIN(ring_buf_space_get(&ringbuf_usb_cdc),
-                     sizeof(buffer));
+                             sizeof(buffer));
 
             if (len == 0)
             {
@@ -250,22 +250,22 @@ static void gpio_keys_cb_handler(struct input_event *evt)
 {
     printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",
            evt->dev->name, evt->code, evt->value);
-    if(evt->value==1)
+    if (evt->value == 1)
     {
         switch (evt->code)
         {
         case INPUT_KEY_ENTER:
-            //m_key_pressed = GPIO_KEYPAD_KEY_OK;
+            // m_key_pressed = GPIO_KEYPAD_KEY_OK;
             LOG_INF("OK Key Pressed");
             k_sem_give(&sem_ok_key_pressed);
             break;
         case INPUT_KEY_UP:
-            //m_key_pressed = GPIO_KEYPAD_KEY_UP;
+            // m_key_pressed = GPIO_KEYPAD_KEY_UP;
             LOG_INF("UP Key Pressed");
             k_sem_give(&sem_up_key_pressed);
             break;
         case INPUT_KEY_DOWN:
-            //m_key_pressed = GPIO_KEYPAD_KEY_DOWN;
+            // m_key_pressed = GPIO_KEYPAD_KEY_DOWN;
             LOG_INF("DOWN Key Pressed");
             k_sem_give(&sem_down_key_pressed);
             break;
@@ -302,6 +302,10 @@ void hw_thread(void)
         printk("No device found...\n");
     }
 
+#ifdef CONFIG_BT
+    ble_module_init();
+#endif
+
     leds_init();
     fs_module_init();
 
@@ -312,10 +316,6 @@ void hw_thread(void)
     k_sem_give(&sem_hw_inited);
 
     usb_init();
-
-#ifdef CONFIG_BT
-    ble_module_init();
-#endif
 
     for (;;)
     {
