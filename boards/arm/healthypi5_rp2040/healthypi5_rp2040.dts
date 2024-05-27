@@ -11,6 +11,7 @@
 
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+
 / {
 	chosen {
 		zephyr,sram = &sram0;
@@ -201,7 +202,7 @@
 };
 
 &spi1 {
-	clock-frequency = <DT_FREQ_M(8)>;
+	clock-frequency = <DT_FREQ_M(48)>;
 	status = "okay";
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
@@ -209,8 +210,6 @@
 	status = "okay";
 	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;	//CS Reg 0 - Display, CS Reg 1 - SD Slot
 };
-
-
 
 &wdt0 {
 	status = "okay";

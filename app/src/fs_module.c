@@ -13,6 +13,10 @@
 #include "sys_sm_module.h"
 #include "sampling_module.h"
 
+#if defined(CONFIG_FAT_FILESYSTEM_ELM)
+#include <ff.h>
+#endif
+
 LOG_MODULE_REGISTER(fs_module);
 
 K_SEM_DEFINE(sem_fs_module, 0, 1);
@@ -35,27 +39,8 @@ static struct fs_mount_t lfs_storage_mnt = {
 
 struct fs_mount_t *mp = &lfs_storage_mnt;
 
-#if defined(CONFIG_FAT_FILESYSTEM_ELM)
-
-#include <ff.h>
-
-/*
- *  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
- *  in ffconf.h
- */
-#define DISK_DRIVE_NAME "SD"
-#define DISK_MOUNT_PT "/"DISK_DRIVE_NAME":"
-
-static FATFS fat_fs;
-/* mounting info */
-static struct fs_mount_t mp_sd = {
-	.type = FS_FATFS,
-	.fs_data = &fat_fs,
-};
-
-#endif /* CONFIG_FAT_FILESYSTEM_ELM */
-
-
+static struct fs_mount_t sd_fs_mnt;
+struct fs_mount_t *mp_sd = &sd_fs_mnt;
 
 static int littlefs_flash_erase(unsigned int id)
 {
@@ -156,11 +141,59 @@ static int lsdir(const char *path)
         }
     }
 
+    printk("\n");
+
     /* Verify fs_closedir() */
     fs_closedir(&dirp);
 
     return res;
 }
+
+#ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
+
+static int mount_sd_fs()
+{
+    int rc;
+    struct fs_statvfs sbuf;
+    struct fs_dir_t dir;
+
+    static FATFS fat_fs;
+    sd_fs_mnt.type = FS_FATFS;
+    sd_fs_mnt.fs_data = &fat_fs;
+    sd_fs_mnt.mnt_point = "/SD:";
+
+    rc = fs_mount(&sd_fs_mnt);
+    k_sleep(K_MSEC(50));
+
+    if(rc==0)
+    {
+        printk("\nSuccessfully Mounted FS %s\n", sd_fs_mnt.mnt_point);
+    }
+    else
+    {
+        printk("\nFailed to mount FS %s\n", sd_fs_mnt.mnt_point);
+        return rc;
+    }
+
+    rc = fs_statvfs(sd_fs_mnt.mnt_point, &sbuf);
+    if (rc < 0)
+    {
+        printk("FAIL: statvfs: %d\n", rc);
+        return;
+    }
+
+    printk("%s: bsize = %lu ; frsize = %lu ;"
+           " blocks = %lu ; bfree = %lu\n",
+           mp_sd->mnt_point,
+           sbuf.f_bsize, sbuf.f_frsize,
+           sbuf.f_blocks, sbuf.f_bfree);
+
+    rc = lsdir("/SD:");
+
+    return rc;
+}
+
+#endif
 
 void fs_module_init(void)
 {
@@ -194,4 +227,8 @@ void fs_module_init(void)
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
         // goto out;
     }
+
+#ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
+    mount_sd_fs();
+#endif
 }

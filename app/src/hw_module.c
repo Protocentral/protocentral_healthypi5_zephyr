@@ -37,7 +37,7 @@ K_SEM_DEFINE(sem_hw_inited, 0, 1);
 
 /****END EXTERNS****/
 
-#define HW_THREAD_STACKSIZE 1024
+#define HW_THREAD_STACKSIZE 2048
 #define HW_THREAD_PRIORITY 7
 
 // Peripheral Device Pointers

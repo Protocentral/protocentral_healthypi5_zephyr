@@ -19,7 +19,6 @@ manifest:
         name-allowlist:
           - cmsis      # required by the ARM port
           - hal_rpi_pico # required by the RPi Pico port
-          - hal_espressif # required by the ESP32 port
           - littlefs
           - lvgl      
           - mcuboot

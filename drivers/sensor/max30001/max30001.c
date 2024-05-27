@@ -45,7 +45,7 @@ static int _max30001_read_chip_id(const struct device *dev, uint8_t *buf)
     const struct spi_buf_set rx = {.buffers = rx_buf, .count = 2};
 
     spi_transceive_dt(&config->spi, &tx, &rx); // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
-    printk("ChipID: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
+    LOG_DBG("ChipID: %x %x %x\n", (uint8_t)buf[0], (uint8_t)buf[1], (uint8_t)buf[2]);
 
     return 0;
 }
@@ -150,7 +150,7 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            printk("EOVF ");
+            LOG_DBG("EOVF ");
             _max30001FIFOReset(dev);
             _max30001Synch(dev);
         }
@@ -382,7 +382,7 @@ static int max30001_chip_init(const struct device *dev)
     _max30001Synch(dev);
     k_sleep(K_MSEC(100));
 
-    printk("\nmax30001_chip_init\n");
+    //printk("\nmax30001_chip_init\n");
 
     LOG_DBG("\"%s\" OK", dev->name);
     return 0;
