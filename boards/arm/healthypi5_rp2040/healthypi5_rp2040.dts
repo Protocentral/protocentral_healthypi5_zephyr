@@ -207,18 +207,7 @@
 	pinctrl-names = "default";
 
 	status = "okay";
-	cs-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
-
-	/*sdhc0: sdhc@0 {
-		compatible = "zephyr,sdhc-spi-slot";
-		reg = <0>;
-		status = "okay";
-		mmc {
-			compatible = "zephyr,sdmmc-disk";
-			status = "okay";
-		};
-		spi-max-frequency = <DT_FREQ_M(8)>;
-	};*/
+	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;	//CS Reg 0 - Display, CS Reg 1 - SD Slot
 };
 
 
@@ -228,13 +217,18 @@
 };
 
 &adc {
-	status = "okay";
-	pinctrl-0 = <&adc_default>;
-	pinctrl-names = "default";
+	status = "disabled";
+	
 };
 
 zephyr_udc0: &usbd {
 	status = "okay";
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
 };
 
 /*&pwm {
