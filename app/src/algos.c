@@ -70,7 +70,6 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   int32_t an_ratio[5], n_ratio_average;
   int32_t n_nume, n_denom;
   static uint16_t probeErrorMinThreshold = 9500;
-  static uint16_t probeErrorMaxThreshold = 60000;
   uint16_t slope_ppg;
 
 
@@ -81,19 +80,10 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     un_ir_mean += pun_ir_buffer[k];
-    //if ((pun_ir_buffer[k] <= probeErrorMinThreshold))
-    //  probe_error_count++;
+
   }
   
   un_ir_mean = un_ir_mean / n_ir_buffer_length;
-  //printk("un_ir_mean %d power_ir_average %d probe_error_count %d",un_ir_mean,power_ir_average,probe_error_count);
-
-  /*if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50)) || (slope_ppg==0)
-  {
-    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
-    *pch_spo2_valid = 0;
-    return;
-  }*/
 
   // remove DC and invert signal so that we can use peak detector as valley detector
   for (k = 0; k < n_ir_buffer_length; k++)
@@ -113,15 +103,6 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
     *pch_hr_valid = 0;
     return;
   }
-  
-
-  /*if (slope_ppg==0)
-  {
-    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
-    *pch_spo2_valid = 0;
-    return;
-  }*/
-
   
   // 4 pt Moving Average
   for (k = 0; k < BUFFER_SIZE - MA4_SIZE; k++)
@@ -401,11 +382,9 @@ void Resp_FilterProcess(int16_t * RESP_WorkingBuff, int16_t * CoeffBuf, int16_t*
 
 int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
 {
-  static uint16_t bufStart=0, bufCur = FILTERORDER-1, FirstFlag = 1;    
+  static uint16_t bufStart=0, bufCur = FILTERORDER-1;    
   int16_t temp1, temp2;//, RESPData;
   int16_t RESPData;
-  /* Count variable*/
-  uint16_t Cur_Chan;
   int16_t FiltOut; 
   temp1 = NRCOEFF * Pvev_DC_Sample;
   Pvev_DC_Sample = (CurrAqsSample  - Pvev_Sample) + temp1;
@@ -435,12 +414,11 @@ void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRa
 {
 
   static int16_t prev_data[64] ={0};
-  char i;
   long Mac=0;
 
   prev_data[0] = CurrSample;
   
-  for ( i=63; i > 0; i--)
+  for ( int i=63; i > 0; i--)
   {
     Mac += prev_data[i];
     prev_data[i] = prev_data[i-1];
@@ -586,6 +564,5 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
 
 
   *RespirationRate=(uint8_t)Respiration_Rate;
-  //printf("Respiration: %d\n", *RespirationRate);
 }
 

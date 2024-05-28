@@ -66,6 +66,15 @@ volatile uint8_t globalRespirationRate = 0;
 int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
 
+int32_t ecg_sample_buffer[64];
+int sample_buffer_count = 0;
+
+int16_t ppg_sample_buffer[64];
+int ppg_sample_buffer_count = 0;
+
+int32_t resp_sample_buffer[64];
+int resp_sample_buffer_count = 0;
+
 // Externs
 extern struct k_msgq q_sample;
 extern struct k_msgq q_plot;
@@ -134,7 +143,7 @@ void send_data_text(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red)
     float f_bioz_sample = (float)bioz_sample / 1000;
     float f_raw_red = (float)raw_red / 1000;
 
-    sprintf(data, "%.3f\t%.3f\t%.3f\r\n", f_ecg_sample, f_bioz_sample, f_raw_red);
+    sprintf(data, "%.3f\t%.3f\t%.3f\r\n", (double)f_ecg_sample, (double)f_bioz_sample, (double)f_raw_red);
 
     if (settings_send_usb_enabled)
     {
@@ -152,7 +161,7 @@ void send_data_text_1(int32_t in_sample)
     char data[100];
     float f_in_sample = (float)in_sample / 1000;
 
-    sprintf(data, "%.3f\r\n", f_in_sample);
+    sprintf(data, "%.3f\r\n", (double)f_in_sample);
     send_usb_cdc(data, strlen(data));
 }
 
@@ -216,7 +225,6 @@ void data_thread(void)
     record_init_session_log();
 
     int m_temp_sample_counter = 0;
-    int m_resp_sample_counter = 0;
 
     int32_t n_spo2;       // SPO2 value
     int32_t n_heart_rate; // heart rate value
@@ -235,16 +243,6 @@ void data_thread(void)
     volatile int8_t power_ir_buffer_count; // data length
     
     bool power_up_data_ready = false;
-
-    int32_t ecg_sample_buffer[64];
-    int sample_buffer_count = 0;
-
-    int16_t ppg_sample_buffer[64];
-    int ppg_sample_buffer_count = 0;
-
-    int32_t resp_sample_buffer[64];
-    int resp_sample_buffer_count = 0;
-
     for (;;)
     {
         k_msgq_get(&q_sample, &sensor_sample, K_FOREVER);
@@ -260,16 +258,10 @@ void data_thread(void)
 #endif
         }
 
-
-        /*aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
-        aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
-        n_buffer_count++;*/
-
         if (dec == 20)
         {
             aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
             aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
-            //printf("raw_ir %d raw_red %d\n",(uint16_t)sensor_sample.raw_ir,(uint16_t)sensor_sample.raw_red);
             
             n_buffer_count++;
             dec = 0;
@@ -295,21 +287,10 @@ void data_thread(void)
 
         dec++;
 
-        // printf("Input to algorithm: %d\n", sensor_sample.bioz_sample);
         resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
-        // printf("resWaveBuff: %d\n", resWaveBuff);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
-        /*m_resp_sample_counter++;
-
-        if (m_resp_sample_counter > RESP_CALC_BUFFER_LENGTH)
-        {
-            m_resp_sample_counter = 0;
-            computed_data.rr = (uint32_t)globalRespirationRate;
-            //printf("globalRespirationRate: %d\n", globalRespirationRate);
-
-        }*/
 
         if (n_buffer_count > 99)
         {
@@ -326,12 +307,12 @@ void data_thread(void)
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
 
-#ifdef CONFIG_BT
+        #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
             ble_resp_rate_notify(computed_data.rr);
             
-#endif
+        #endif
 
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
@@ -351,35 +332,35 @@ void data_thread(void)
         }
 
         /***** Send to draw queue if enabled *****/
-#ifdef CONFIG_DISPLAY
-        k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
-#endif
+        #ifdef CONFIG_DISPLAY
+                k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
+        #endif
 
-#ifdef CONFIG_BT
-        if (settings_send_ble_enabled)
-        {
-            ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
-            if (sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+        #ifdef CONFIG_BT
+            if (settings_send_ble_enabled)
             {
-                ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
-                sample_buffer_count = 0;
-            }
+                ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
+                if (sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+                {
+                    ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
+                    sample_buffer_count = 0;
+                }
 
-            ppg_sample_buffer[ppg_sample_buffer_count++] = (int16_t)((sensor_sample.raw_ir/1000));
-            if (ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-            {
-                ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
-                ppg_sample_buffer_count = 0;
-            }
+                ppg_sample_buffer[ppg_sample_buffer_count++] = (int16_t)((sensor_sample.raw_ir/1000));
+                if (ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+                {
+                    ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
+                    ppg_sample_buffer_count = 0;
+                }
 
-            resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_sample;
-            if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-            {
-                ble_resp_notify(resp_sample_buffer, resp_sample_buffer_count);
-                resp_sample_buffer_count = 0;
+                resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_sample;
+                if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
+                {
+                    ble_resp_notify(resp_sample_buffer, resp_sample_buffer_count);
+                    resp_sample_buffer_count = 0;
+                }
             }
-        }
-#endif
+        #endif
 
         /****** Send to log queue if enabled ******/
 

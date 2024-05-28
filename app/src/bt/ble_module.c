@@ -287,7 +287,7 @@ static void bt_ready(void)
 	printk("Advertising successfully started\n");
 }
 
-static void auth_passkey_confirm(struct bt_conn *conn, unsigned int passkey)
+/*static void auth_passkey_confirm(struct bt_conn *conn, unsigned int passkey)
 {
 	char passkey_str[7];
 	char addr[BT_ADDR_LE_STR_LEN];
@@ -326,7 +326,7 @@ static struct bt_conn_auth_cb auth_cb_display = {
 	.cancel = auth_cancel,
 	.passkey_display = auth_passkey_display,
 	.passkey_confirm = auth_passkey_confirm,
-};
+};*/
 
 void remove_separators(char *str)
 {

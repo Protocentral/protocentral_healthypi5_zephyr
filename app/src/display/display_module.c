@@ -116,7 +116,7 @@ lv_obj_t *scr_chart_single_ecg;
 lv_obj_t *scr_chart_single_resp;
 lv_obj_t *scr_chart_single_ppg;
 
-static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+/*static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     static int call_count = 0;
 
@@ -138,7 +138,6 @@ static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         break;
     }
 
-    /* key press */
     if (m_key_pressed != GPIO_KEYPAD_KEY_NONE)
     {
         if (call_count == 0)
@@ -153,14 +152,13 @@ static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         }
     }
 
-    /* reset the keys */
     if ((m_key_pressed != GPIO_KEYPAD_KEY_NONE))
     {
         call_count = 0;
         m_key_pressed = GPIO_KEYPAD_KEY_NONE;
         // m_press_type = UNKNOWN;
     }
-}
+}*/
 
 void display_init_styles()
 {
