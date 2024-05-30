@@ -17,7 +17,6 @@
 K_SEM_DEFINE(sem_ble_connected, 0, 1);
 K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
 
-//static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
 
 int cmd_pkt_len;
@@ -40,6 +39,8 @@ struct wiser_cmd_data_fifo_obj_t
 K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
+
+
 
 void ces_parse_packet(char rxch)
 {
@@ -155,31 +156,7 @@ void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
     }
 }
 
-void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped)
-{
-    uint8_t cmd_pkt[16];
-    cmd_pkt[0] = CES_CMDIF_PKT_START_1;
-    cmd_pkt[1] = CES_CMDIF_PKT_START_2;
-    cmd_pkt[2] = 0x09;
-    cmd_pkt[3] = 0x00;
-    cmd_pkt[4] = CES_CMDIF_TYPE_PROGRESS;
-    cmd_pkt[5] = m_stage;
-    cmd_pkt[6] = (uint8_t)(m_total_time & 0x00FF);
-    cmd_pkt[7] = (uint8_t)((m_total_time >> 8) & 0x00FF);
-    cmd_pkt[8] = (uint8_t)(m_curr_time & 0x00FF);
-    cmd_pkt[9] = (uint8_t)((m_curr_time >> 8) & 0x00FF);
-    cmd_pkt[10] = (uint8_t)(m_current & 0x00FF);
-    cmd_pkt[11] = (uint8_t)((m_current >> 8) & 0x00FF);
-    cmd_pkt[12] = (uint8_t)(m_imped & 0x00FF);
-    cmd_pkt[13] = (uint8_t)((m_imped >> 8) & 0x00FF);
-    cmd_pkt[14] = CES_CMDIF_PKT_STOP_1;
-    cmd_pkt[15] = CES_CMDIF_PKT_STOP_2;
 
-    for (int i = 0; i < 16; i++)
-    {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
-    }
-}
 
 void cmdif_send_ble_device_status_response(void)
 {
@@ -205,68 +182,11 @@ void cmdif_send_ble_command(uint8_t m_cmd)
     }
 }
 
-/*void send_uart(char *buf)
-{
-    int msg_len = strlen(buf);
-
-    for (int i = 0; i < msg_len; i++)
-    {
-        uart_poll_out(esp_uart_dev, buf[i]);
-    }
-}*/
-
-/*
-void cmd_serial_cb(const struct device *dev, void *user_data)
-{
-    uint8_t c;
-
-    if (!uart_irq_update(esp_uart_dev))
-    {
-        return;
-    }
-
-    if (!uart_irq_rx_ready(esp_uart_dev))
-    {
-        return;
-    }
-
-    while (uart_fifo_read(esp_uart_dev, &c, 1) == 1)
-    {
-        ces_parse_packet(c);
-    }
-}
-*/
-
 static void cmd_init(void)
 {
     printk("CMD Module Init\n");
 
-    /*if (!device_is_ready(esp_uart_dev))
-    {
-        printk("UART device not found!");
-        return;
-    }
-
-    int ret = uart_irq_callback_user_data_set(esp_uart_dev, cmd_serial_cb, NULL);
-
-    if (ret < 0)
-    {
-        if (ret == -ENOTSUP)
-        {
-            printk("Interrupt-driven UART API support not enabled\n");
-        }
-        else if (ret == -ENOSYS)
-        {
-            printk("UART device does not support interrupt-driven API\n");
-        }
-        else
-        {
-            printk("Error setting UART callback: %d\n", ret);
-        }
-        return;
-    }
-    uart_irq_rx_enable(esp_uart_dev);
-    */
+    
 }
 
 void cmd_thread(void)

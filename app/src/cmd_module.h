@@ -66,3 +66,12 @@ enum ble_status
     BLE_STATUS_DISCONNECTED,
     BLE_STATUS_CONNECTING,
 };
+
+#define MAX_MSG_SIZE 32
+
+struct hpi_cmd_data_obj_t
+{
+    uint8_t pkt_type;
+    uint8_t data_len;
+    uint8_t data[MAX_MSG_SIZE];
+};
