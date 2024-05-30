@@ -61,6 +61,8 @@ static uint8_t temp_att_ble[2];
 #define UUID_HPI_CMD_SERVICE_CHAR_TX BT_UUID_DECLARE_128(CMD_TX_CHARACTERISTIC_UUID)
 #define UUID_HPI_CMD_SERVICE_CHAR_RX BT_UUID_DECLARE_128(CMD_RX_CHARACTERISTIC_UUID)
 
+extern struct k_msgq q_cmd_msg;
+
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
 }
@@ -138,7 +140,7 @@ static ssize_t on_receive_cmd(struct bt_conn *conn,
 	cmd_data_obj.data_len = len;
 	memcpy(cmd_data_obj.data, buffer, len);
 
-	//k_msgq_put(&q_cmd_msg, &cmd_data_obj, K_MSEC(100));
+	k_msgq_put(&q_cmd_msg, &cmd_data_obj, K_MSEC(100));
 
 	return len;
 }
@@ -214,6 +216,15 @@ BT_GATT_SERVICE_DEFINE(hpi_cmd_service,
 											  NULL, NULL, NULL),
 					   BT_GATT_CCC(cmd_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
+
+void hpi_service_send_cmd(const uint8_t *data, uint16_t len)
+{
+	const struct bt_gatt_attr *attr = &hpi_cmd_service.attrs[4];
+
+	// printk("Sending data len %d \n", len);
+
+	bt_gatt_notify(NULL, attr, data, len);
+}
 
 void ble_spo2_notify(uint16_t spo2_val)
 {
