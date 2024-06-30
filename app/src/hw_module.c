@@ -278,10 +278,19 @@ INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
 void hw_thread(void)
 {
+
     if (!device_is_ready(max30001_dev))
     {
-        printk("MAX30001 device not found!");
-        // return;
+        printk("MAX30001 device not found! Rebooting !");
+        // sys_reboot(SYS_REBOOT_COLD);
+    }
+    else
+    {
+        struct sensor_value ecg_mode_set;
+
+        ecg_mode_set.val1 = 1;
+        sensor_attr_set(max30001_dev, SENSOR_CHAN_ALL, MAX30001_ATTR_ECG_ENABLED, &ecg_mode_set);
+        sensor_attr_set(max30001_dev, SENSOR_CHAN_ALL, MAX30001_ATTR_BIOZ_ENABLED, &ecg_mode_set);
     }
 
     if (!device_is_ready(afe4400_dev))

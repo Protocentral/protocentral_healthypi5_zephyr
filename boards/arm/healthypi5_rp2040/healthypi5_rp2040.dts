@@ -187,9 +187,18 @@
 
 	max30001: max30001@0 {
 		compatible = "maxim,max30001";
-		reg = <0x0>;
-		spi-max-frequency = <DT_FREQ_M(8)>;
 		status = "okay";
+		reg = <0x0>;
+		spi-max-frequency = <DT_FREQ_M(1)>;
+		//intb-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+		rtor-enabled;
+		ecg-enabled;
+		bioz-enabled;
+		ecg-gain = <3>;
+		ecg-invert;
+		//ecg-dcloff-enable;
+		//ecg-dcloff-current = <1>; // 5 nA
+
 	};
 
 	afe4400: afe4400@1 {
