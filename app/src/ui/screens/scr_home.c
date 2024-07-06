@@ -25,12 +25,20 @@ static lv_obj_t *label_temp;
 static lv_obj_t *chart1;
 static lv_chart_series_t *ser1;
 
+static lv_obj_t *chart2;
+static lv_chart_series_t *ser2;
+
 static bool chart1_update = true;
+static bool chart2_update = true;
 
 static float y1_max = 0;
 static float y1_min = 10000;
 
-static float gx = 0;
+static float y2_max = 0;
+static float y2_min = 10000;
+
+static float x1 = 0;
+static float x2 = 0;
 
 // GUI Styles
 extern lv_style_t style_hr;
@@ -142,13 +150,15 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     draw_scr_home_footer(scr_home);
     draw_header(scr_home, true);
 
-    // lv_obj_add_style(scr_home, &style_scr_back, 0);
+    // lv_obj_add_style(scr_home, &style_welcome_scr_bg, 0);
 
     // lv_group_t *g1 = lv_group_create();
 
     // Create Chart 1
     chart1 = lv_chart_create(scr_home);
-    lv_obj_set_size(chart1, 460, 180);
+    lv_obj_set_pos(chart1, 10, 25);
+
+    lv_obj_set_size(chart1, 400, 100);
     lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart1, 0, LV_PART_INDICATOR);
@@ -157,12 +167,25 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_chart_set_div_line_count(chart1, 0, 0);
     lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
 
-    lv_obj_set_pos(chart1, 10, 25);
+    ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
 
-    lv_obj_t *label_chart_title = lv_label_create(scr_home);
+    chart2 = lv_chart_create(scr_home);
+    lv_obj_set_pos(chart2, 10, 150);
+    lv_obj_set_size(chart2, 460, 100);
+    lv_obj_set_style_bg_color(chart2, lv_color_black(), LV_STATE_DEFAULT);
 
-    lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-    lv_label_set_text(label_chart_title, "Showing ECG");
+    lv_obj_set_style_size(chart2, 0, LV_PART_INDICATOR);
+    lv_chart_set_point_count(chart2, DISP_WINDOW_SIZE);
+    lv_chart_set_range(chart2, LV_CHART_AXIS_PRIMARY_Y, -1000, 1000);
+    lv_chart_set_div_line_count(chart2, 0, 0);
+    lv_chart_set_update_mode(chart2, LV_CHART_UPDATE_MODE_CIRCULAR);
+
+    ser2 = lv_chart_add_series(chart2, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
+
+    //lv_obj_t *label_chart_title = lv_label_create(scr_home);
+
+    //lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    //lv_label_set_text(label_chart_title, "Showing ECG");
 
     /*}
     else if (m_data_type == HPI_SENSOR_DATA_PPG)
@@ -177,33 +200,41 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
         curr_screen = HPI_DISP_SCR_RESP;
         lv_label_set_text(label_chart_title, "Showing RESP");
     }*/
-    ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-
+   
     curr_screen = SCR_HOME;
 
     hpi_show_screen(scr_home, m_scroll_dir);
 }
 
-void hpi_disp_do_set_scale()
+void hpi_chart1_set_scale()
 {
-    if (gx >= DISP_WINDOW_SIZE)
+    if (x1 >= DISP_WINDOW_SIZE)
     {
         if (chart1_update == true)
             lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, y1_min, y1_max);
+        
+        x1 = 0;
 
-        gx = 0;
         y1_max = -100000;
         y1_min = 100000;
-
-        /*y2_max = -100000;
-        y2_min = 100000;
-
-        y3_max = -100000;
-        y3_min = 100000;*/
     }
 }
 
-void scr_home_draw_plot_ecg(float plot_data)
+void hpi_chart2_set_scale()
+{
+    if (x2 >= DISP_WINDOW_SIZE)
+    {
+        if (chart2_update == true)
+            lv_chart_set_range(chart2, LV_CHART_AXIS_PRIMARY_Y, y2_min, y2_max);
+
+        x2 = 0;
+
+        y2_max = -100000;
+        y2_min = 100000;
+    }
+}
+
+void scr_home_plot_ecg(float plot_data)
 {
     if (chart1_update == true)
     {
@@ -220,8 +251,32 @@ void scr_home_draw_plot_ecg(float plot_data)
 
         // printk("E");
         lv_chart_set_next_value(chart1, ser1, plot_data);
-        hpi_disp_add_samples(1);
-        hpi_disp_do_set_scale();
+        x1+=1;
+        
+        hpi_chart1_set_scale();
+    }
+}
+
+void scr_home_plot_ppg(float plot_data)
+{
+    if (chart2_update == true)
+    {
+
+        if (plot_data < y2_min)
+        {
+            y2_min = plot_data;
+        }
+
+        if (plot_data > y2_max)
+        {
+            y2_max = plot_data;
+        }
+
+        // printk("E");
+        lv_chart_set_next_value(chart2, ser2, plot_data);
+        x2+=1;
+        
+        hpi_chart2_set_scale();
     }
 }
 
@@ -282,9 +337,4 @@ void hpi_scr_home_update_rr(int rr)
     char buf[32];
     sprintf(buf, "%d", rr);
     lv_label_set_text(label_rr, buf);
-}
-
-void hpi_disp_add_samples(int num_samples)
-{
-    gx += num_samples;
 }

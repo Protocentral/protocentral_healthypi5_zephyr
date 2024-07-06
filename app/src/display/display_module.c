@@ -41,7 +41,7 @@ lv_style_t style_spo2;
 lv_style_t style_rr;
 lv_style_t style_temp;
 
-lv_style_t style_scr_back;
+lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
 
 lv_style_t style_h1;
@@ -80,14 +80,6 @@ extern struct k_sem sem_down_key_pressed;
 
 K_MSGQ_DEFINE(q_plot, sizeof(struct hpi_sensor_data_t), 100, 1);
 extern struct k_msgq q_computed_val;
-
-enum hpi_sensor_data_type
-{
-    HPI_SENSOR_DATA_ECG = 0x01,
-    HPI_SENSOR_DATA_PPG,
-    HPI_SENSOR_DATA_RESP,
-    HPI_SENSOR_DATA_TEMP
-};
 
 uint8_t curr_screen = SCR_HOME;
 
@@ -188,12 +180,12 @@ void display_init_styles()
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
 
     // Screen background style
-    lv_style_init(&style_scr_back);
+    lv_style_init(&style_welcome_scr_bg);
     // lv_style_set_radius(&style, 5);
 
     /*Make a gradient*/
-    lv_style_set_bg_opa(&style_scr_back, LV_OPA_COVER);
-    lv_style_set_border_width(&style_scr_back, 0);
+    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
+    lv_style_set_border_width(&style_welcome_scr_bg, 0);
 
     static lv_grad_dsc_t grad;
     grad.dir = LV_GRAD_DIR_HOR;
@@ -205,7 +197,7 @@ void display_init_styles()
     grad.stops[0].frac = 128;
     grad.stops[1].frac = 192;
 
-    lv_style_set_bg_color(&style_scr_back, lv_color_black());
+    lv_style_set_bg_color(&style_welcome_scr_bg, lv_color_black());
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
@@ -406,7 +398,12 @@ void display_screens_thread(void)
         {
             if (curr_screen == SCR_HOME)
             {
-                scr_home_draw_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
+                scr_home_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
+                scr_home_plot_ppg((float)((sensor_sample.raw_ir) / 1000.0000));
+            }
+            else if (curr_screen == SCR_ECG)
+            {
+                scr_ecg_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
             }
 
             /*else if (curr_screen == HPI_DISP_SCR_PPG)
@@ -443,11 +440,13 @@ void display_screens_thread(void)
             hpi_scr_home_update_rr(computed_data.rr);
         }
 
-        lv_task_handler();
+        
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
         {
             down_key_event_handler();
         }
+
+        lv_task_handler();
         k_sleep(K_MSEC(4));
     }
 }

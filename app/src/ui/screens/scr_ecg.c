@@ -28,9 +28,6 @@ static float gx = 0;
 
 // GUI Styles
 extern lv_style_t style_hr;
-extern lv_style_t style_spo2;
-extern lv_style_t style_rr;
-extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
 extern int curr_screen;
@@ -42,7 +39,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     draw_scr_ecg_footer(scr_ecg);
     draw_header(scr_ecg, true);
 
-    // lv_obj_add_style(scr_ecg, &style_scr_back, 0);
+    // lv_obj_add_style(scr_ecg, &style_welcome_scr_bg, 0);
 
     // lv_group_t *g1 = lv_group_create();
 
@@ -82,4 +79,50 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     curr_screen = SCR_ECG;
 
     hpi_show_screen(scr_ecg, m_scroll_dir);
+}
+
+static void hpi_ecg_add_samples(int num_samples)
+{
+    gx += num_samples;
+}
+
+static void hpi_ecg_do_set_scale()
+{
+    if (gx >= DISP_WINDOW_SIZE)
+    {
+        if (chart1_update == true)
+            lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, y1_min, y1_max);
+
+        gx = 0;
+        y1_max = -100000;
+        y1_min = 100000;
+
+        /*y2_max = -100000;
+        y2_min = 100000;
+
+        y3_max = -100000;
+        y3_min = 100000;*/
+    }
+}
+
+void scr_ecg_plot_ecg(float plot_data)
+{
+    if (chart1_update == true)
+    {
+
+        if (plot_data < y1_min)
+        {
+            y1_min = plot_data;
+        }
+
+        if (plot_data > y1_max)
+        {
+            y1_max = plot_data;
+        }
+
+        // printk("E");
+        lv_chart_set_next_value(chart1, ser1, plot_data);
+        hpi_ecg_add_samples(1);
+        hpi_ecg_do_set_scale();
+    }
 }

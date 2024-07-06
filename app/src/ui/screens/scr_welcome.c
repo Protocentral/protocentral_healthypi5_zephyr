@@ -15,7 +15,7 @@
 
 static lv_obj_t *scr_welcome;
 
-extern lv_style_t style_scr_back;
+extern lv_style_t style_welcome_scr_bg;
 extern lv_style_t style_h1;
 extern lv_style_t style_h2;
 extern lv_style_t style_info;
@@ -41,16 +41,16 @@ void draw_scr_welcome(void)
     grad.stops[1].frac = 255;
 
     // lv_style_set_bg_color(&style_scr_back, lv_color_black());
-    lv_style_set_bg_grad(&style_scr_back, &grad);
+    lv_style_set_bg_grad(&style_welcome_scr_bg, &grad);
 
     lv_obj_t *scr_welcome = lv_obj_create(NULL);
-    lv_obj_add_style(scr_welcome, &style_scr_back, 0);
+    lv_obj_add_style(scr_welcome, &style_welcome_scr_bg, 0);
 
     draw_header(scr_welcome, false);
 
     /*Make a gradient*/
-    lv_style_set_bg_opa(&style_scr_back, LV_OPA_COVER);
-    lv_style_set_border_width(&style_scr_back, 0);
+    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
+    lv_style_set_border_width(&style_welcome_scr_bg, 0);
 
     lv_obj_t *label_hpi = lv_label_create(scr_welcome);
     lv_label_set_text(label_hpi, "Welcome to HealthyPi 5 !");
