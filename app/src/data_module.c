@@ -38,6 +38,7 @@
 #define SAMPLE_BUFF_WATERMARK 4
 
 K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
+K_MSGQ_DEFINE(q_hrv_computed_val, sizeof(struct hpi_computed_hrv_t), 100, 1);
 
 enum hpi5_data_format
 {
@@ -61,6 +62,14 @@ struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
+
+int32_t hrv_max;
+int32_t hrv_min;
+float hrv_mean;
+float hrv_sdnn; 
+float hrv_pnn;
+float hrv_rmssd;
+bool hrv_ready_flag=false;
 
 volatile uint8_t globalRespirationRate = 0;
 int16_t resWaveBuff, respFilterout;
@@ -221,6 +230,7 @@ void data_thread(void)
 
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    struct hpi_computed_hrv_t hrv_calculated;
 
     record_init_session_log();
 
@@ -306,6 +316,20 @@ void data_thread(void)
             computed_data.spo2_valid = ch_spo2_valid;
             computed_data.spo2 = n_spo2;
             computed_data.hr_valid = ch_hr_valid;
+
+            calculate_hrv (sensor_sample.hr, &hrv_max, &hrv_min, &hrv_mean, &hrv_sdnn, &hrv_pnn, &hrv_rmssd, &hrv_ready_flag);
+            
+            if (hrv_ready_flag == true)
+            {
+                hrv_calculated.hrv_ready_flag = hrv_ready_flag;
+                hrv_calculated.hrv_max = hrv_max;
+                hrv_calculated.hrv_min = hrv_min;
+                hrv_calculated.mean = hrv_mean;
+                hrv_calculated.sdnn = hrv_sdnn;
+                hrv_calculated.pnn = hrv_pnn;
+                hrv_calculated.rmssd = hrv_rmssd;
+            }
+
 
         #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
