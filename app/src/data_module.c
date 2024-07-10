@@ -330,14 +330,11 @@ void data_thread(void)
                 hrv_calculated.rmssd = hrv_rmssd;
             }
 
-
         #ifdef CONFIG_BT
             ble_spo2_notify(n_spo2);
             ble_hrs_notify(computed_data.hr);
             ble_resp_rate_notify(computed_data.rr);
-            
         #endif
-
             k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
         }
 

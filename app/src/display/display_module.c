@@ -81,7 +81,7 @@ extern struct k_sem sem_down_key_pressed;
 K_MSGQ_DEFINE(q_plot, sizeof(struct hpi_sensor_data_t), 100, 1);
 extern struct k_msgq q_computed_val;
 
-uint8_t curr_screen = SCR_HOME;
+uint8_t curr_screen = SCR_POINCARE;
 
 lv_obj_t *scr_chart_single;
 
@@ -383,11 +383,12 @@ void display_screens_thread(void)
     //  draw_scr_menu("A\nB\n");
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    struct hpi_computed_hrv_t hrv_calculated;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
-    draw_scr_home(SCROLL_DOWN);
+    draw_scr_poincare(SCROLL_DOWN);
 
     // draw_scr_welcome();
 
@@ -404,6 +405,11 @@ void display_screens_thread(void)
             else if (curr_screen == SCR_ECG)
             {
                 scr_ecg_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
+            }
+            else if (curr_screen == SCR_POINCARE)
+            {
+                //scr_poincare_plot_rr(lv_rand(600, 1200), lv_rand(600, 1200));
+                scr_poincare_plot_rr((float)((sensor_sample.ecg_sample) / 100.0000),(float)((sensor_sample.raw_ir) / 1000.0000));
             }
 
             /*else if (curr_screen == HPI_DISP_SCR_PPG)

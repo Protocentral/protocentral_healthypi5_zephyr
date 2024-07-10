@@ -18,7 +18,7 @@ enum hpi_disp_screens
     SCR_ECG,
     SCR_PPG,
     SCR_RESP,
-
+    SCR_POINCARE,
     SCR_LIST_END
 };
 
