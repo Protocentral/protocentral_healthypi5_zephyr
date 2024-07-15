@@ -19,6 +19,7 @@ enum hpi_disp_screens
     SCR_PPG,
     SCR_RESP,
     SCR_POINCARE,
+    SCR_HRV_PLOTS,
     SCR_LIST_END
 };
 

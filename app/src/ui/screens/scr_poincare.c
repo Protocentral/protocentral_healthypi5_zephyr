@@ -20,7 +20,6 @@ static lv_obj_t *chart1;
 static lv_chart_series_t *ser1;
 
 static bool chart1_update = true;
-static float x1 = 0;
 
 extern int curr_screen;
 
@@ -35,12 +34,10 @@ void draw_scr_poincare(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_bg_color(chart1, lv_color_black(), LV_STATE_DEFAULT);
     lv_obj_set_style_line_width(chart1, 0, LV_PART_ITEMS);   /*Remove the lines*/
     lv_chart_set_type(chart1, LV_CHART_TYPE_SCATTER);
-
     lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_X, 600, 1100);
     lv_chart_set_range(chart1, LV_CHART_AXIS_PRIMARY_Y, 800, 1200);
-    //lv_chart_set_axis_tick(chart1,LV_CHART_AXIS_PRIMARY_X,50,50,10,0,true,50);
-    lv_chart_set_axis_tick(chart1, LV_CHART_AXIS_PRIMARY_X, 10, 0, 6, 5, true, 40);
-    lv_chart_set_axis_tick(chart1, LV_CHART_AXIS_PRIMARY_Y, 10, 0, 5, 5, true, 40);
+    lv_chart_set_axis_tick(chart1, LV_CHART_AXIS_PRIMARY_X, 5, 0, 6, 5, true, 40);
+    lv_chart_set_axis_tick(chart1, LV_CHART_AXIS_PRIMARY_Y, 5, 0, 5, 5, true, 40);
     lv_chart_set_point_count(chart1, 50);
     lv_chart_set_div_line_count(chart1, 0, 0);
     lv_chart_set_update_mode(chart1, LV_CHART_UPDATE_MODE_CIRCULAR);
@@ -49,8 +46,18 @@ void draw_scr_poincare(enum scroll_dir m_scroll_dir)
     lv_obj_align_to(label_chart_title, chart1, LV_ALIGN_OUT_TOP_LEFT, 120, 0);
     lv_label_set_text(label_chart_title, "HRV Poincare Plot");
 
-    ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    lv_obj_t *label_x_axis_label = lv_label_create(scr_poincare);
+    lv_obj_align_to(label_x_axis_label, chart1, LV_ALIGN_OUT_BOTTOM_LEFT, 120, 25);
+    lv_label_set_text(label_x_axis_label, "RR Interval (ms)");
+     
+    /*Need to set rotation to y label
+    lv_obj_t *label_y_axis_label = lv_label_create(scr_poincare);
+    lv_obj_align_to(label_y_axis_label, chart1, LV_ALIGN_OUT_LEFT_MID, 0, 0);
+    //lv_obj_set_style_transform_rotation(label_y_axis_label, 150, 0); 
+    lv_obj_set_style_transform_angle(label_y_axis_label, 10, 0);
+    lv_label_set_text(label_y_axis_label, "Next RR Interval (ms)");*/
 
+    ser1 = lv_chart_add_series(chart1, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
 
     curr_screen = SCR_POINCARE;
 
