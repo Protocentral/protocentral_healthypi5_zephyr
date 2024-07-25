@@ -24,6 +24,10 @@ struct sh8601_data
 	enum display_orientation orientation;
 };
 
+static int sh8601_set_mem_area(const struct device *dev, const uint16_t x,
+							   const uint16_t y, const uint16_t w,
+							   const uint16_t h);
+
 /**
  * @brief Transmit values to the display driver
  *
@@ -78,7 +82,7 @@ int sh8601_transmit_data(const struct device *dev, const void *tx_data,
 	struct spi_buf tx_buf[3];
 	struct spi_buf_set tx_bufs = {.buffers = tx_buf, .count = 2U};
 
-	printk("Transmitting data: %d", tx_len);
+	//printk("Transmitting data: %d", tx_len);
 
 	// Send Pre command
 	uint8_t pre_cmd[4] = {0x02, 00};
@@ -108,10 +112,11 @@ int sh8601_transmit_data(const struct device *dev, const void *tx_data,
 	return 0;
 }
 
+/*
 #define ROW 70
 #define COL 70
 
-uint8_t test_buf[ROW * COL*3];
+uint8_t test_buf[ROW * COL * 3];
 
 static void send_test(const struct device *dev)
 {
@@ -119,33 +124,13 @@ static void send_test(const struct device *dev)
 	int r;
 	uint8_t spi_data[4];
 
-	uint16_t x_start = 50;
-	uint16_t y_start = 250;
+	const uint16_t x_start = 50;
+	const uint16_t y_start = 250;
 
-	uint16_t x_end = x_start + ROW;
-	uint16_t y_end = y_start + COL;
+	const uint16_t w = x_start + ROW;
+	const uint16_t h = y_start + COL;
 
-	spi_data[0] = x_start >> 8;	  // sys_cpu_to_be16(x);
-	spi_data[1] = x_start & 0xff; // sys_cpu_to_be16(x + w - 1U);
-	spi_data[2] = x_end >> 8;
-	spi_data[3] = x_end & 0xff;
-
-	r = sh8601_transmit_cmd(dev, SH8601_W_CASET, spi_data, 4U);
-	if (r < 0)
-	{
-		return r;
-	}
-
-	spi_data[0] = y_start >> 8;
-	spi_data[1] = y_start & 0xff;
-	spi_data[2] = y_end >> 8;
-	spi_data[3] = y_end & 0xff;
-
-	r = sh8601_transmit_cmd(dev, SH8601_W_PASET, spi_data, 4U);
-	if (r < 0)
-	{
-		return r;
-	}
+	r= sh8601_set_mem_area(dev, x_start,y_start, w, h);
 
 	uint32_t buf_count = 0;
 
@@ -154,7 +139,7 @@ static void send_test(const struct device *dev)
 		for (int j = 0; j < COL; j++)
 		{
 			test_buf[buf_count++] = 0x00;
-			test_buf[buf_count++] = 0x00;
+			test_buf[buf_count++] = 0xFF;
 			test_buf[buf_count++] = 0xAF;
 		}
 	}
@@ -163,6 +148,7 @@ static void send_test(const struct device *dev)
 
 	sh8601_transmit_data(dev, test_buf, sizeof(test_buf));
 }
+*/
 
 static int sh8601_send_cmd(const struct device *dev, uint8_t cmd)
 {
@@ -258,12 +244,12 @@ static int sh8601_set_pixel_format(const struct device *dev,
 	if (pixel_format == PIXEL_FORMAT_RGB_565)
 	{
 		bytes_per_pixel = 2U;
-		tx_data = SH8601_W_COLORSET0; // SH8601_PIXSET_MCU_16_BIT | SH8601_PIXSET_RGB_16_BIT;
+		// tx_data = SH8601_W_COLORSET0; // SH8601_PIXSET_MCU_16_BIT | SH8601_PIXSET_RGB_16_BIT;
 	}
 	else if (pixel_format == PIXEL_FORMAT_RGB_888)
 	{
 		bytes_per_pixel = 3U;
-		tx_data = SH8601_W_COLORSET0; // SH8601_PIXSET_MCU_18_BIT | SH8601_PIXSET_RGB_18_BIT;
+		// tx_data = SH8601_W_COLORSET0; // SH8601_PIXSET_MCU_18_BIT | SH8601_PIXSET_RGB_18_BIT;
 	}
 	else
 	{
@@ -492,7 +478,6 @@ static int sh8601_init(const struct device *dev)
 	r = sh8601_send_cmd(dev, SH8601_C_DISPON);
 
 	k_msleep(200);
-	send_test(dev);
 
 	/*
 		r = sh8601_send_cmd(dev, SH8601_C_NORON);
@@ -552,19 +537,25 @@ static int sh8601_set_mem_area(const struct device *dev, const uint16_t x,
 							   const uint16_t h)
 {
 	int r;
-	uint16_t spi_data[2];
+	uint8_t spi_data[4];
 
-	spi_data[0] =	  // sys_cpu_to_be16(x);
-		spi_data[1] = // sys_cpu_to_be16(x + w - 1U);
-		r = sh8601_transmit_cmd(dev, SH8601_W_CASET, spi_data, 2U);
+	spi_data[0] = x >> 8;	// sys_cpu_to_be16(x);
+	spi_data[1] = x & 0xff; // sys_cpu_to_be16(x + w - 1U);
+	spi_data[2] = (x+w-1) >> 8;
+	spi_data[3] = (x+w-1) & 0xff;
+
+	r = sh8601_transmit_cmd(dev, SH8601_W_CASET, spi_data, 4U);
 	if (r < 0)
 	{
 		return r;
 	}
 
-	spi_data[0] = sys_cpu_to_be16(y);
-	spi_data[1] = sys_cpu_to_be16(y + h - 1U);
-	r = sh8601_transmit_cmd(dev, SH8601_W_PASET, spi_data, 2U);
+	spi_data[0] = y >> 8; // sys_cpu_to_be16(y);
+	spi_data[1] = y & 0xff;
+	spi_data[2] = (h+y-1) >> 8;
+	spi_data[3] = (h+y-1) & 0xff;
+
+	r = sh8601_transmit_cmd(dev, SH8601_W_PASET, spi_data, 4U);
 	if (r < 0)
 	{
 		return r;
@@ -599,34 +590,23 @@ static int sh8601_write(const struct device *dev, const uint16_t x,
 	uint16_t nbr_of_writes;
 	uint16_t write_h;
 
-	__ASSERT(desc->width <= desc->pitch, "Pitch is smaller than width");
-	__ASSERT((desc->pitch * data->bytes_per_pixel * desc->height) <=
-				 desc->buf_size,
-			 "Input buffer to small");
+	//__ASSERT(desc->width <= desc->pitch, "Pitch is smaller than width");
+	//__ASSERT((desc->pitch * data->bytes_per_pixel * desc->height) <=
+	//			 desc->buf_size,
+	//		 "Input buffer to small");
 
 	// printk("Writing %dx%d (w,h) @ %dx%d (x,y)", desc->width, desc->height,
 	//		x, y);
-	r = sh8601_set_mem_area(dev, x, y, desc->width, desc->height);
+	r = sh8601_set_mem_area(dev, (x+50), (y+50), desc->width, desc->height);
 	if (r < 0)
 	{
 		return r;
 	}
 
-	if (desc->pitch > desc->width)
-	{
-		write_h = 1U;
-		nbr_of_writes = desc->height;
-	}
-	else
-	{
-		write_h = desc->height;
-		nbr_of_writes = 1U;
-	}
-
 	// r = sh8601_transmit(dev, SH8601_RAMWR, write_data_start,
 	//					 desc->width * data->bytes_per_pixel * write_h);
 	// sh8601_send_cmd(dev, SH8601_W_RAMWR);
-	sh8601_transmit_data(dev, write_data_start, desc->buf_size);
+	sh8601_transmit_data(dev, buf, desc->buf_size);
 	if (r < 0)
 	{
 		return r;
