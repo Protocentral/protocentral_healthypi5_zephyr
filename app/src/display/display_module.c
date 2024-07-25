@@ -538,6 +538,7 @@ void disp_screen_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
     // lv_obj_t *target = lv_event_get_target(e);
+    printf("Event code: %d\n", event_code);
 
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
