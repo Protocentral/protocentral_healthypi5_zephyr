@@ -597,7 +597,7 @@ static int sh8601_write(const struct device *dev, const uint16_t x,
 
 	// printk("Writing %dx%d (w,h) @ %dx%d (x,y)", desc->width, desc->height,
 	//		x, y);
-	r = sh8601_set_mem_area(dev, (x+50), (y+50), desc->width, desc->height);
+	r = sh8601_set_mem_area(dev, x, y, desc->width, desc->height);
 	if (r < 0)
 	{
 		return r;
