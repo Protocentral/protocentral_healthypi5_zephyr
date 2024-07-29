@@ -2,6 +2,8 @@
 // ProtoCentral Electronics (info@protocentral.com)
 // SPDX-License-Identifier: Apache-2.0
 
+#include <zephyr/dt-bindings/display/ili9xxx.h>
+
 / {
 	chosen {
 		zephyr,display = &ili9488; 
@@ -19,9 +21,10 @@
 			compatible = "ilitek,ili9488";
 			reg = <0>;
 			mipi-max-frequency = <32000000>;
-			rotation = <270>;
+			rotation = <90>;
 			width = <480>;
 			height = <320>;
+			pixel-format = <ILI9XXX_PIXEL_FORMAT_RGB888>;
 	
 			frmctr1 = [ a0 11  ];
 			pwctrl1 = [ 17 15  ];
