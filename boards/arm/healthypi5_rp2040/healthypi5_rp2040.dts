@@ -77,7 +77,7 @@
 	lvgl_pointer {
 		compatible = "zephyr,lvgl-pointer-input";
 		input = <&ft6236>;
-		//swap-xy;
+		swap-xy;
 		//invert-x;
 		//invert-y;
 	};
@@ -179,8 +179,8 @@
 	ft6236: ft6236@38 {
 		compatible = "focaltech,ft5336";
 		reg = <0x38>;
-		int-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
-		reset-gpios = < &gpio0 15 0 >;
+		int-gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		reset-gpios = < &gpio0 15 GPIO_ACTIVE_LOW>;
 	};
 };
 
