@@ -530,6 +530,27 @@ void hpi_disp_draw_plot(float plot_data)
     }
 }
 
+int curr_screen = 0;
+void disp_screen_event(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    // lv_obj_t *target = lv_event_get_target(e);
+
+    if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
+    {
+        lv_indev_wait_release(lv_indev_get_act());
+        printf("Left at %d\n", curr_screen);
+
+       
+    }
+
+    if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_RIGHT)
+    {
+        lv_indev_wait_release(lv_indev_get_act());
+        printf("Right at %d\n", curr_screen);
+    }
+}
+
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
 {
     // lv_obj_clean(scr_obj);
@@ -582,6 +603,7 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj)
     }
 
     lv_scr_load_anim(scr_obj, LV_SCR_LOAD_ANIM_OUT_BOTTOM, 100, 0, true);
+    lv_obj_add_event_cb(scr_obj, disp_screen_event, LV_EVENT_GESTURE, NULL);
 }
 
 static void anim_x_cb(void *var, int32_t v)
@@ -692,6 +714,18 @@ void display_screens_thread(void)
     m_keypad_drv.read_cb = keypad_read;
     m_keypad_indev = lv_indev_drv_register(&m_keypad_drv);
     */
+   lv_indev_t *touch_indev;
+
+   touch_indev = lv_indev_get_next(NULL);
+    while (touch_indev)
+    {
+        if (lv_indev_get_type(touch_indev) == LV_INDEV_TYPE_POINTER)
+        {
+
+            break;
+        }
+        touch_indev = lv_indev_get_next(touch_indev);
+    }
 
     display_blanking_off(display_dev);
 

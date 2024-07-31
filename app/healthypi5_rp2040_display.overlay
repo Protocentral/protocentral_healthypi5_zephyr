@@ -20,8 +20,8 @@
 		ili9488: ili9488@0 {
 			compatible = "ilitek,ili9488";
 			reg = <0>;
-			mipi-max-frequency = <32000000>;
-			rotation = <90>;
+			mipi-max-frequency = <48000000>;
+			rotation = <270>;
 			width = <480>;
 			height = <320>;
 			pixel-format = <ILI9XXX_PIXEL_FORMAT_RGB888>;

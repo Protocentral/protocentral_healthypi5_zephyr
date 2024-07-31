@@ -42,9 +42,9 @@
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "buttons";
-		button_up: sw1 {
+		/*button_up: sw1 {
 			label = "Button UP / SW1";
-			gpios = <&gpio0 15 GPIO_ACTIVE_LOW >;
+			gpios = <&gpio0 14 GPIO_ACTIVE_LOW >;
 			zephyr,code = < INPUT_KEY_UP >;
 		};
 		button_ok: sw2 {
@@ -54,9 +54,9 @@
 		};
 		button_down: sw3 {
 			label = "Button DOWN / SW3";
-			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
 			zephyr,code = < INPUT_KEY_DOWN >;			
-		};
+		};*/
 	};
 
 	xtal_clk: xtal-clk {
@@ -74,13 +74,21 @@
 		};
 	};
 
+	lvgl_pointer {
+		compatible = "zephyr,lvgl-pointer-input";
+		input = <&ft6236>;
+		//swap-xy;
+		//invert-x;
+		//invert-y;
+	};
+
 	aliases {
 		ledblue = &blue_led;
 		ledgreen = &green_led;
 
-		keyup = &button_up;
-		keydown = &button_down;
-		keyok = &button_ok;
+		//keyup = &button_up;
+		//k/eydown = &button_down;
+		//keyok = &button_ok;
 
 		watchdog0 = &wdt0;
 		pwm-led0 = &pwm_led0;
@@ -166,6 +174,13 @@
 	atecc608a:  atecc608a@6a {
 		compatible = "atmel,atecc608";
 		reg = <0x6a>;
+	};
+
+	ft6236: ft6236@38 {
+		compatible = "focaltech,ft5336";
+		reg = <0x38>;
+		int-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
+		reset-gpios = < &gpio0 15 0 >;
 	};
 };
 
