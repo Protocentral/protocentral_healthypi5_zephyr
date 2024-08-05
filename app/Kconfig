@@ -26,4 +26,10 @@ config HEALTHYPI_USB_MSC_ENABLED
     help
       Enable USB MSC
 
+config HEALTHYPI_SD_CARD_ENABLED
+    bool "Enable SD Card"
+    default n
+    help
+      Enable SD Card
+
 source "Kconfig.zephyr"

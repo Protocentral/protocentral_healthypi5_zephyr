@@ -1,1 +1,1 @@
-west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-logger-sd.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_sd.overlay
+west build -p always -b healthypi5_rp2040 app "-DEXTRA_CONF_FILE=overlay-logger-sd.conf;overlay-bt.conf" -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_sd.overlay

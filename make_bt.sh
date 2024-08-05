@@ -1,1 +1,1 @@
-west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf
+west build -p always -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf

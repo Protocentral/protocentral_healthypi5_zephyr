@@ -18,6 +18,7 @@ int16_t RESP_WorkingBuff[2 * FILTERORDER];
 int16_t Pvev_DC_Sample=0, Pvev_Sample=0;
 
 static int32_t an_x[BUFFER_SIZE];
+static int32_t an_x_1[BUFFER_SIZE];
 static int32_t an_y[BUFFER_SIZE];
 
 const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97, 98, 98, 98, 98, 98, 99, 99, 99, 99,
@@ -51,7 +52,7 @@ int16_t  RespCoeffBuf[FILTERORDER] = { 120,    124,    126,    127,    127,    1
                                        24,     38,     52,     65,     77,     88,     97,    106,    113,
                                       118,    122,    125,    127,    127,    126,    124,    120   };
 
-void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
+void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint16_t *pun_red_buffer, uint16_t power_ir_average,int32_t *pn_spo2, int8_t *pch_spo2_valid, int32_t *pn_heart_rate, int8_t *pch_hr_valid)
 {
 
   uint32_t un_ir_mean;
@@ -64,26 +65,45 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
   int32_t n_spo2_calc;
   int32_t n_y_dc_max, n_x_dc_max;
   int32_t n_y_dc_max_idx = 0;
+  int32_t probe_error_count;
   int32_t n_x_dc_max_idx = 0;
   int32_t an_ratio[5], n_ratio_average;
   int32_t n_nume, n_denom;
+  static uint16_t probeErrorMinThreshold = 9500;
+  uint16_t slope_ppg;
+
 
   // calculates DC mean and subtract DC from ir
   un_ir_mean = 0;
+  probe_error_count = 0;
 
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     un_ir_mean += pun_ir_buffer[k];
-  }
 
+  }
+  
   un_ir_mean = un_ir_mean / n_ir_buffer_length;
 
   // remove DC and invert signal so that we can use peak detector as valley detector
   for (k = 0; k < n_ir_buffer_length; k++)
   {
     an_x[k] = -1 * (pun_ir_buffer[k] - un_ir_mean);
+    an_x_1[k] = (pun_ir_buffer[k] - un_ir_mean);
+    if (((uint16_t)an_x[k] <= probeErrorMinThreshold))
+      probe_error_count++;
   }
 
+  slope_ppg = (uint16_t)(((uint16_t)an_x_1[99] - (uint16_t)an_x_1[0]) / 99);
+  if ((abs(un_ir_mean - power_ir_average) < 100) || (probe_error_count>50) || (slope_ppg == 0))
+  {
+    *pn_spo2 = -999; // since amplitude is in the range of 8000, it means no presence is detected
+    *pch_spo2_valid = 0;
+    *pn_heart_rate = 0;
+    *pch_hr_valid = 0;
+    return;
+  }
+  
   // 4 pt Moving Average
   for (k = 0; k < BUFFER_SIZE - MA4_SIZE; k++)
   {
@@ -117,6 +137,7 @@ void hpi_estimate_spo2(uint16_t *pun_ir_buffer, int32_t n_ir_buffer_length, uint
 
   // since we flipped signal, we use peak detector as valley detector
   hpi_find_peak(an_ir_valley_locs, &n_npks, an_x, BUFFER_SIZE, n_th1, 4, 15); // peak_height, peak_distance, max_num_peaks
+  
   n_peak_interval_sum = 0;
 
   if (n_npks >= 2)
@@ -361,11 +382,9 @@ void Resp_FilterProcess(int16_t * RESP_WorkingBuff, int16_t * CoeffBuf, int16_t*
 
 int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
 {
-  static uint16_t bufStart=0, bufCur = FILTERORDER-1, FirstFlag = 1;    
+  static uint16_t bufStart=0, bufCur = FILTERORDER-1;    
   int16_t temp1, temp2;//, RESPData;
   int16_t RESPData;
-  /* Count variable*/
-  uint16_t Cur_Chan;
   int16_t FiltOut; 
   temp1 = NRCOEFF * Pvev_DC_Sample;
   Pvev_DC_Sample = (CurrAqsSample  - Pvev_Sample) + temp1;
@@ -395,12 +414,11 @@ void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRa
 {
 
   static int16_t prev_data[64] ={0};
-  char i;
   long Mac=0;
 
   prev_data[0] = CurrSample;
   
-  for ( i=63; i > 0; i--)
+  for ( int i=63; i > 0; i--)
   {
     Mac += prev_data[i];
     prev_data[i] = prev_data[i-1];
@@ -546,6 +564,5 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
 
 
   *RespirationRate=(uint8_t)Respiration_Rate;
-  //printf("Respiration: %d\n", *RespirationRate);
 }
 

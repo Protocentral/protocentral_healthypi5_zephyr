@@ -11,6 +11,7 @@
 
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+
 / {
 	chosen {
 		zephyr,sram = &sram0;
@@ -168,6 +169,15 @@
 	};
 };
 
+&timer {
+	status = "okay";
+};
+
+&clocks {
+	pinctrl-0 = <&clocks_default>;
+	pinctrl-names = "default";
+};
+
 &spi0 {
 	clock-frequency = <DT_FREQ_M(8)>;
 	status = "okay";
@@ -177,9 +187,18 @@
 
 	max30001: max30001@0 {
 		compatible = "maxim,max30001";
-		reg = <0x0>;
-		spi-max-frequency = <DT_FREQ_M(8)>;
 		status = "okay";
+		reg = <0x0>;
+		spi-max-frequency = <DT_FREQ_M(1)>;
+		//intb-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+		rtor-enabled;
+		ecg-enabled;
+		bioz-enabled;
+		ecg-gain = <3>;
+		ecg-invert;
+		//ecg-dcloff-enable;
+		//ecg-dcloff-current = <1>; // 5 nA
+
 	};
 
 	afe4400: afe4400@1 {
@@ -192,12 +211,13 @@
 };
 
 &spi1 {
-	clock-frequency = <DT_FREQ_M(8)>;
+	clock-frequency = <DT_FREQ_M(48)>;
 	status = "okay";
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
 
 	status = "okay";
+	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;	//CS Reg 0 - Display, CS Reg 1 - SD Slot
 };
 
 &wdt0 {
@@ -205,16 +225,18 @@
 };
 
 &adc {
-	status = "okay";
-	pinctrl-0 = <&adc_default>;
-	pinctrl-names = "default";
+	status = "disabled";
+	
 };
 
 zephyr_udc0: &usbd {
+	status = "okay";
+};
+
+&zephyr_udc0 {
 	cdc_acm_uart0: cdc_acm_uart0 {
 		compatible = "zephyr,cdc-acm-uart";
 	};
-	status = "okay";
 };
 
 /*&pwm {
