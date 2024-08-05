@@ -278,7 +278,6 @@ INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
 void hw_thread(void)
 {
-
     if (!device_is_ready(max30001_dev))
     {
         printk("MAX30001 device not found! Rebooting !");
