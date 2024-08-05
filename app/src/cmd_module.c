@@ -3,6 +3,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/sys/reboot.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/fs/littlefs.h>
 
 #include "cmd_module.h"
 
@@ -27,6 +29,7 @@ uint8_t ces_pkt_data_buffer[1000]; // = new char[1000];
 volatile bool cmd_module_ble_connected = false;
 
 extern int global_dev_status;
+extern struct fs_mount_t *mp;
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -37,27 +40,7 @@ struct wiser_cmd_data_fifo_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
-#define PARTITION_NODE DT_NODELABEL(lfs1)
 
-#if DT_NODE_EXISTS(PARTITION_NODE)
-FS_FSTAB_DECLARE_ENTRY(PARTITION_NODE);
-#else  /* PARTITION_NODE */
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
-static struct fs_mount_t lfs_storage_mnt = {
-    .type = FS_LITTLEFS,
-    .fs_data = &storage,
-    .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
-    .mnt_point = "/lfs",
-};
-#endif /* PARTITION_NODE */
-
-struct fs_mount_t *mp =
-#if DT_NODE_EXISTS(PARTITION_NODE)
-    &FS_FSTAB_ENTRY(PARTITION_NODE)
-#else
-    &lfs_storage_mnt
-#endif
-    ;
 
 K_FIFO_DEFINE(cmd_data_fifo);
 
@@ -151,7 +134,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         if (rc < 0)
         {
             printk("FAILED to return stats");
-            return rc;
         }
         printk("%s: bsize = %lu ; frsize = %lu ; blocks = %lu ; bfree = %lu\n", mp->mnt_point,sbuf.f_bsize, sbuf.f_frsize, sbuf.f_blocks, sbuf.f_bfree);
         break;
