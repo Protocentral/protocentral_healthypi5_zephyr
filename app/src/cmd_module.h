@@ -18,6 +18,8 @@
 #define CMD_PROGRAM_SAVE_TPCS 0x21
 #define CMD_PROGRAM_SAVE_TACS 0x22
 
+#define CMD_LOGGING_START 0X55
+
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);

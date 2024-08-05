@@ -37,6 +37,28 @@ struct wiser_cmd_data_fifo_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
+#define PARTITION_NODE DT_NODELABEL(lfs1)
+
+#if DT_NODE_EXISTS(PARTITION_NODE)
+FS_FSTAB_DECLARE_ENTRY(PARTITION_NODE);
+#else  /* PARTITION_NODE */
+FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
+static struct fs_mount_t lfs_storage_mnt = {
+    .type = FS_LITTLEFS,
+    .fs_data = &storage,
+    .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
+    .mnt_point = "/lfs",
+};
+#endif /* PARTITION_NODE */
+
+struct fs_mount_t *mp =
+#if DT_NODE_EXISTS(PARTITION_NODE)
+    &FS_FSTAB_ENTRY(PARTITION_NODE)
+#else
+    &lfs_storage_mnt
+#endif
+    ;
+
 K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
@@ -101,7 +123,7 @@ void ces_parse_packet(char rxch)
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
-
+    int rc;
     uint8_t cmd_cmd_id = in_pkt_buf[0];
 
     printk("Recd Command: %X\n", cmd_cmd_id);
@@ -119,6 +141,19 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         printk("Rebooting...\n");
         k_sleep(K_MSEC(1000));
         sys_reboot(SYS_REBOOT_COLD);
+        break;
+
+    case CMD_LOGGING_START:
+        
+        printk("Start logging Command\n");
+        struct fs_statvfs sbuf;
+        rc = fs_statvfs(mp->mnt_point, &sbuf);
+        if (rc < 0)
+        {
+            printk("FAILED to return stats");
+            return rc;
+        }
+        printk("%s: bsize = %lu ; frsize = %lu ; blocks = %lu ; bfree = %lu\n", mp->mnt_point,sbuf.f_bsize, sbuf.f_frsize, sbuf.f_blocks, sbuf.f_bfree);
         break;
 
     default:
