@@ -92,6 +92,29 @@ static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t v
 	}
 }
 
+static void cmd_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
+{
+	ARG_UNUSED(attr);
+	switch (value)
+	{
+	case BT_GATT_CCC_NOTIFY:
+		printk("CMD RX/TX CCCD subscribed");
+		break;
+
+	case BT_GATT_CCC_INDICATE:
+		// Start sending stuff via indications
+		break;
+
+	case 0:
+		printk("CMD RX/TX CCCD unsubscribed");
+		break;
+
+	default:
+		printk("Error, CCCD has been set to an invalid value");
+	}
+}
+
+
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL,
