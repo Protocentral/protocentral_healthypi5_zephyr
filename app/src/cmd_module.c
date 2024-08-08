@@ -9,6 +9,7 @@
 #include "cmd_module.h"
 #include "fs_module.h"
 #include "record_module.h"
+#include "ble_module.h"
 
 // #include "tdcs3.h"
 

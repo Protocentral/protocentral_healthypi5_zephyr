@@ -61,6 +61,16 @@ extern struct k_msgq q_cmd_msg;
 // Resp rate Characteristic cd5ca86f-4448-7db8-ae4c-d1da8cba36d0
 #define UUID_HPI_RESP_RATE_CHAR BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xcd5ca86f, 0x4448, 0x7db8, 0xae4c, 0xd1da8cba36d0))
 
+#define CMD_SERVICE_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
+						 0x96, 0x8d, 0x0f, 0x97, 0x92, 0x74, 0xbf, 0x01
+
+
+#define CMD_TX_CHARACTERISTIC_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
+								   0x96, 0x8d, 0x0f, 0x97, 0x28, 0x15, 0xbf, 0x01
+
+#define CMD_RX_CHARACTERISTIC_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
+								   0x96, 0x8d, 0x0f, 0x97, 0x27, 0x15, 0xbf, 0x01
+
 #define UUID_HPI_CMD_SERVICE BT_UUID_DECLARE_128(CMD_SERVICE_UUID)
 #define UUID_HPI_CMD_SERVICE_CHAR_TX BT_UUID_DECLARE_128(CMD_TX_CHARACTERISTIC_UUID)
 #define UUID_HPI_CMD_SERVICE_CHAR_RX BT_UUID_DECLARE_128(CMD_RX_CHARACTERISTIC_UUID)
@@ -210,7 +220,6 @@ BT_GATT_SERVICE_DEFINE(hpi_cmd_service,
 											  NULL, NULL, NULL),
 					   BT_GATT_CCC(cmd_on_cccd_changed,
 								   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE), );
-
 
 void ble_spo2_notify(uint16_t spo2_val)
 {
