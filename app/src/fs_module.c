@@ -216,7 +216,7 @@ void fs_module_init(void)
            sbuf.f_bsize, sbuf.f_frsize,
            sbuf.f_blocks, sbuf.f_bfree);
 
-    rc = lsdir("/lfs");
+    rc = lsdir("/lfs/log");
     if (rc < 0)
     {
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
@@ -227,3 +227,4 @@ void fs_module_init(void)
     mount_sd_fs();
 #endif
 }
+

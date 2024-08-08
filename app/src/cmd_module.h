@@ -18,7 +18,10 @@
 #define CMD_PROGRAM_SAVE_TPCS 0x21
 #define CMD_PROGRAM_SAVE_TACS 0x22
 
-#define CMD_LOGGING_START 0X55
+#define CMD_LOGGING_START 0x55
+#define CMD_LOGGING_MEMORY_FREE 0x32
+#define CMD_LOGGING_MEMORY_NOT_AVAILABLE 0x31
+
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
@@ -67,4 +70,13 @@ enum ble_status
     BLE_STATUS_CONNECTED,
     BLE_STATUS_DISCONNECTED,
     BLE_STATUS_CONNECTING,
+};
+
+#define MAX_MSG_SIZE 32
+
+struct hpi_cmd_data_obj_t
+{
+    uint8_t pkt_type;
+    uint8_t data_len;
+    uint8_t data[MAX_MSG_SIZE];
 };

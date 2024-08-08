@@ -7,17 +7,21 @@
 #include <zephyr/fs/littlefs.h>
 
 #include "cmd_module.h"
-
 #include "fs_module.h"
+#include "record_module.h"
+
 // #include "tdcs3.h"
 
 //#define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
 #define MAX_MSG_SIZE 32
 
+#define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
 #define CMDIF_BLE_UART_MAX_PKT_SIZE 128 // Max Packet Size in bytes
 
 K_SEM_DEFINE(sem_ble_connected, 0, 1);
 K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
+
+K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 128, 4);
 
 //static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
@@ -135,7 +139,92 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             printk("FAILED to return stats");
         }
-        printk("%s: bsize = %lu ; frsize = %lu ; blocks = %lu ; bfree = %lu\n", mp->mnt_point,sbuf.f_bsize, sbuf.f_frsize, sbuf.f_blocks, sbuf.f_bfree);
+
+        printk("free: %lu, available : %f\n",sbuf.f_bfree,(0.25 * sbuf.f_blocks));
+        
+        //if memory available is greater than 25%
+        if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
+        {
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
+
+            struct fs_file_t file;
+            struct fs_dir_t dir;
+            
+            char fname[]="/lfs/log/test_file";
+            fs_dir_t_init(&dir);
+            fs_file_t_init(&file);  
+
+
+            rc = fs_opendir(&dir, mp->mnt_point);
+            printk("%s opendir: %d\n", mp->mnt_point, rc);
+
+            if (rc < 0) {
+                printk("Failed to open directory");
+            }
+
+            while (rc >= 0) {
+                struct fs_dirent ent = { 0 };
+
+                rc = fs_readdir(&dir, &ent);
+                if (rc < 0) {
+                    printk("Failed to read directory entries");
+                    break;
+                }
+                if (ent.name[0] == 0) {
+                    printk("End of files\n");
+                    break;
+                }
+                printk("  %c %u %s\n",
+                    (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
+                    ent.size,
+                    ent.name);
+            }
+
+            rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
+            if (rc < 0)
+            {
+                printk("FAIL: open %s: %d\\n", fname, rc);
+                return;
+            }
+
+            uint32_t boot_count[5] = {23,45,67,87,34};
+            //boot_count = 45;
+
+            rc = fs_write(&file, &boot_count, sizeof(boot_count));
+            printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
+
+            rc = fs_close(&file);
+
+
+            uint32_t read_boot_count[5];
+
+            rc = fs_open(&file, fname, FS_O_RDWR);
+            if (rc < 0)
+            {
+                printk("FAIL: open %s: %d\\n", fname, rc);
+                return;
+            }
+
+            rc = fs_read(&file, &read_boot_count, sizeof(read_boot_count));
+		    printk("%s read count %u: %d\n", fname, *read_boot_count, rc);
+
+            rc = fs_close(&file);
+
+            fs_closedir(&dir);
+
+            for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
+            {
+                printk("%d\n",read_boot_count[i]);
+            }
+
+	          
+               
+       }
+        else
+        {
+            //if memory available is less than 25%
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
+        }
         break;
 
     default:
@@ -143,6 +232,19 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         break;
     }
 }
+
+void cmdif_send_memory_status(uint8_t m_cmd)
+{
+    printk("Sending BLE Status");
+    uint8_t cmd_pkt[3];
+
+    cmd_pkt[0] = CES_CMDIF_TYPE_STATUS;
+    cmd_pkt[1] = 0x55;
+    cmd_pkt[2] = m_cmd;
+
+    healthypi5_service_send_data(cmd_pkt, 3);
+}
+
 
 // TODO: implement BLE UART
 void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
@@ -286,7 +388,7 @@ static void cmd_init(void)
     */
 }
 
-void cmd_thread(void)
+/*void cmd_thread(void)
 {
     printk("CMD Thread Started\n");
 
@@ -364,7 +466,31 @@ void cmd_thread(void)
 
         k_sleep(K_MSEC(1000));
     }
+}*/
+
+void cmd_thread(void)
+{
+    printk("CMD Thread Started\n");
+
+    struct hpi_cmd_data_obj_t rx_cmd_data_obj;
+
+    for (;;)
+    {
+        k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_FOREVER);
+
+        printk("Recd BLE Packet len: %d \n", rx_cmd_data_obj.data_len);
+        for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
+        {
+            printk("%02X ", rx_cmd_data_obj.data[i]);
+        }
+        printk("\n");
+        hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len); 
+
+        k_sleep(K_MSEC(1000));
+    }
 }
+
+
 
 #define CMD_THREAD_STACKSIZE 1024
 #define CMD_THREAD_PRIORITY 7
