@@ -5,11 +5,17 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
+#include <stdio.h>
 
-#include "cmd_module.h"
 #include "fs_module.h"
+#include "cmd_module.h"
+
 #include "record_module.h"
 #include "ble_module.h"
+#include "data_module.h"
+#include "hw_module.h"
+#include "cmd_module.h"
+#include "sampling_module.h"
 
 // #include "tdcs3.h"
 
@@ -33,8 +39,14 @@ int cmd_pkt_pkttype;
 uint8_t ces_pkt_data_buffer[1000]; // = new char[1000];
 volatile bool cmd_module_ble_connected = false;
 
+extern struct k_msgq q_sample;
 extern int global_dev_status;
 extern struct fs_mount_t *mp;
+struct hpi_sensor_data_t sensor_sample;
+struct fs_dir_t dir;
+struct fs_file_t file;
+
+uint8_t buf_log[1024];
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -45,11 +57,173 @@ struct wiser_cmd_data_fifo_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
-
-
 K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
+
+
+void write_sensor_data_to_file()
+{
+    struct fs_file_t file;
+    struct fs_statvfs sbuf;
+    char fname[50] = "/lfs/log/";
+    int current_session_log_id = 100824;
+
+    fs_file_t_init(&file);
+
+    printf("Write to file... %d\n", current_session_log_id);
+    char session_id_str[50];
+    sprintf(session_id_str, "%d", current_session_log_id);
+    strcat(fname, session_id_str);
+
+    //printf("Session Length: %d\n", current_session_log_counter);
+
+    int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", fname, rc);
+    }
+
+    uint32_t boot_count[5] = {23,45,67,87,34};
+    rc = fs_write(&file, &boot_count, sizeof(boot_count));
+    printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
+    rc = fs_close(&file);
+    rc = fs_sync(&file);
+
+
+    uint32_t read_boot_count[5];
+
+    rc = fs_open(&file, fname, FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d\\n", fname, rc);
+        return;
+    }
+
+    rc = fs_read(&file, &read_boot_count, sizeof(read_boot_count));
+    printk("%s read count %u: %d\n", fname, *read_boot_count, rc);
+
+    rc = fs_close(&file);
+    
+    for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
+    {
+        printk("%d\n",read_boot_count[i]);
+    }
+}
+
+
+uint16_t log_get_count(void)
+{
+    int res;
+    struct fs_dir_t dirp;
+    static struct fs_dirent entry;
+
+    uint16_t log_count = 0;
+
+    fs_dir_t_init(&dirp);
+
+    const char *path = "/lfs/log";
+
+    /* Verify fs_opendir() */
+    res = fs_opendir(&dirp, path);
+    if (res)
+    {
+        printk("Error opening dir %s [%d]\n", path, res);
+        return res;
+    }
+
+    printk("\nGet Count CMD %s ...\n", path);
+    for (;;)
+    {
+        /* Verify fs_readdir() */
+        res = fs_readdir(&dirp, &entry);
+
+        /* entry.name[0] == 0 means end-of-dir */
+        if (res || entry.name[0] == 0)
+        {
+            if (res < 0)
+            {
+                printk("Error reading dir [%d]\n", res);
+            }
+
+            printk("Total log count: %d\n", log_count);
+            break;
+        }
+
+        if (entry.type != FS_DIR_ENTRY_DIR)
+        {
+            log_count++;
+        }
+    }
+
+    /* Verify fs_closedir() */
+    fs_closedir(&dirp);
+
+    cmdif_send_file_count(log_count);
+
+    return log_count;
+}
+
+int log_get_all_file_names(void)
+{
+    int res;
+    struct fs_dir_t dirp;
+    static struct fs_dirent entry;
+
+    uint16_t log_count = 0;
+    uint16_t buf_log_index = 0;
+
+    fs_dir_t_init(&dirp);
+
+    const char *path = "/lfs/log";
+
+    /* Verify fs_opendir() */
+    res = fs_opendir(&dirp, path);
+    if (res)
+    {
+        printk("Error opening dir %s [%d]\n", path, res);
+        return res;
+    }
+
+    printk("\nGet Index CMD %s ...\n", path);
+    for (;;)
+    {
+        /* Verify fs_readdir() */
+        res = fs_readdir(&dirp, &entry);
+
+        /* entry.name[0] == 0 means end-of-dir */
+        if (res || entry.name[0] == 0)
+        {
+            if (res < 0)
+            {
+                printk("Error reading dir [%d]\n", res);
+            }
+
+            break;
+        }
+
+        if (entry.type != FS_DIR_ENTRY_DIR)
+        {
+            printk("file names %s\n",entry.name);
+            uint32_t session_id = atoi(entry.name);
+            printk("%d\n",session_id);
+            cmdif_send_ble_data_idx(session_id, sizeof(session_id));
+        }
+
+    }
+    fs_closedir(&dirp);
+
+    return res;
+}
+
+void set_file_name(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
+{
+    printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",m_sec,m_min, m_hour,  m_day,  m_month,  m_year);
+}
+
+
+
+
 
 void ces_parse_packet(char rxch)
 {
@@ -109,6 +283,7 @@ void ces_parse_packet(char rxch)
     }
 }
 
+
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
     int rc;
@@ -131,10 +306,27 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         sys_reboot(SYS_REBOOT_COLD);
         break;
 
+    case CMD_LOG_GET_COUNT:
+        printk("Sending log count\n");
+        log_get_count();
+        break;
+
+    case CMD_LOG_FILE_NAMES:
+        printk("Sending log file names\n");
+        log_get_all_file_names();        
+        break;
+
+
     case CMD_LOGGING_START:
         
         printk("Start logging Command\n");
-        struct fs_statvfs sbuf;
+
+        printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",in_pkt_buf[1],in_pkt_buf[2], in_pkt_buf[3],  in_pkt_buf[4],  in_pkt_buf[5],  in_pkt_buf[6]);
+
+        set_file_name(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+
+        
+        /*struct fs_statvfs sbuf;
         rc = fs_statvfs(mp->mnt_point, &sbuf);
         if (rc < 0)
         {
@@ -146,86 +338,15 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         //if memory available is greater than 25%
         if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
         {
-            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
-
-            struct fs_file_t file;
-            struct fs_dir_t dir;
-            
-            char fname[]="/lfs/log/test_file";
-            fs_dir_t_init(&dir);
-            fs_file_t_init(&file);  
-
-
-            rc = fs_opendir(&dir, mp->mnt_point);
-            printk("%s opendir: %d\n", mp->mnt_point, rc);
-
-            if (rc < 0) {
-                printk("Failed to open directory");
-            }
-
-            while (rc >= 0) {
-                struct fs_dirent ent = { 0 };
-
-                rc = fs_readdir(&dir, &ent);
-                if (rc < 0) {
-                    printk("Failed to read directory entries");
-                    break;
-                }
-                if (ent.name[0] == 0) {
-                    printk("End of files\n");
-                    break;
-                }
-                printk("  %c %u %s\n",
-                    (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
-                    ent.size,
-                    ent.name);
-            }
-
-            rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
-            if (rc < 0)
-            {
-                printk("FAIL: open %s: %d\\n", fname, rc);
-                return;
-            }
-
-            uint32_t boot_count[5] = {23,45,67,87,34};
-            //boot_count = 45;
-
-            rc = fs_write(&file, &boot_count, sizeof(boot_count));
-            printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
-
-            rc = fs_close(&file);
-
-
-            uint32_t read_boot_count[5];
-
-            rc = fs_open(&file, fname, FS_O_RDWR);
-            if (rc < 0)
-            {
-                printk("FAIL: open %s: %d\\n", fname, rc);
-                return;
-            }
-
-            rc = fs_read(&file, &read_boot_count, sizeof(read_boot_count));
-		    printk("%s read count %u: %d\n", fname, *read_boot_count, rc);
-
-            rc = fs_close(&file);
-
-            fs_closedir(&dir);
-
-            for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
-            {
-                printk("%d\n",read_boot_count[i]);
-            }
-
-	          
-               
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);   
+            write_sensor_data_to_file();         //
+                  
        }
         else
         {
             //if memory available is less than 25%
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }
+        }*/
         break;
 
     default:
@@ -234,15 +355,50 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     }
 }
 
+void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
+{
+    
+    uint8_t cmd_pkt[1 + m_data_len];
+    printk("Sending BLE Index Data 1: %d\n", m_data[0]);
+    printk("Sending BLE Index Data 2: %d\n", m_data[1]);
+    printk("Sending BLE Index Data 3: %d\n", m_data[2]);
+    printk("Sending BLE Index Data 4: %d\n", m_data[3]);
+    cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
+    cmd_pkt[1] = 0x00;
+    cmd_pkt[2] = 0xA0;
+    cmd_pkt[3] = 0x08;
+    cmd_pkt[4] = 0x18;
+
+    for (int i = 0; i < m_data_len; i++)
+    {
+        cmd_pkt[1 + i] = m_data[i];
+    }
+
+    healthypi5_service_send_data(cmd_pkt, 1 + m_data_len);
+}
+
 void cmdif_send_memory_status(uint8_t m_cmd)
 {
-    printk("Sending BLE Status");
+    printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_STATUS;
     cmd_pkt[1] = 0x55;
     cmd_pkt[2] = m_cmd;
 
+    healthypi5_service_send_data(cmd_pkt, 3);
+}
+
+void cmdif_send_file_count(uint8_t m_cmd)
+{
+    printk("Sending BLE Status\n");
+    uint8_t cmd_pkt[3];
+
+    cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
+    cmd_pkt[1] = 0x84;
+    cmd_pkt[2] = m_cmd;
+
+    printk("sending response\n");
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
@@ -490,6 +646,7 @@ void cmd_thread(void)
         k_sleep(K_MSEC(1000));
     }
 }
+
 
 
 
