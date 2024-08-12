@@ -32,6 +32,9 @@ K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 128, 4);
 
 //static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
+struct healthypi_session_log_header_t healthypi_session_log_header;
+struct healthypi_time_t healthypi_time;
+
 
 int cmd_pkt_len;
 int cmd_pkt_pos_counter, cmd_pkt_data_counter;
@@ -66,15 +69,17 @@ void write_sensor_data_to_file()
 {
     struct fs_file_t file;
     struct fs_statvfs sbuf;
-    char fname[50] = "/lfs/log/";
+    struct hpi_sensor_data_t sensor_sample;
+
+    char fname[50] = "/lfs/log/100824";
     int current_session_log_id = 100824;
 
     fs_file_t_init(&file);
 
-    printf("Write to file... %d\n", current_session_log_id);
+    /*printf("Write to file... %d\n", current_session_log_id);
     char session_id_str[50];
     sprintf(session_id_str, "%d", current_session_log_id);
-    strcat(fname, session_id_str);
+    strcat(fname, session_id_str);*/
 
     //printf("Session Length: %d\n", current_session_log_counter);
 
@@ -84,7 +89,37 @@ void write_sensor_data_to_file()
         printk("FAIL: open %s: %d", fname, rc);
     }
 
-    uint32_t boot_count[5] = {23,45,67,87,34};
+    healthypi_session_log_header.file_id = 500;
+    healthypi_session_log_header.file_length = 600;
+    printk("ecg sample %d\n",sensor_sample.ecg_sample);
+
+
+    printf("Writing session log header: %d\n", sizeof(struct healthypi_session_log_header_t));
+    // Write session log header
+    rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
+
+    //rc = fs_write(&file, sensor_sample.ecg_sample, sizeof(sensor_sample.ecg_sample));
+    rc = fs_close(&file);
+    rc = fs_sync(&file);
+
+    struct hpi_sensor_data_test_t m_header;
+
+    rc = fs_open(&file, fname, FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d\\n", fname, rc);
+        return;
+    }
+
+    rc = fs_read(&file, (struct hpi_sensor_data_test_t *)&m_header, sizeof(struct hpi_sensor_data_test_t));
+    printk("Reading from file\n");
+    printk(&m_header);
+    printk("structure %d\n",m_header.ecg_sample);
+
+    rc = fs_close(&file);
+    
+
+    /*uint32_t boot_count[5] = {23,45,67,87,34};
     rc = fs_write(&file, &boot_count, sizeof(boot_count));
     printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
     rc = fs_close(&file);
@@ -108,7 +143,7 @@ void write_sensor_data_to_file()
     for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
     {
         printk("%d\n",read_boot_count[i]);
-    }
+    }*/
 }
 
 
@@ -219,6 +254,12 @@ int log_get_all_file_names(void)
 void set_file_name(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
     printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",m_sec,m_min, m_hour,  m_day,  m_month,  m_year);
+    healthypi_time.year = m_year;
+    healthypi_time.month = m_month;
+    healthypi_time.day = m_day;
+    healthypi_time.hour = m_hour;
+    healthypi_time.minute = m_min;
+    healthypi_time.second = m_sec;
 }
 
 
@@ -326,7 +367,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         set_file_name(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
 
         
-        /*struct fs_statvfs sbuf;
+        struct fs_statvfs sbuf;
         rc = fs_statvfs(mp->mnt_point, &sbuf);
         if (rc < 0)
         {
@@ -346,7 +387,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             //if memory available is less than 25%
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }*/
+        }
         break;
 
     default:

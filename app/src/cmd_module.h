@@ -99,10 +99,20 @@ struct healthypi_time_t
 struct healthypi_session_log_header_t
 {
     // Log ID (0-9999)
-    uint16_t log_id;
-    uint16_t log_session_length;
-    //Session start time
+    uint16_t file_id;
+    uint16_t file_length;
     struct healthypi_time_t log_start_time;
 
+};
+
+struct hpi_sensor_data_test_t {
+    int32_t ecg_sample;
+    int32_t bioz_sample;
+    int32_t raw_red;
+    int32_t raw_ir;
+    int32_t temp;
+    bool _bioZSkipSample;
+    uint16_t rtor;
+    uint16_t hr;
 };
 
