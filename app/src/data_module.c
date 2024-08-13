@@ -53,7 +53,7 @@ static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
-static bool settings_log_data_enabled = false;       // true;
+extern bool settings_log_data_enabled;       // true;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -222,7 +222,7 @@ void data_thread(void)
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
 
-    record_init_session_log();
+    //record_init_session_log();
 
     int m_temp_sample_counter = 0;
 

@@ -5,25 +5,14 @@
 #define CES_CMDIF_PKT_STOP_1 0x00
 #define CES_CMDIF_PKT_STOP_2 0x0B
 
-#define CMD_SESSION_START_TES 0x09
-#define CMD_SESSION_START_TDCS 0x10
-#define CMD_SESSION_START_TPCS 0x11
-#define CMD_SESSION_START_TACS 0x12
 
-#define CMD_SESSION_PAUSE 0x13
-#define CMD_SESSION_ABORT 0x14
-#define CMD_SESSION_RESUME 0x15
-
-#define CMD_PROGRAM_SAVE_TDCS 0x20
-#define CMD_PROGRAM_SAVE_TPCS 0x21
-#define CMD_PROGRAM_SAVE_TACS 0x22
-
-#define CMD_LOGGING_START 0x55
 #define CMD_LOGGING_MEMORY_FREE 0x32
 #define CMD_LOGGING_MEMORY_NOT_AVAILABLE 0x31
-#define CMD_LOG_GET_COUNT 0x54 //0x06 and file count
+#define CMD_LOGGING_END 0x56
+#define CMD_LOGGING_START 0x55
+#define CMD_LOG_GET_COUNT 0x54 
+#define CMD_FETCH_LOG_FILE 0x51
 #define CMD_LOG_FILE_NAMES 0x50
-
 
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
@@ -98,10 +87,15 @@ struct healthypi_time_t
 
 struct healthypi_session_log_header_t
 {
-    // Log ID (0-9999)
-    uint16_t file_id;
-    uint16_t file_length;
-    struct healthypi_time_t log_start_time;
+    uint16_t session_id;
+    struct healthypi_time_t session_start_time;
+
+};
+
+struct healthypi_session_log_header_test_t
+{
+    uint16_t session_id;
+    struct healthypi_time_t session_start_time;
 
 };
 
@@ -111,8 +105,5 @@ struct hpi_sensor_data_test_t {
     int32_t raw_red;
     int32_t raw_ir;
     int32_t temp;
-    bool _bioZSkipSample;
-    uint16_t rtor;
-    uint16_t hr;
 };
 

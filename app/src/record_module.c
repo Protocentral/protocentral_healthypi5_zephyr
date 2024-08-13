@@ -155,12 +155,12 @@ void record_write_to_file(int current_session_log_id, int current_session_log_co
 
     fs_mkdir("/lfs/log");
 
-    char fname[30] = "/lfs/log/";
+    char fname[30] = "/lfs/log/1";
 
-    printf("Write to file... %d\n", current_session_log_id);
+    /*printf("Write to file... %d\n", current_session_log_id);
     char session_id_str[5];
     sprintf(session_id_str, "%d", current_session_log_id);
-    strcat(fname, session_id_str);
+    strcat(fname, session_id_str);*/
 
     printf("Session Length: %d\n", current_session_log_counter);
 
@@ -175,6 +175,7 @@ void record_write_to_file(int current_session_log_id, int current_session_log_co
     for (int i = 0; i < current_session_log_counter; i++)
     {
         rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_data_t));
+        //printk("Writing to the file %d/n",&current_session_log_points[i]);
     }
 
     rc = fs_close(&file);

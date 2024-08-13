@@ -33,7 +33,6 @@ K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 128, 4);
 //static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
 struct healthypi_session_log_header_t healthypi_session_log_header;
-struct healthypi_time_t healthypi_time;
 
 
 int cmd_pkt_len;
@@ -48,8 +47,10 @@ extern struct fs_mount_t *mp;
 struct hpi_sensor_data_t sensor_sample;
 struct fs_dir_t dir;
 struct fs_file_t file;
+bool  settings_log_data_enabled = false; 
+int current_log_counter;
 
-uint8_t buf_log[1024];
+uint8_t buf_log[1024];// 56 bytes / session, 18 sessions / packet
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -65,23 +66,14 @@ K_FIFO_DEFINE(cmd_data_fifo);
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
 
 
-void write_sensor_data_to_file()
+void write_header_to_new_file()
 {
     struct fs_file_t file;
     struct fs_statvfs sbuf;
     struct hpi_sensor_data_t sensor_sample;
 
-    char fname[50] = "/lfs/log/100824";
-    int current_session_log_id = 100824;
-
+    char fname[50] = "/lfs/log/2";
     fs_file_t_init(&file);
-
-    /*printf("Write to file... %d\n", current_session_log_id);
-    char session_id_str[50];
-    sprintf(session_id_str, "%d", current_session_log_id);
-    strcat(fname, session_id_str);*/
-
-    //printf("Session Length: %d\n", current_session_log_counter);
 
     int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
@@ -89,20 +81,14 @@ void write_sensor_data_to_file()
         printk("FAIL: open %s: %d", fname, rc);
     }
 
-    healthypi_session_log_header.file_id = 500;
-    healthypi_session_log_header.file_length = 600;
-    printk("ecg sample %d\n",sensor_sample.ecg_sample);
-
-
+    healthypi_session_log_header.session_id = 1;
     printf("Writing session log header: %d\n", sizeof(struct healthypi_session_log_header_t));
-    // Write session log header
     rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
 
-    //rc = fs_write(&file, sensor_sample.ecg_sample, sizeof(sensor_sample.ecg_sample));
     rc = fs_close(&file);
     rc = fs_sync(&file);
 
-    struct hpi_sensor_data_test_t m_header;
+    struct healthypi_session_log_header_test_t m_header;
 
     rc = fs_open(&file, fname, FS_O_RDWR);
     if (rc < 0)
@@ -111,40 +97,56 @@ void write_sensor_data_to_file()
         return;
     }
 
-    rc = fs_read(&file, (struct hpi_sensor_data_test_t *)&m_header, sizeof(struct hpi_sensor_data_test_t));
+    rc = fs_read(&file, (struct healthypi_session_log_header_test_t *)&m_header, sizeof(struct healthypi_session_log_header_test_t));
     printk("Reading from file\n");
     printk(&m_header);
-    printk("structure %d\n",m_header.ecg_sample);
+    printk("structure %d\n",m_header.session_id);
 
     rc = fs_close(&file);
-    
+}
 
-    /*uint32_t boot_count[5] = {23,45,67,87,34};
-    rc = fs_write(&file, &boot_count, sizeof(boot_count));
-    printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
-    rc = fs_close(&file);
-    rc = fs_sync(&file);
+struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
+{
+    printk("Getting header for file %u\n", file_id);
 
+    struct healthypi_session_log_header_t m_header;
 
-    uint32_t read_boot_count[5];
+    printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
 
-    rc = fs_open(&file, fname, FS_O_RDWR);
-    if (rc < 0)
+    char m_file_name[30];
+    snprintf(m_file_name, sizeof(m_file_name), "/lfs/log/%u", file_id);
+
+    struct fs_file_t m_file;
+    fs_file_t_init(&m_file);
+
+    int rc = 0;
+    rc = fs_open(&m_file, m_file_name, FS_O_READ);
+
+    if (rc != 0)
     {
-        printk("FAIL: open %s: %d\\n", fname, rc);
-        return;
+        printk("Error opening file %d\n", rc);
+        // return;
     }
 
-    rc = fs_read(&file, &read_boot_count, sizeof(read_boot_count));
-    printk("%s read count %u: %d\n", fname, *read_boot_count, rc);
-
-    rc = fs_close(&file);
-    
-    for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
+    rc = fs_read(&m_file, (struct healthypi_session_log_header_t *)&m_header, sizeof(struct healthypi_session_log_header_t));
+    if (rc < 0)
     {
-        printk("%d\n",read_boot_count[i]);
-    }*/
+        printk("Error reading file %d\n", rc);
+        // return;
+    }
+
+    // m_header = *((struct tes_session_log_header_t *)m_header_buffer);
+
+    rc = fs_close(&m_file);
+    if (rc != 0)
+    {
+        printk("Error closing file %d\n", rc);
+        // return;
+    }
+
+    return m_header;
 }
+
 
 
 uint16_t log_get_count(void)
@@ -240,9 +242,19 @@ int log_get_all_file_names(void)
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
             printk("file names %s\n",entry.name);
-            uint32_t session_id = atoi(entry.name);
+            uint16_t session_id = atoi(entry.name);
             printk("%d\n",session_id);
-            cmdif_send_ble_data_idx(session_id, sizeof(session_id));
+            struct healthypi_session_log_header_t m_header = log_get_file_header(session_id);
+            memcpy(&buf_log, &m_header, sizeof(struct healthypi_session_log_header_t));
+            printk("Size of header size %d\n",sizeof(struct healthypi_session_log_header_t));
+            printk("member 1 %d\n",m_header.session_id);
+            printk("member 2 %d\n",m_header.session_start_time.year);
+            printk("member 2 %d\n",m_header.session_start_time.month);
+            printk("member 2 %d\n",m_header.session_start_time.day);
+            printk("member 2 %d\n",m_header.session_start_time.hour);
+            printk("member 2 %d\n",m_header.session_start_time.minute);
+            printk("member 2 %d\n",m_header.session_start_time.second);
+            cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_log_header_t));
         }
 
     }
@@ -251,15 +263,53 @@ int log_get_all_file_names(void)
     return res;
 }
 
-void set_file_name(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
+void record_fetch()
+{
+    
+    struct hpi_sensor_data_t k_header;
+
+    char fname[50] = "/lfs/log/2";
+    fs_file_t_init(&file);
+
+    int rc = fs_open(&file, fname, FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d\\n", fname, rc);
+        return;
+    }
+
+    rc = fs_read(&file, (struct hpi_sensor_data_t *)&k_header, sizeof(struct hpi_sensor_data_t));
+    printk("Reading from file\n");
+    printk(&k_header);
+    printk("size of %d\n",sizeof(k_header));
+    /*for (int i=0;i<=10;i++)
+    {
+        //printk("structure %d\n",k_header.bioz_sample);
+        //printk("structure %d\n",k_header.ecg_sample);
+        //printk("structure %d\n",k_header.raw_red);
+        //printk("structure %d\n",k_header.raw_ir);
+        //printk("structure %d\n",k_header.temp);
+
+        printk("structure %d\n",k_header.bioz_sample);
+
+    }*/
+
+    
+    rc = fs_close(&file);
+}
+
+
+void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
     printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",m_sec,m_min, m_hour,  m_day,  m_month,  m_year);
-    healthypi_time.year = m_year;
-    healthypi_time.month = m_month;
-    healthypi_time.day = m_day;
-    healthypi_time.hour = m_hour;
-    healthypi_time.minute = m_min;
-    healthypi_time.second = m_sec;
+    healthypi_session_log_header.session_start_time.year = m_year;
+    healthypi_session_log_header.session_start_time.month = m_month;
+    healthypi_session_log_header.session_start_time.day = m_day;
+    healthypi_session_log_header.session_start_time.hour = m_hour;
+    healthypi_session_log_header.session_start_time.minute = m_min;
+    healthypi_session_log_header.session_start_time.second = m_sec;
+
+    healthypi_session_log_header.session_id = 1;
 }
 
 
@@ -348,6 +398,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         break;
 
     case CMD_LOG_GET_COUNT:
+        fs_unlink("/lfs/log/1");
         printk("Sending log count\n");
         log_get_count();
         break;
@@ -357,15 +408,23 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         log_get_all_file_names();        
         break;
 
+    case CMD_FETCH_LOG_FILE:
+        printk("fetch file data\n");
+        settings_log_data_enabled = false;
+        record_fetch();
+        break;
 
-    case CMD_LOGGING_START:
-        
+    case CMD_LOGGING_END:
+        printk("End logging\n");
+        settings_log_data_enabled = false;
+        record_init_session_log();
+        break;
+
+    case CMD_LOGGING_START:    
         printk("Start logging Command\n");
-
         printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",in_pkt_buf[1],in_pkt_buf[2], in_pkt_buf[3],  in_pkt_buf[4],  in_pkt_buf[5],  in_pkt_buf[6]);
 
-        set_file_name(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
-
+        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
         
         struct fs_statvfs sbuf;
         rc = fs_statvfs(mp->mnt_point, &sbuf);
@@ -379,10 +438,11 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         //if memory available is greater than 25%
         if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
         {
+            settings_log_data_enabled = true;
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);   
-            write_sensor_data_to_file();         //
+            write_header_to_new_file();      
                   
-       }
+        }
         else
         {
             //if memory available is less than 25%
@@ -400,18 +460,12 @@ void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
 {
     
     uint8_t cmd_pkt[1 + m_data_len];
-    printk("Sending BLE Index Data 1: %d\n", m_data[0]);
-    printk("Sending BLE Index Data 2: %d\n", m_data[1]);
-    printk("Sending BLE Index Data 3: %d\n", m_data[2]);
-    printk("Sending BLE Index Data 4: %d\n", m_data[3]);
+    printk("sending header\n");
     cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
-    cmd_pkt[1] = 0x00;
-    cmd_pkt[2] = 0xA0;
-    cmd_pkt[3] = 0x08;
-    cmd_pkt[4] = 0x18;
 
     for (int i = 0; i < m_data_len; i++)
     {
+        printk("%d\n",m_data[i]);
         cmd_pkt[1 + i] = m_data[i];
     }
 
