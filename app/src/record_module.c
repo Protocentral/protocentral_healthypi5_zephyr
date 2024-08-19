@@ -12,10 +12,13 @@
 
 #include "sys_sm_module.h"
 #include "sampling_module.h"
+#include "cmd_module.h"
 
 LOG_MODULE_REGISTER(record_module);
 
 extern struct fs_mount_t *mp;
+extern struct healthypi_session_log_header_t healthypi_session_log_header;
+
 
 #define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
 
@@ -146,36 +149,29 @@ void create_record()
 
 }
 
-void record_write_to_file(int current_session_log_id, int current_session_log_counter, struct hpi_sensor_data_t *current_session_log_points)
+void record_write_to_file(int current_session_log_counter, struct hpi_sensor_data_t *current_session_log_points)
 {
     struct fs_file_t file;
     struct fs_statvfs sbuf;
 
     fs_file_t_init(&file);
 
-    fs_mkdir("/lfs/log");
+    char fname[30] = "/lfs/log/";
 
-    char fname[30] = "/lfs/log/1";
-
-    /*printf("Write to file... %d\n", current_session_log_id);
-    char session_id_str[5];
-    sprintf(session_id_str, "%d", current_session_log_id);
-    strcat(fname, session_id_str);*/
-
-    printf("Session Length: %d\n", current_session_log_counter);
+    printf("Write to file... %d\n", healthypi_session_log_header.session_id);
+    char session_id_str[20];
+    sprintf(session_id_str, "%d", healthypi_session_log_header.session_id);
+    strcat(fname, session_id_str);
 
     int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
     if (rc < 0)
     {
         printk("FAIL: open %s: %d", fname, rc);
     }
-    // Session log header
-    // rc=fs_write(&file, &current_session_log_, sizeof(current_session_log_id));
 
     for (int i = 0; i < current_session_log_counter; i++)
     {
         rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_data_t));
-        //printk("Writing to the file %d/n",&current_session_log_points[i]);
     }
 
     rc = fs_close(&file);
@@ -185,9 +181,11 @@ void record_write_to_file(int current_session_log_id, int current_session_log_co
     if (rc < 0)
     {
         printk("FAIL: statvfs: %d\n", rc);
-        // goto out;
     }
+    printk("Log buffer data written to log file %d\n",healthypi_session_log_header.session_id);
 }
+
+
 
 void record_wipe_all(void)
 {

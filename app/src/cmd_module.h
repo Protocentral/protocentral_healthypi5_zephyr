@@ -1,25 +1,30 @@
 #pragma once
 
+#define FILE_TRANSFER_BLE_PACKET_SIZE 64
+
 #define CES_CMDIF_PKT_START_1 0x0A
 #define CES_CMDIF_PKT_START_2 0xFA
 #define CES_CMDIF_PKT_STOP_1 0x00
 #define CES_CMDIF_PKT_STOP_2 0x0B
 
 
-#define CMD_LOGGING_MEMORY_FREE 0x32
+#define CMD_LOGGING_MEMORY_FREE 0x32 //tested
 #define CMD_LOGGING_MEMORY_NOT_AVAILABLE 0x31
-#define CMD_LOGGING_END 0x56
-#define CMD_LOGGING_START 0x55
-#define CMD_LOG_GET_COUNT 0x54 
-#define CMD_FETCH_LOG_FILE 0x51
-#define CMD_LOG_FILE_NAMES 0x50
-
+#define CMD_LOGGING_END 0x56 //tested
+#define CMD_LOGGING_START 0x55 //tested
+#define CMD_LOG_GET_COUNT 0x54  //tested
+#define CMD_FETCH_LOG_FILE_DATA 0x51 //
+#define CMD_LOG_FILE_HEADER 0x50
+#define CMG_LOG_FILE_DELETE 0x52 //tested
+#define CMD_LOG_WIPE_ALL 0x53 //tested
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);
 
-void cmdif_send_ble_data(const char *buf, size_t len);
+//void cmdif_send_ble_data(const char *buf, size_t len);
+void cmdif_send_ble_file_data(uint8_t *m_data, uint8_t m_data_len);
+//void cmdif_send_ble_file_data(uint8_t *m_data, uint32_t number_writes,uint8_t m_data_len);
 
 enum cmdsm_state
 {
@@ -75,6 +80,7 @@ struct hpi_cmd_data_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
+
 struct healthypi_time_t
 {
     uint8_t year;
@@ -88,13 +94,7 @@ struct healthypi_time_t
 struct healthypi_session_log_header_t
 {
     uint16_t session_id;
-    struct healthypi_time_t session_start_time;
-
-};
-
-struct healthypi_session_log_header_test_t
-{
-    uint16_t session_id;
+    uint16_t session_size;
     struct healthypi_time_t session_start_time;
 
 };
@@ -102,8 +102,10 @@ struct healthypi_session_log_header_test_t
 struct hpi_sensor_data_test_t {
     int32_t ecg_sample;
     int32_t bioz_sample;
-    int32_t raw_red;
-    int32_t raw_ir;
-    int32_t temp;
+    int16_t raw_red;
+};
+
+struct healthypi_session_t {
+    uint16_t session_id;
 };
 

@@ -80,6 +80,8 @@ extern struct k_msgq q_sample;
 extern struct k_msgq q_plot;
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
+extern struct healthypi_session_log_header_t healthypi_session_log_header;
+
 
 void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
@@ -166,11 +168,16 @@ void send_data_text_1(int32_t in_sample)
 }
 
 // Start a new session log
-void record_init_session_log()
+void record_init_next_session_log()
 {
-    // current_session_log.session_id = 0;
+    //if data is pending in the log Buffer
+    /*if (current_session_log_counter > 0)
+    {
+        printk("Log Buffer pending at %d \n", k_uptime_get_32());
+        record_write_to_file(current_session_log_counter, log_buffer);
+    }*/
+
     current_session_log_id = 0;
-    // strcpy(current_session_log.session_header, "Session Header");
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
     {
         log_buffer[i].ecg_sample = 0;
@@ -182,9 +189,14 @@ void record_init_session_log()
     }
 
     current_session_log_counter = 0;
-    // current_session_log_id = (uint16_t)sys_rand32_get(); // Create random session ID
-
-    // printk("Init Session ID %s \n", log_get_current_session_id_str());
+    healthypi_session_log_header.session_id = 0;
+    healthypi_session_log_header.session_start_time.day=0;
+    healthypi_session_log_header.session_start_time.hour=0;
+    healthypi_session_log_header.session_start_time.minute=0;
+    healthypi_session_log_header.session_start_time.month=0;
+    healthypi_session_log_header.session_start_time.second=0;
+    healthypi_session_log_header.session_start_time.year =0;
+    printk("Logging ended\n");
 }
 
 char *log_get_current_session_id_str(void)
@@ -194,7 +206,7 @@ char *log_get_current_session_id_str(void)
 }
 
 // Add a log point to the current session log
-void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_val, int32_t raw_red_val, int16_t temp)
+void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_val)
 {
     if ((current_session_log_counter - 1) < LOG_BUFFER_LENGTH)
     {
@@ -203,7 +215,7 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
     else
     {
         printk("Log Buffer Full at %d \n", k_uptime_get_32());
-        record_write_to_file(current_session_log_id, current_session_log_counter, log_buffer);
+        record_write_to_file(current_session_log_counter, log_buffer);
         current_session_log_counter = 0;
     }
 
@@ -211,8 +223,6 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
     log_buffer[current_session_log_counter].ecg_sample = ecg_val;
     log_buffer[current_session_log_counter].bioz_sample = bioz_val;
     log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
-    log_buffer[current_session_log_counter].raw_red = raw_red_val;
-    log_buffer[current_session_log_counter].temp = temp;
 }
 
 void data_thread(void)
@@ -222,7 +232,7 @@ void data_thread(void)
     struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
 
-    //record_init_session_log();
+    //record_init_next_session_log();
 
     int m_temp_sample_counter = 0;
 
@@ -366,10 +376,8 @@ void data_thread(void)
 
         if (settings_log_data_enabled)
         {
-            // log_data(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
-            //          sensor_sample.temp, 0, 0, 0, sensor_sample._bioZSkipSample);
-            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red,
-                                     sensor_sample.raw_ir, sensor_sample.temp);
+            //printk("recording data to log file\n");
+            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_ir/1000));
         }
     }
 }

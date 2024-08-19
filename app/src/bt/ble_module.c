@@ -131,7 +131,7 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 {
 	const uint8_t *buffer = buf;
 
-	printk("Received CMD len %d \n", len);
+	//printk("Received CMD len %d \n", len);
 
 	for (uint8_t i = 0; i < len; i++)
 	{
@@ -446,9 +446,10 @@ void ble_module_init()
 void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 {
 	const struct bt_gatt_attr *attr = &hpi_cmd_service.attrs[4];
-	printk("Sending response %d \n", data);
+	//printk("Sending response %d \n", data);
 
 	bt_gatt_notify(NULL, attr, data, len);
+	printk("Response sent\n");
 }
 
 

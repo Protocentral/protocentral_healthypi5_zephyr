@@ -5,7 +5,10 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
+#include <zephyr/random/random.h> 
 #include <stdio.h>
+#include <string.h>
+
 
 #include "fs_module.h"
 #include "cmd_module.h"
@@ -50,6 +53,7 @@ struct fs_file_t file;
 bool  settings_log_data_enabled = false; 
 int current_log_counter;
 
+uint8_t data_pkt[272];
 uint8_t buf_log[1024];// 56 bytes / session, 18 sessions / packet
 
 struct wiser_cmd_data_fifo_obj_t
@@ -65,6 +69,45 @@ K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
 
+void update_session_size_in_header (uint32_t file_size,char *m_file_path)
+{
+    struct fs_file_t file;
+
+    struct healthypi_session_log_header_t k_header;
+
+    char fname[50] = "/lfs/log/";
+
+    printk("re writing to header");
+
+    fs_file_t_init(&file);
+
+    int rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", fname, rc);
+    }
+
+    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&k_header, sizeof(struct healthypi_session_log_header_t));
+
+    rc = fs_close(&file);
+
+    k_header.session_size = file_size;
+    printk("%d\n",k_header.session_size);
+    printk("%d\n",k_header.session_id);
+
+    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", fname, rc);
+    }
+
+    rc = fs_write(&file, &k_header, sizeof(struct healthypi_session_log_header_t));
+
+    rc = fs_close(&file);
+
+    rc = fs_sync(&file);
+    printf("Header updated with file size... %d\n", healthypi_session_log_header.session_id);  
+}
 
 void write_header_to_new_file()
 {
@@ -72,7 +115,14 @@ void write_header_to_new_file()
     struct fs_statvfs sbuf;
     struct hpi_sensor_data_t sensor_sample;
 
-    char fname[50] = "/lfs/log/2";
+    fs_mkdir("/lfs/log");
+
+    char fname[50] = "/lfs/log/";
+
+    char session_id_str[20];
+    sprintf(session_id_str, "%d", healthypi_session_log_header.session_id);
+    strcat(fname, session_id_str);
+
     fs_file_t_init(&file);
 
     int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
@@ -81,28 +131,12 @@ void write_header_to_new_file()
         printk("FAIL: open %s: %d", fname, rc);
     }
 
-    healthypi_session_log_header.session_id = 1;
-    printf("Writing session log header: %d\n", sizeof(struct healthypi_session_log_header_t));
+    //printf("Writing session log header: %d\n", sizeof(struct healthypi_session_log_header_t));
     rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
     rc = fs_sync(&file);
-
-    struct healthypi_session_log_header_test_t m_header;
-
-    rc = fs_open(&file, fname, FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d\\n", fname, rc);
-        return;
-    }
-
-    rc = fs_read(&file, (struct healthypi_session_log_header_test_t *)&m_header, sizeof(struct healthypi_session_log_header_test_t));
-    printk("Reading from file\n");
-    printk(&m_header);
-    printk("structure %d\n",m_header.session_id);
-
-    rc = fs_close(&file);
+    printf("Header written to file... %d\n", healthypi_session_log_header.session_id);
 }
 
 struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
@@ -111,7 +145,7 @@ struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
 
     struct healthypi_session_log_header_t m_header;
 
-    printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
+    //printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
 
     char m_file_name[30];
     snprintf(m_file_name, sizeof(m_file_name), "/lfs/log/%u", file_id);
@@ -125,17 +159,13 @@ struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
     if (rc != 0)
     {
         printk("Error opening file %d\n", rc);
-        // return;
     }
 
     rc = fs_read(&m_file, (struct healthypi_session_log_header_t *)&m_header, sizeof(struct healthypi_session_log_header_t));
     if (rc < 0)
     {
         printk("Error reading file %d\n", rc);
-        // return;
     }
-
-    // m_header = *((struct tes_session_log_header_t *)m_header_buffer);
 
     rc = fs_close(&m_file);
     if (rc != 0)
@@ -182,8 +212,6 @@ uint16_t log_get_count(void)
             {
                 printk("Error reading dir [%d]\n", res);
             }
-
-            printk("Total log count: %d\n", log_count);
             break;
         }
 
@@ -196,12 +224,14 @@ uint16_t log_get_count(void)
     /* Verify fs_closedir() */
     fs_closedir(&dirp);
 
+    printk("Total log count: %d\n", log_count);
+
     cmdif_send_file_count(log_count);
 
     return log_count;
 }
 
-int log_get_all_file_names(void)
+int log_get_all_file_header(void)
 {
     int res;
     struct fs_dir_t dirp;
@@ -222,7 +252,6 @@ int log_get_all_file_names(void)
         return res;
     }
 
-    printk("\nGet Index CMD %s ...\n", path);
     for (;;)
     {
         /* Verify fs_readdir() */
@@ -241,20 +270,12 @@ int log_get_all_file_names(void)
 
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
-            printk("file names %s\n",entry.name);
+            //printk("file names %s\n",entry.name);
             uint16_t session_id = atoi(entry.name);
-            printk("%d\n",session_id);
             struct healthypi_session_log_header_t m_header = log_get_file_header(session_id);
             memcpy(&buf_log, &m_header, sizeof(struct healthypi_session_log_header_t));
-            printk("Size of header size %d\n",sizeof(struct healthypi_session_log_header_t));
-            printk("member 1 %d\n",m_header.session_id);
-            printk("member 2 %d\n",m_header.session_start_time.year);
-            printk("member 2 %d\n",m_header.session_start_time.month);
-            printk("member 2 %d\n",m_header.session_start_time.day);
-            printk("member 2 %d\n",m_header.session_start_time.hour);
-            printk("member 2 %d\n",m_header.session_start_time.minute);
-            printk("member 2 %d\n",m_header.session_start_time.second);
             cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_log_header_t));
+            printk("Header of file id %d sent\n",session_id);
         }
 
     }
@@ -263,45 +284,119 @@ int log_get_all_file_names(void)
     return res;
 }
 
-void record_fetch()
+uint32_t transfer_get_file_length(char *m_file_name)
 {
-    
-    struct hpi_sensor_data_t k_header;
+    int res;
+    struct fs_dir_t dirp;
+    static struct fs_dirent entry;
+    uint32_t file_len = 0;
 
-    char fname[50] = "/lfs/log/2";
-    fs_file_t_init(&file);
+    fs_dir_t_init(&dirp);
 
-    int rc = fs_open(&file, fname, FS_O_RDWR);
-    if (rc < 0)
+    const char *path = "/lfs/log";
+
+    res = fs_opendir(&dirp, path);
+    if (res)
     {
-        printk("FAIL: open %s: %d\\n", fname, rc);
+        printk("Error opening dir %s [%d]\n", path, res);
+        return res;
+    }
+
+    for (;;)
+    {
+        res = fs_readdir(&dirp, &entry);
+        if (res || entry.name[0] == 0)
+        {
+            if (res < 0)
+            {
+                printk("Error reading dir [%d]\n", res);
+            }
+            break;
+        }
+
+        if (strncmp(m_file_name,entry.name,sizeof(m_file_name)) == 0)
+        {
+            //printk(" file name %s : size %d\n",entry.name,entry.size);
+            file_len = entry.size;
+        }
+    }
+    fs_closedir(&dirp);
+    return file_len;
+}
+
+void transfer_send_file(uint16_t file_id)
+{
+    uint8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
+    uint8_t file_read_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
+
+    char m_file_name[30];
+    char m_file_path[30];
+    
+    sprintf(m_file_name,"%d",file_id);
+    uint32_t file_len = transfer_get_file_length(m_file_name);
+
+    uint32_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
+
+    uint32_t i = 0;
+    struct fs_file_t m_file;
+    int rc = 0;
+
+    if (file_len % FILE_TRANSFER_BLE_PACKET_SIZE != 0)
+    {
+        number_writes++; // Last write will be smaller than 64 bytes
+    }
+
+    printk("File name: %s Size:%d NW: %d \n", m_file_name, file_len, number_writes);
+    snprintf(m_file_path, sizeof(m_file_path), "/lfs/log/%d", file_id);
+
+    //update_session_size_in_header(file_len,m_file_path);
+
+    fs_file_t_init(&m_file);
+    
+    rc = fs_open(&m_file, m_file_path, FS_O_READ);
+
+    if (rc != 0)
+    {
+        printk("Error opening file %d\n", rc);
         return;
     }
 
-    rc = fs_read(&file, (struct hpi_sensor_data_t *)&k_header, sizeof(struct hpi_sensor_data_t));
-    printk("Reading from file\n");
-    printk(&k_header);
-    printk("size of %d\n",sizeof(k_header));
-    /*for (int i=0;i<=10;i++)
+    for (i = 0; i < number_writes; i++)
     {
-        //printk("structure %d\n",k_header.bioz_sample);
-        //printk("structure %d\n",k_header.ecg_sample);
-        //printk("structure %d\n",k_header.raw_red);
-        //printk("structure %d\n",k_header.raw_ir);
-        //printk("structure %d\n",k_header.temp);
+        rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
+        if (rc < 0)
+        {
+            printk("Error reading file %d\n", rc);
+            return;
+        }
 
-        printk("structure %d\n",k_header.bioz_sample);
+        cmdif_send_ble_file_data(m_buffer,FILE_TRANSFER_BLE_PACKET_SIZE); //FILE_TRANSFER_BLE_PACKET_SIZE);
+        k_sleep(K_MSEC(50));
+    }
 
-    }*/
+    rc = fs_close(&m_file);
+    if (rc != 0)
+    {
+        printk("Error closing file %d\n", rc);
+        return;
+    }
 
-    
-    rc = fs_close(&file);
+    printk("File sent\n");
 }
+
+
+
+void fetch_file_data(uint16_t session_id)
+{
+    printk("Getting Log id %u data\n", session_id);
+    transfer_send_file(session_id);
+}
+
+
 
 
 void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
-    printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",m_sec,m_min, m_hour,  m_day,  m_month,  m_year);
     healthypi_session_log_header.session_start_time.year = m_year;
     healthypi_session_log_header.session_start_time.month = m_month;
     healthypi_session_log_header.session_start_time.day = m_day;
@@ -309,11 +404,13 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     healthypi_session_log_header.session_start_time.minute = m_min;
     healthypi_session_log_header.session_start_time.second = m_sec;
 
-    healthypi_session_log_header.session_id = 1;
+    uint8_t rand[2];
+    sys_rand_get(rand, sizeof(rand));
+    healthypi_session_log_header.session_id = (rand[0] | (rand[1] << 8));
+    healthypi_session_log_header.session_size = 0;
+
+    printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
 }
-
-
-
 
 
 void ces_parse_packet(char rxch)
@@ -374,13 +471,67 @@ void ces_parse_packet(char rxch)
     }
 }
 
+void delete_all_log_files(void)
+{
+    int err;
+    struct fs_dir_t dir;
+
+    char file_name[100] = "";
+
+    fs_dir_t_init(&dir);
+
+    err = fs_opendir(&dir, "/lfs/log");
+    if (err)
+    {
+        printk("Unable to open (err %d)", err);
+    }
+
+    while (1)
+    {
+        struct fs_dirent entry;
+
+        err = fs_readdir(&dir, &entry);
+        if (err)
+        {
+            printk("Unable to read directory");
+            break;
+        }
+
+        /* Check for end of directory listing */
+        if (entry.name[0] == '\0')
+        {
+            break;
+        }
+
+        strcpy(file_name, "/lfs/log/");
+        strcat(file_name, entry.name);
+
+        printk("Deleting %s\n", file_name);
+        fs_unlink(file_name);
+    }
+
+    fs_closedir(&dir);
+
+    printk("All files deleted\n");
+}
+
+void delete_log_file(uint16_t session_id)
+{
+    char log_file_name[30];
+
+    snprintf(log_file_name, sizeof(log_file_name), "/lfs/log/%d", session_id);
+
+    fs_unlink(log_file_name);
+    printk("File %d deleted %s\n", log_file_name);
+}
+
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
     int rc;
     uint8_t cmd_cmd_id = in_pkt_buf[0];
 
-    printk("Recd Command: %X\n", cmd_cmd_id);
+    //printk("Recd Command: %X\n", cmd_cmd_id);
 
     switch (cmd_cmd_id)
     {
@@ -398,31 +549,38 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         break;
 
     case CMD_LOG_GET_COUNT:
-        fs_unlink("/lfs/log/1");
-        printk("Sending log count\n");
+        printk("Comamnd to send log count\n");
         log_get_count();
         break;
 
-    case CMD_LOG_FILE_NAMES:
-        printk("Sending log file names\n");
-        log_get_all_file_names();        
+    case CMD_LOG_FILE_HEADER:
+        printk("Sending log file headers\n");
+        log_get_all_file_header();        
         break;
 
-    case CMD_FETCH_LOG_FILE:
-        printk("fetch file data\n");
-        settings_log_data_enabled = false;
-        record_fetch();
+    case CMD_FETCH_LOG_FILE_DATA:
+        printk("Command to fetch file data\n");
+        fetch_file_data(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
     case CMD_LOGGING_END:
-        printk("End logging\n");
+        printk("Command to end logging\n");
         settings_log_data_enabled = false;
-        record_init_session_log();
+        record_init_next_session_log();
+        break;
+    
+    case CMD_LOG_WIPE_ALL:
+        printk("Command to delete all files\n");
+        delete_all_log_files();
+        break;
+
+    case CMG_LOG_FILE_DELETE:
+        printk("Command to delete file\n");
+        delete_log_file(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
     case CMD_LOGGING_START:    
-        printk("Start logging Command\n");
-        printk("seconds %d, minute %d, hour %d, day %d, month %d, year %d\n",in_pkt_buf[1],in_pkt_buf[2], in_pkt_buf[3],  in_pkt_buf[4],  in_pkt_buf[5],  in_pkt_buf[6]);
+        printk("Command to start logging\n");
 
         set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
         
@@ -457,15 +615,12 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 }
 
 void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
-{
-    
+{    
     uint8_t cmd_pkt[1 + m_data_len];
-    printk("sending header\n");
     cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
 
     for (int i = 0; i < m_data_len; i++)
     {
-        printk("%d\n",m_data[i]);
         cmd_pkt[1 + i] = m_data[i];
     }
 
@@ -474,7 +629,7 @@ void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
 
 void cmdif_send_memory_status(uint8_t m_cmd)
 {
-    printk("Sending BLE Status\n");
+    //printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_STATUS;
@@ -486,20 +641,33 @@ void cmdif_send_memory_status(uint8_t m_cmd)
 
 void cmdif_send_file_count(uint8_t m_cmd)
 {
-    printk("Sending BLE Status\n");
+    //printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
-    cmd_pkt[1] = 0x84;
+    cmd_pkt[1] = 0x54;
     cmd_pkt[2] = m_cmd;
 
-    printk("sending response\n");
+    //printk("sending response\n");
     healthypi5_service_send_data(cmd_pkt, 3);
+}
+
+void cmdif_send_ble_file_data(uint8_t *m_data,uint8_t m_data_len)
+{
+    //printk("Sending BLE Data: %d\n", m_data_len);
+
+    data_pkt[0] = CES_CMDIF_TYPE_DATA;
+
+    for (int i = 0; i < m_data_len; i++)
+    {
+        data_pkt[1 + i] = m_data[i];
+    }
+    healthypi5_service_send_data(data_pkt, 1 + m_data_len);
 }
 
 
 // TODO: implement BLE UART
-void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
+/*void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
 {
     uint8_t dataPacket[50];
 
@@ -524,7 +692,7 @@ void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
     {
         //uart_poll_out(esp_uart_dev, dataPacket[i]);
     }
-}
+}*/
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped)
 {
@@ -730,10 +898,10 @@ void cmd_thread(void)
     {
         k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_FOREVER);
 
-        printk("Recd BLE Packet len: %d \n", rx_cmd_data_obj.data_len);
+        printk("Recd BLE Packet len: ");
         for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
         {
-            printk("%02X ", rx_cmd_data_obj.data[i]);
+            printk("%02X\t", rx_cmd_data_obj.data[i]);
         }
         printk("\n");
         hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len); 
