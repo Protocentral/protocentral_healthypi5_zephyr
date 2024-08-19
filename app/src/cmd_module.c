@@ -69,7 +69,7 @@ K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
 
-void update_session_size_in_header (uint32_t file_size,char *m_file_path)
+void update_session_size_in_header (uint16_t file_size,char *m_file_path)
 {
     struct fs_file_t file;
 
@@ -87,13 +87,13 @@ void update_session_size_in_header (uint32_t file_size,char *m_file_path)
         printk("FAIL: open %s: %d", fname, rc);
     }
 
+    rc = fs_seek(&file, 0, FS_SEEK_SET);
+    
     rc = fs_read(&file, (struct healthypi_session_log_header_t *)&k_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
 
     k_header.session_size = file_size;
-    printk("%d\n",k_header.session_size);
-    printk("%d\n",k_header.session_id);
 
     rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
@@ -101,12 +101,29 @@ void update_session_size_in_header (uint32_t file_size,char *m_file_path)
         printk("FAIL: open %s: %d", fname, rc);
     }
 
+    rc = fs_seek(&file, 0, FS_SEEK_SET);
+
     rc = fs_write(&file, &k_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
 
     rc = fs_sync(&file);
-    printf("Header updated with file size... %d\n", healthypi_session_log_header.session_id);  
+    printk("Header updated with file size... %d\n", healthypi_session_log_header.session_id);
+
+    struct healthypi_session_log_header_t s_header;
+
+    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", fname, rc);
+    }
+
+    rc = fs_seek(&file, 0, FS_SEEK_SET);
+
+    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&s_header, sizeof(struct healthypi_session_log_header_t));
+
+    rc = fs_close(&file);
+
 }
 
 void write_header_to_new_file()
@@ -335,7 +352,7 @@ void transfer_send_file(uint16_t file_id)
     sprintf(m_file_name,"%d",file_id);
     uint32_t file_len = transfer_get_file_length(m_file_name);
 
-    uint32_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
+    uint16_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
 
     uint32_t i = 0;
     struct fs_file_t m_file;
@@ -349,7 +366,7 @@ void transfer_send_file(uint16_t file_id)
     printk("File name: %s Size:%d NW: %d \n", m_file_name, file_len, number_writes);
     snprintf(m_file_path, sizeof(m_file_path), "/lfs/log/%d", file_id);
 
-    //update_session_size_in_header(file_len,m_file_path);
+    update_session_size_in_header(number_writes,m_file_path);
 
     fs_file_t_init(&m_file);
     

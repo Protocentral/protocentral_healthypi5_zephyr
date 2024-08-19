@@ -449,7 +449,7 @@ void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 	//printk("Sending response %d \n", data);
 
 	bt_gatt_notify(NULL, attr, data, len);
-	printk("Response sent\n");
+	//printk("Response sent\n");
 }
 
 
