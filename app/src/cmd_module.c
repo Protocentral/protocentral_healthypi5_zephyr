@@ -93,7 +93,18 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
 
     rc = fs_close(&file);
 
+    printk("old header\n");
+    printk("file size %d\n",k_header.session_size);
+    printk("file name %d\n",k_header.session_id);
+    printk("year %d\n",k_header.session_start_time.year);
+    printk("month %d\n",k_header.session_start_time.month);
+    printk("day %d\n",k_header.session_start_time.day);
+    printk("hour %d\n",k_header.session_start_time.hour);
+    printk("minute %d\n",k_header.session_start_time.minute);
+    printk("second %d\n",k_header.session_start_time.second);
+
     k_header.session_size = file_size;
+
 
     rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
@@ -108,7 +119,7 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
     rc = fs_close(&file);
 
     rc = fs_sync(&file);
-    printk("Header updated with file size... %d\n", healthypi_session_log_header.session_id);
+    printk("Header updated with file size... %d\n", k_header.session_id);
 
     struct healthypi_session_log_header_t s_header;
 
@@ -123,6 +134,16 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
     rc = fs_read(&file, (struct healthypi_session_log_header_t *)&s_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
+
+    printk("new updated header\n");
+    printk("file size %d\n",s_header.session_size);
+    printk("file name %d\n",s_header.session_id);
+    printk("year %d\n",s_header.session_start_time.year);
+    printk("month %d\n",s_header.session_start_time.month);
+    printk("day %d\n",s_header.session_start_time.day);
+    printk("hour %d\n",s_header.session_start_time.hour);
+    printk("minute %d\n",s_header.session_start_time.minute);
+    printk("second %d\n",s_header.session_start_time.second);
 
 }
 
@@ -380,6 +401,7 @@ void transfer_send_file(uint16_t file_id)
 
     for (i = 0; i < number_writes; i++)
     {
+        printk("Current write no %d\n",i);
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
         if (rc < 0)
         {
@@ -427,6 +449,9 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     healthypi_session_log_header.session_size = 0;
 
     printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
+
+    //record_init_next_session_log();
+
 }
 
 
