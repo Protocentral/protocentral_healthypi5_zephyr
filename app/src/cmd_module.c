@@ -53,7 +53,7 @@ struct fs_file_t file;
 bool  settings_log_data_enabled = false; 
 int current_log_counter;
 
-uint8_t data_pkt[272];
+int8_t data_pkt[272];
 uint8_t buf_log[1024];// 56 bytes / session, 18 sessions / packet
 
 struct wiser_cmd_data_fifo_obj_t
@@ -364,7 +364,7 @@ uint32_t transfer_get_file_length(char *m_file_name)
 
 void transfer_send_file(uint16_t file_id)
 {
-    uint8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
+    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
     uint8_t file_read_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
 
     char m_file_name[30];
@@ -401,7 +401,6 @@ void transfer_send_file(uint16_t file_id)
 
     for (i = 0; i < number_writes; i++)
     {
-        printk("Current write no %d\n",i);
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
         if (rc < 0)
         {
@@ -411,6 +410,7 @@ void transfer_send_file(uint16_t file_id)
 
         cmdif_send_ble_file_data(m_buffer,FILE_TRANSFER_BLE_PACKET_SIZE); //FILE_TRANSFER_BLE_PACKET_SIZE);
         k_sleep(K_MSEC(50));
+        //printk("\n");
     }
 
     rc = fs_close(&m_file);
@@ -436,12 +436,25 @@ void fetch_file_data(uint16_t session_id)
 
 void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
-    healthypi_session_log_header.session_start_time.year = m_year;
-    healthypi_session_log_header.session_start_time.month = m_month;
-    healthypi_session_log_header.session_start_time.day = m_day;
-    healthypi_session_log_header.session_start_time.hour = m_hour;
-    healthypi_session_log_header.session_start_time.minute = m_min;
-    healthypi_session_log_header.session_start_time.second = m_sec;
+
+    //store new log start time temporily
+    uint8_t second, minute, hour, day, month, year;
+    year = m_year;
+    month = m_month;
+    day = m_day;
+    hour = m_hour;
+    minute = m_min;
+    second = m_sec;
+
+    record_init_next_session_log();
+
+    //update structure with new log start time
+    healthypi_session_log_header.session_start_time.year = year;
+    healthypi_session_log_header.session_start_time.month = month;
+    healthypi_session_log_header.session_start_time.day = day;
+    healthypi_session_log_header.session_start_time.hour = hour;
+    healthypi_session_log_header.session_start_time.minute = minute;
+    healthypi_session_log_header.session_start_time.second = second;
 
     uint8_t rand[2];
     sys_rand_get(rand, sizeof(rand));
@@ -449,9 +462,6 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     healthypi_session_log_header.session_size = 0;
 
     printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
-
-    //record_init_next_session_log();
-
 }
 
 
@@ -608,7 +618,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     case CMD_LOGGING_END:
         printk("Command to end logging\n");
         settings_log_data_enabled = false;
-        record_init_next_session_log();
+        //record_init_next_session_log();
         break;
     
     case CMD_LOG_WIPE_ALL:
@@ -694,7 +704,7 @@ void cmdif_send_file_count(uint8_t m_cmd)
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_ble_file_data(uint8_t *m_data,uint8_t m_data_len)
+void cmdif_send_ble_file_data(int8_t *m_data,uint8_t m_data_len)
 {
     //printk("Sending BLE Data: %d\n", m_data_len);
 

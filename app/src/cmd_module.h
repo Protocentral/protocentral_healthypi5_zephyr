@@ -23,7 +23,7 @@ void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);
 
 //void cmdif_send_ble_data(const char *buf, size_t len);
-void cmdif_send_ble_file_data(uint8_t *m_data, uint8_t m_data_len);
+void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len);
 //void cmdif_send_ble_file_data(uint8_t *m_data, uint32_t number_writes,uint8_t m_data_len);
 
 enum cmdsm_state
@@ -99,7 +99,7 @@ struct healthypi_session_log_header_t
 
 };
 
-struct hpi_sensor_data_test_t {
+struct hpi_sensor_logging_data_t {
     int32_t ecg_sample;
     int32_t bioz_sample;
     int16_t raw_red;

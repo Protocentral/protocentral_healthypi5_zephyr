@@ -30,7 +30,7 @@
 
 #define LOG_SAMPLE_RATE_SPS 125
 #define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
-#define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
+#define LOG_BUFFER_LENGTH 1250 // 125Hz * 10 seconds
 
 #define TEMP_CALC_BUFFER_LENGTH 125
 #define RESP_CALC_BUFFER_LENGTH 125
@@ -56,7 +56,8 @@ static bool settings_send_rpi_uart_enabled = false;
 extern bool settings_log_data_enabled;       // true;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
-struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
+//struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
+struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_log_counter = 0;
 uint16_t current_session_log_id = 0;
@@ -171,11 +172,11 @@ void send_data_text_1(int32_t in_sample)
 void record_init_next_session_log()
 {
     //if data is pending in the log Buffer
-    /*if (current_session_log_counter > 0)
+    if (current_session_log_counter > 0)
     {
         printk("Log Buffer pending at %d \n", k_uptime_get_32());
         record_write_to_file(current_session_log_counter, log_buffer);
-    }*/
+    }
 
     current_session_log_id = 0;
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
@@ -183,9 +184,6 @@ void record_init_next_session_log()
         log_buffer[i].ecg_sample = 0;
         log_buffer[i].bioz_sample = 0;
         log_buffer[i].raw_red = 0;
-        log_buffer[i].raw_ir = 0;
-        log_buffer[i].temp = 0;
-        log_buffer[i]._bioZSkipSample = false;
     }
 
     current_session_log_counter = 0;
@@ -196,7 +194,10 @@ void record_init_next_session_log()
     healthypi_session_log_header.session_start_time.month=0;
     healthypi_session_log_header.session_start_time.second=0;
     healthypi_session_log_header.session_start_time.year =0;
-    printk("Logging ended\n");
+
+    healthypi_session_log_header.session_id=0;
+    healthypi_session_log_header.session_size=0;
+    printk("Header strcuture reinitialzed\n");
 }
 
 char *log_get_current_session_id_str(void)
@@ -206,7 +207,7 @@ char *log_get_current_session_id_str(void)
 }
 
 // Add a log point to the current session log
-void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_val)
+void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_red_val)
 {
     if ((current_session_log_counter - 1) < LOG_BUFFER_LENGTH)
     {
@@ -219,10 +220,10 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_
         current_session_log_counter = 0;
     }
 
-    // log_buffer[current_session_log_counter].ecg_sample = time;
     log_buffer[current_session_log_counter].ecg_sample = ecg_val;
     log_buffer[current_session_log_counter].bioz_sample = bioz_val;
-    log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
+    log_buffer[current_session_log_counter].raw_red = raw_red_val;
+
 }
 
 void data_thread(void)
@@ -377,7 +378,7 @@ void data_thread(void)
         if (settings_log_data_enabled)
         {
             //printk("recording data to log file\n");
-            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_ir/1000));
+            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_red/1000));
         }
     }
 }

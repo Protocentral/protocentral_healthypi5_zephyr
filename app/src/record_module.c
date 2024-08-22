@@ -149,7 +149,7 @@ void create_record()
 
 }
 
-void record_write_to_file(int current_session_log_counter, struct hpi_sensor_data_t *current_session_log_points)
+void record_write_to_file(int current_session_log_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
 {
     struct fs_file_t file;
     struct fs_statvfs sbuf;
@@ -171,7 +171,8 @@ void record_write_to_file(int current_session_log_counter, struct hpi_sensor_dat
 
     for (int i = 0; i < current_session_log_counter; i++)
     {
-        rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_data_t));
+        //printk("Data of the structure %d\n",current_session_log_points[i].ecg_sample);
+        rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_logging_data_t));
     }
 
     rc = fs_close(&file);
