@@ -30,7 +30,7 @@
 
 #define LOG_SAMPLE_RATE_SPS 125
 #define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
-#define LOG_BUFFER_LENGTH 1250 // 125Hz * 10 seconds
+#define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
 
 #define TEMP_CALC_BUFFER_LENGTH 125
 #define RESP_CALC_BUFFER_LENGTH 125
@@ -183,7 +183,7 @@ void record_init_next_session_log()
     {
         log_buffer[i].ecg_sample = 0;
         log_buffer[i].bioz_sample = 0;
-        log_buffer[i].raw_red = 0;
+        log_buffer[i].raw_ir = 0;
     }
 
     current_session_log_counter = 0;
@@ -197,7 +197,6 @@ void record_init_next_session_log()
 
     healthypi_session_log_header.session_id=0;
     healthypi_session_log_header.session_size=0;
-    printk("Header strcuture reinitialzed\n");
 }
 
 char *log_get_current_session_id_str(void)
@@ -207,10 +206,14 @@ char *log_get_current_session_id_str(void)
 }
 
 // Add a log point to the current session log
-void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_red_val)
+void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_val)
 {
-    if ((current_session_log_counter - 1) < LOG_BUFFER_LENGTH)
+    if (current_session_log_counter < LOG_BUFFER_LENGTH)
     {
+
+        log_buffer[current_session_log_counter].ecg_sample = ecg_val;
+        log_buffer[current_session_log_counter].bioz_sample = bioz_val;
+        log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
         current_session_log_counter++;
     }
     else
@@ -218,12 +221,10 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_red
         printk("Log Buffer Full at %d \n", k_uptime_get_32());
         record_write_to_file(current_session_log_counter, log_buffer);
         current_session_log_counter = 0;
+        log_buffer[current_session_log_counter].ecg_sample = ecg_val;
+        log_buffer[current_session_log_counter].bioz_sample = bioz_val;
+        log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
     }
-
-    log_buffer[current_session_log_counter].ecg_sample = ecg_val;
-    log_buffer[current_session_log_counter].bioz_sample = bioz_val;
-    log_buffer[current_session_log_counter].raw_red = raw_red_val;
-
 }
 
 void data_thread(void)
@@ -378,7 +379,7 @@ void data_thread(void)
         if (settings_log_data_enabled)
         {
             //printk("recording data to log file\n");
-            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_red/1000));
+            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_ir/1000));
         }
     }
 }

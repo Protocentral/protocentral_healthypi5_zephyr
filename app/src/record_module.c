@@ -171,9 +171,9 @@ void record_write_to_file(int current_session_log_counter, struct hpi_sensor_log
 
     for (int i = 0; i < current_session_log_counter; i++)
     {
-        //printk("Data of the structure %d\n",current_session_log_points[i].ecg_sample);
-        rc = fs_write(&file, &current_session_log_points[i], sizeof(struct hpi_sensor_logging_data_t));
+        rc = fs_write(&file, &current_session_log_points[i], 10);
     }
+
 
     rc = fs_close(&file);
     rc = fs_sync(&file);
