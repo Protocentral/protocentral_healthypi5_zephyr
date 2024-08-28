@@ -5,38 +5,28 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
-#include <zephyr/random/random.h> 
+//#include <zephyr/random/random.h> 
 #include <stdio.h>
 #include <string.h>
 
-
+#include "record_module.h"
 #include "fs_module.h"
 #include "cmd_module.h"
-
-#include "record_module.h"
 #include "ble_module.h"
 #include "data_module.h"
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "sampling_module.h"
 
-// #include "tdcs3.h"
-
 //#define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
 #define MAX_MSG_SIZE 32
-
-#define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
 #define CMDIF_BLE_UART_MAX_PKT_SIZE 128 // Max Packet Size in bytes
 
 K_SEM_DEFINE(sem_ble_connected, 0, 1);
 K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
-
 K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 128, 4);
 
-//static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
-struct healthypi_session_log_header_t healthypi_session_log_header;
-
 
 int cmd_pkt_len;
 int cmd_pkt_pos_counter, cmd_pkt_data_counter;
@@ -44,17 +34,11 @@ int cmd_pkt_pkttype;
 uint8_t ces_pkt_data_buffer[1000]; // = new char[1000];
 volatile bool cmd_module_ble_connected = false;
 
-extern struct k_msgq q_sample;
 extern int global_dev_status;
 extern struct fs_mount_t *mp;
-struct hpi_sensor_data_t sensor_sample;
-struct fs_dir_t dir;
-struct fs_file_t file;
 bool  settings_log_data_enabled = false; 
-int current_log_counter;
 
 int8_t data_pkt[272];
-uint8_t buf_log[1024];// 56 bytes / session, 18 sessions / packet
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -68,399 +52,6 @@ struct wiser_cmd_data_fifo_obj_t
 K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
-
-void update_session_size_in_header (uint16_t file_size,char *m_file_path)
-{
-    struct fs_file_t file;
-
-    struct healthypi_session_log_header_t k_header;
-
-    char fname[50] = "/lfs/log/";
-
-    printk("re writing to header");
-
-    fs_file_t_init(&file);
-
-    int rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-    
-    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&k_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printk("old header\n");
-    /*printk("file size %d\n",k_header.session_size);
-    printk("file name %d\n",k_header.session_id);
-    printk("year %d\n",k_header.session_start_time.year);
-    printk("month %d\n",k_header.session_start_time.month);
-    printk("day %d\n",k_header.session_start_time.day);
-    printk("hour %d\n",k_header.session_start_time.hour);
-    printk("minute %d\n",k_header.session_start_time.minute);
-    printk("second %d\n",k_header.session_start_time.second);*/
-
-    k_header.session_size = file_size;
-
-
-    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-
-    rc = fs_write(&file, &k_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    rc = fs_sync(&file);
-    printk("Header updated with file size... %d\n", k_header.session_id);
-
-    struct healthypi_session_log_header_t s_header;
-
-    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-
-    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&s_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printk("new updated header\n");
-    /*printk("file size %d\n",s_header.session_size);
-    printk("file name %d\n",s_header.session_id);
-    printk("year %d\n",s_header.session_start_time.year);
-    printk("month %d\n",s_header.session_start_time.month);
-    printk("day %d\n",s_header.session_start_time.day);
-    printk("hour %d\n",s_header.session_start_time.hour);
-    printk("minute %d\n",s_header.session_start_time.minute);
-    printk("second %d\n",s_header.session_start_time.second);*/
-
-}
-
-void write_header_to_new_file()
-{
-    struct fs_file_t file;
-    struct fs_statvfs sbuf;
-    struct hpi_sensor_data_t sensor_sample;
-
-    int rc = fs_mkdir("/lfs/log");
-
-    char fname[50] = "/lfs/log/";
-
-    char session_id_str[20];
-    sprintf(session_id_str, "%d", healthypi_session_log_header.session_id);
-    strcat(fname, session_id_str);
-
-    fs_file_t_init(&file);
-
-    rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-    
-    rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printf("Header written to file... %d\n", healthypi_session_log_header.session_id);
-}
-
-struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
-{
-    printk("Getting header for file %u\n", file_id);
-
-    struct healthypi_session_log_header_t m_header;
-
-    //printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
-
-    char m_file_name[30];
-    snprintf(m_file_name, sizeof(m_file_name), "/lfs/log/%u", file_id);
-
-    struct fs_file_t m_file;
-    fs_file_t_init(&m_file);
-
-    int rc = 0;
-    rc = fs_open(&m_file, m_file_name, FS_O_READ);
-
-    if (rc != 0)
-    {
-        printk("Error opening file %d\n", rc);
-    }
-
-    rc = fs_read(&m_file, (struct healthypi_session_log_header_t *)&m_header, sizeof(struct healthypi_session_log_header_t));
-    if (rc < 0)
-    {
-        printk("Error reading file %d\n", rc);
-    }
-
-    rc = fs_close(&m_file);
-    if (rc != 0)
-    {
-        printk("Error closing file %d\n", rc);
-        // return;
-    }
-
-    return m_header;
-}
-
-
-
-uint16_t log_get_count(void)
-{
-    int res;
-    struct fs_dir_t dirp;
-    static struct fs_dirent entry;
-
-    uint16_t log_count = 0;
-
-    fs_dir_t_init(&dirp);
-
-    const char *path = "/lfs/log";
-
-    /* Verify fs_opendir() */
-    res = fs_opendir(&dirp, path);
-    if (res)
-    {
-        printk("Error opening dir %s [%d]\n", path, res);
-        return res;
-    }
-
-    for (;;)
-    {
-        /* Verify fs_readdir() */
-        res = fs_readdir(&dirp, &entry);
-
-        /* entry.name[0] == 0 means end-of-dir */
-        if (res || entry.name[0] == 0)
-        {
-            if (res < 0)
-            {
-                printk("Error reading dir [%d]\n", res);
-            }
-            break;
-        }
-
-        if (entry.type != FS_DIR_ENTRY_DIR)
-        {
-            log_count++;
-        }
-    }
-
-    /* Verify fs_closedir() */
-    fs_closedir(&dirp);
-
-    printk("Total log count: %d\n", log_count);
-
-    cmdif_send_file_count(log_count);
-
-    return log_count;
-}
-
-int log_get_all_file_header(void)
-{
-    int res;
-    struct fs_dir_t dirp;
-    static struct fs_dirent entry;
-
-    uint16_t log_count = 0;
-    uint16_t buf_log_index = 0;
-
-    fs_dir_t_init(&dirp);
-
-    const char *path = "/lfs/log";
-
-    /* Verify fs_opendir() */
-    res = fs_opendir(&dirp, path);
-    if (res)
-    {
-        printk("Error opening dir %s [%d]\n", path, res);
-        return res;
-    }
-
-    for (;;)
-    {
-        /* Verify fs_readdir() */
-        res = fs_readdir(&dirp, &entry);
-
-        /* entry.name[0] == 0 means end-of-dir */
-        if (res || entry.name[0] == 0)
-        {
-            if (res < 0)
-            {
-                printk("Error reading dir [%d]\n", res);
-            }
-
-            break;
-        }
-
-        if (entry.type != FS_DIR_ENTRY_DIR)
-        {
-            uint16_t session_id = atoi(entry.name);
-            struct healthypi_session_log_header_t m_header = log_get_file_header(session_id);
-            memcpy(&buf_log, &m_header, sizeof(struct healthypi_session_log_header_t));
-            cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_log_header_t));
-            printk("Header of file id %d sent\n",session_id);
-        }
-
-    }
-    fs_closedir(&dirp);
-
-    return res;
-}
-
-uint32_t transfer_get_file_length(char *m_file_name)
-{
-    int res;
-    struct fs_dir_t dirp;
-    static struct fs_dirent entry;
-    uint32_t file_len = 0;
-
-    fs_dir_t_init(&dirp);
-
-    const char *path = "/lfs/log";
-
-    res = fs_opendir(&dirp, path);
-    if (res)
-    {
-        printk("Error opening dir %s [%d]\n", path, res);
-        return res;
-    }
-
-    for (;;)
-    {
-        res = fs_readdir(&dirp, &entry);
-        if (res || entry.name[0] == 0)
-        {
-            if (res < 0)
-            {
-                printk("Error reading dir [%d]\n", res);
-            }
-            break;
-        }
-
-        if (strncmp(m_file_name,entry.name,sizeof(m_file_name)) == 0)
-        {
-            //printk(" file name %s : size %d\n",entry.name,entry.size);
-            file_len = entry.size;
-        }
-    }
-    fs_closedir(&dirp);
-    return file_len;
-}
-
-void transfer_send_file(uint16_t file_id)
-{
-    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
-    uint8_t file_read_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
-
-    char m_file_name[30];
-    char m_file_path[30];
-    
-    sprintf(m_file_name,"%d",file_id);
-    uint32_t file_len = transfer_get_file_length(m_file_name);
-
-    uint16_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
-
-    uint32_t i = 0;
-    struct fs_file_t m_file;
-    int rc = 0;
-
-    if (file_len % FILE_TRANSFER_BLE_PACKET_SIZE != 0)
-    {
-        number_writes++; // Last write will be smaller than 64 bytes
-    }
-
-    printk("File name: %s Size:%d NW: %d \n", m_file_name, file_len, number_writes);
-    snprintf(m_file_path, sizeof(m_file_path), "/lfs/log/%d", file_id);
-
-    update_session_size_in_header(number_writes,m_file_path);
-
-    fs_file_t_init(&m_file);
-    
-    rc = fs_open(&m_file, m_file_path, FS_O_READ);
-
-    if (rc != 0)
-    {
-        printk("Error opening file %d\n", rc);
-        return;
-    }
-
-    for (i = 0; i < number_writes; i++)
-    {
-        rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
-        if (rc < 0)
-        {
-            printk("Error reading file %d\n", rc);
-            return;
-        }
-
-        cmdif_send_ble_file_data(m_buffer,FILE_TRANSFER_BLE_PACKET_SIZE); //FILE_TRANSFER_BLE_PACKET_SIZE);
-        k_sleep(K_MSEC(50));
-        //printk("\n");
-    }
-
-    rc = fs_close(&m_file);
-    if (rc != 0)
-    {
-        printk("Error closing file %d\n", rc);
-        return;
-    }
-
-    printk("File sent\n");
-}
-
-
-
-void fetch_file_data(uint16_t session_id)
-{
-    printk("Getting Log id %u data\n", session_id);
-    transfer_send_file(session_id);
-}
-
-
-
-
-void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
-{
-
-    //store new log start time temporily
-    uint8_t second, minute, hour, day, month, year;
-    year = m_year;
-    month = m_month;
-    day = m_day;
-    hour = m_hour;
-    minute = m_min;
-    second = m_sec;
-
-    record_init_next_session_log();
-
-    //update structure with new log start time
-    healthypi_session_log_header.session_start_time.year = year;
-    healthypi_session_log_header.session_start_time.month = month;
-    healthypi_session_log_header.session_start_time.day = day;
-    healthypi_session_log_header.session_start_time.hour = hour;
-    healthypi_session_log_header.session_start_time.minute = minute;
-    healthypi_session_log_header.session_start_time.second = second;
-
-    uint8_t rand[2];
-    sys_rand_get(rand, sizeof(rand));
-    healthypi_session_log_header.session_id = (rand[0] | (rand[1] << 8));
-    healthypi_session_log_header.session_size = 0;
-
-    //printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
-}
-
 
 void ces_parse_packet(char rxch)
 {
@@ -520,60 +111,6 @@ void ces_parse_packet(char rxch)
     }
 }
 
-void delete_all_log_files(void)
-{
-    int err;
-    struct fs_dir_t dir;
-
-    char file_name[100] = "";
-
-    fs_dir_t_init(&dir);
-
-    err = fs_opendir(&dir, "/lfs/log");
-    if (err)
-    {
-        printk("Unable to open (err %d)", err);
-    }
-
-    while (1)
-    {
-        struct fs_dirent entry;
-
-        err = fs_readdir(&dir, &entry);
-        if (err)
-        {
-            printk("Unable to read directory");
-            break;
-        }
-
-        /* Check for end of directory listing */
-        if (entry.name[0] == '\0')
-        {
-            break;
-        }
-
-        strcpy(file_name, "/lfs/log/");
-        strcat(file_name, entry.name);
-
-        printk("Deleting %s\n", file_name);
-        fs_unlink(file_name);
-    }
-
-    fs_closedir(&dir);
-
-    printk("All files deleted\n");
-}
-
-void delete_log_file(uint16_t session_id)
-{
-    char log_file_name[30];
-
-    snprintf(log_file_name, sizeof(log_file_name), "/lfs/log/%d", session_id);
-
-    fs_unlink(log_file_name);
-    printk("File %d deleted %s\n", log_file_name);
-}
-
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
@@ -599,7 +136,14 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
-        log_get_count();
+        if (settings_log_data_enabled == true)
+        {
+            cmdif_send_file_count(0,0x57);
+        }
+        else
+        {
+            log_get_count();
+        }
         break;
 
     case CMD_LOG_FILE_HEADER:
@@ -666,6 +210,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
 {    
     uint8_t cmd_pkt[1 + m_data_len];
+    printk("%d\n",m_data_len);
     cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
 
     for (int i = 0; i < m_data_len; i++)
@@ -688,13 +233,13 @@ void cmdif_send_memory_status(uint8_t m_cmd)
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_file_count(uint8_t m_cmd)
+void cmdif_send_file_count(uint8_t m_cmd,uint8_t status)
 {
     //printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
-    cmd_pkt[1] = 0x54;
+    cmd_pkt[1] = status;
     cmd_pkt[2] = m_cmd;
 
     //printk("sending response\n");
