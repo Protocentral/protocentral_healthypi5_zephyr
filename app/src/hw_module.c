@@ -47,6 +47,8 @@ const struct device *fg_dev;
 static const struct gpio_dt_spec led_green = GPIO_DT_SPEC_GET(DT_ALIAS(ledgreen), gpios);
 static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), gpios);
 
+static const struct gpio_dt_spec bl_led = GPIO_DT_SPEC_GET(DT_ALIAS(lcdbl), gpios);
+
 #define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
@@ -99,6 +101,12 @@ static void leds_init()
     }
 
     gpio_pin_set_dt(&led_green, 0);
+
+    ret = gpio_pin_configure_dt(&bl_led, GPIO_OUTPUT_ACTIVE);
+    if (ret < 0)
+    {
+        return;
+    }
 }
 
 void send_usb_cdc(const char *buf, size_t len)

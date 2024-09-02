@@ -37,6 +37,11 @@
 			label = "Green - LED1";
 		};
 
+		bl_led: led_bl {
+			gpios = <&gpio0 16 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+			label = "LCD Backlight";
+		};
+
 	};
 
 	gpio_keys {
@@ -85,6 +90,7 @@
 	aliases {
 		ledblue = &blue_led;
 		ledgreen = &green_led;
+		lcdbl = &bl_led;
 
 		//keyup = &button_up;
 		//k/eydown = &button_down;
@@ -179,7 +185,7 @@
 	ft6236: ft6236@38 {
 		compatible = "focaltech,ft5336";
 		reg = <0x38>;
-		int-gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		int-gpios = <&gpio0 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 		reset-gpios = < &gpio0 15 GPIO_ACTIVE_LOW>;
 	};
 };
