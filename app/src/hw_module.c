@@ -346,7 +346,7 @@ void hw_thread(void)
         // return 0;
     }
 
-    int ret = pwm_set_pulse_dt(&bl_led_pwm, 2000000);
+    int ret = pwm_set_pulse_dt(&bl_led_pwm, 3000);
     if (ret)
     {
         printk("Error %d: failed to set pulse width\n", ret);
