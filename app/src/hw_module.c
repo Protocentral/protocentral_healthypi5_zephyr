@@ -5,6 +5,7 @@
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/led.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/pwm.h>
 
 #include <stdio.h>
 #include <zephyr/drivers/sensor.h>
@@ -12,6 +13,8 @@
 #include <zephyr/sys/ring_buffer.h>
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/usb/usbd.h>
+
+
 
 #include <zephyr/input/input.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
@@ -47,7 +50,9 @@ const struct device *fg_dev;
 static const struct gpio_dt_spec led_green = GPIO_DT_SPEC_GET(DT_ALIAS(ledgreen), gpios);
 static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), gpios);
 
-static const struct gpio_dt_spec bl_led = GPIO_DT_SPEC_GET(DT_ALIAS(lcdbl), gpios);
+// static const struct gpio_dt_spec bl_led = GPIO_DT_SPEC_GET(DT_ALIAS(lcdbl), gpios);
+
+static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm));
 
 #define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
 
@@ -102,11 +107,11 @@ static void leds_init()
 
     gpio_pin_set_dt(&led_green, 0);
 
-    ret = gpio_pin_configure_dt(&bl_led, GPIO_OUTPUT_ACTIVE);
+   /*ret = gpio_pin_configure_dt(&bl_led, GPIO_OUTPUT_ACTIVE);
     if (ret < 0)
     {
         return;
-    }
+    }*/
 }
 
 void send_usb_cdc(const char *buf, size_t len)
@@ -333,6 +338,20 @@ void hw_thread(void)
     k_sem_give(&sem_hw_inited);
 
     usb_init();
+
+    if (!pwm_is_ready_dt(&bl_led_pwm))
+    {
+        printk("Error: PWM device %s is not ready\n",
+               bl_led_pwm.dev->name);
+        // return 0;
+    }
+
+    int ret = pwm_set_pulse_dt(&bl_led_pwm, 2000000);
+    if (ret)
+    {
+        printk("Error %d: failed to set pulse width\n", ret);
+        //return 0;
+    }
 
     for (;;)
     {

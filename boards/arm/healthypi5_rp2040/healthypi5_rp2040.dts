@@ -37,10 +37,10 @@
 			label = "Green - LED1";
 		};
 
-		bl_led: led_bl {
+		/*bl_led: led_bl {
 			gpios = <&gpio0 16 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
 			label = "LCD Backlight";
-		};
+		};*/
 
 	};
 
@@ -72,9 +72,9 @@
 
 	pwm_leds {
 		compatible = "pwm-leds";
-		status = "disabled";
-		pwm_led0: pwm_led_0 {
-			pwms = <&pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+		status = "okay";
+		bl_led_pwm: pwm_ledbl {
+			pwms = <&pwm 0 PWM_MSEC(40) PWM_POLARITY_NORMAL>;
 			label = "PWM_LED";
 		};
 	};
@@ -90,14 +90,14 @@
 	aliases {
 		ledblue = &blue_led;
 		ledgreen = &green_led;
-		lcdbl = &bl_led;
+		bl-led-pwm = &bl_led_pwm;
 
 		//keyup = &button_up;
 		//k/eydown = &button_down;
 		//keyok = &button_ok;
 
 		watchdog0 = &wdt0;
-		pwm-led0 = &pwm_led0;
+		//pwm-led0 = &pwm_led0;
 	};
 };
 
@@ -260,11 +260,11 @@ zephyr_udc0: &usbd {
 	};
 };
 
-/*&pwm {
-	pinctrl-0 = <&pwm_ch1b_default>;
+&pwm {
+	pinctrl-0 = <&pwm_ch0a_default>;
 	pinctrl-names = "default";
 	divider-int-0 = <255>;
-};*/
+};
 
 &vreg {
 	regulator-always-on;
