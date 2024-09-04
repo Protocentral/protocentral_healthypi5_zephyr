@@ -8,19 +8,23 @@
 #define CES_CMDIF_PKT_STOP_2 0x0B
 
 
-#define CMD_LOGGING_MEMORY_FREE 0x32 
+#define CMD_LOGGING_MEMORY_FREE 0x32 //tested
 #define CMD_LOGGING_MEMORY_NOT_AVAILABLE 0x31
 #define CMD_LOGGING_END 0x56 //tested
 #define CMD_LOGGING_START 0x55 //tested
-#define CMD_LOG_GET_COUNT 0x54 //tested
-#define CMD_FETCH_LOG_FILE_DATA 0x51 
-#define CMD_LOG_FILE_HEADER 0x50 //tested
+#define CMD_LOG_GET_COUNT 0x54  //tested
+#define CMD_FETCH_LOG_FILE_DATA 0x51 //
+#define CMD_LOG_FILE_HEADER 0x50
 #define CMG_LOG_FILE_DELETE 0x52 //tested
-#define CMD_LOG_WIPE_ALL 0x53  //tested
+#define CMD_LOG_WIPE_ALL 0x53 //tested
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);
+
+//void cmdif_send_ble_data(const char *buf, size_t len);
+void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len);
+//void cmdif_send_ble_file_data(uint8_t *m_data, uint32_t number_writes,uint8_t m_data_len);
 
 enum cmdsm_state
 {
