@@ -443,7 +443,7 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     minute = m_min;
     second = m_sec;
 
-    record_init_next_session_log();
+    record_init_next_session_log(true);
 
     //update structure with new log start time
     healthypi_session_log_header.session_start_time.year = year;
@@ -599,6 +599,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
+        //fs_mkdir("/lfs/log");
         log_get_count();
         break;
 
@@ -631,9 +632,10 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     case CMD_LOGGING_START:    
         printk("Command to start logging\n");
 
-        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
-        
+        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);        
+     
         struct fs_statvfs sbuf;
+
         rc = fs_statvfs(mp->mnt_point, &sbuf);
         if (rc < 0)
         {

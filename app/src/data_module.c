@@ -2,6 +2,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/fs/littlefs.h>
 #include <stdio.h>
 
 #include "max30001.h"
@@ -54,6 +56,7 @@ static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 
 extern bool settings_log_data_enabled;       // true;
+extern struct fs_mount_t *mp;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 //struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -169,10 +172,11 @@ void send_data_text_1(int32_t in_sample)
 }
 
 // Start a new session log
-void record_init_next_session_log()
+void record_init_next_session_log(bool write_to_file)
 {
     //if data is pending in the log Buffer
-    if (current_session_log_counter > 0)
+
+    if ((current_session_log_counter > 0) && (write_to_file))
     {
         printk("Log Buffer pending at %d \n", k_uptime_get_32());
         record_write_to_file(current_session_log_counter, log_buffer);
@@ -219,12 +223,34 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_
     else
     {
         printk("Log Buffer Full at %d \n", k_uptime_get_32());
-        record_write_to_file(current_session_log_counter, log_buffer);
-        current_session_log_counter = 0;
-        log_buffer[current_session_log_counter].ecg_sample = ecg_val;
-        log_buffer[current_session_log_counter].bioz_sample = bioz_val;
-        log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
+        struct fs_statvfs sbuf;
+
+        int rc = fs_statvfs(mp->mnt_point, &sbuf);
+        if (rc < 0)
+        {
+            printk("FAILED to return stats");
+        }
+
+        printk("free: %lu, available : %f\n",sbuf.f_bfree,(0.25 * sbuf.f_blocks));
+
+        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
+        {
+            settings_log_data_enabled = false;
+            record_init_next_session_log(false);
+
+
+        }
+        else
+        {
+            record_write_to_file(current_session_log_counter, log_buffer);
+            current_session_log_counter = 0;
+            log_buffer[current_session_log_counter].ecg_sample = ecg_val;
+            log_buffer[current_session_log_counter].bioz_sample = bioz_val;
+            log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
+
+        }
     }
+
 }
 
 void data_thread(void)

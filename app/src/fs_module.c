@@ -216,6 +216,7 @@ void fs_module_init(void)
            sbuf.f_bsize, sbuf.f_frsize,
            sbuf.f_blocks, sbuf.f_bfree);
 
+    //fs_mkdir("/lfs/log");
     rc = lsdir("/lfs/log");
     if (rc < 0)
     {
