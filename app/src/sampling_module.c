@@ -83,8 +83,6 @@ void sampling_thread(void)
         sensor_sample.rtor = rtor_sample.val1;
         sensor_sample.hr = hr_sample.val1;
 
-        // printk("%d ", sensor_sample.ecg_sample);
-
         k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
 
         // busy loop until next value should be grabbed
