@@ -23,11 +23,7 @@ K_SEM_DEFINE(sem_fs_module, 0, 1);
 
 const char fname_sessions[30] = "/lfs/sessions";
 
-#define PARTITION_NODE DT_NODELABEL(lfs1)
 
-#if DT_NODE_EXISTS(PARTITION_NODE)
-FS_FSTAB_DECLARE_ENTRY(PARTITION_NODE);
-#else  /* PARTITION_NODE */
 FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
 static struct fs_mount_t lfs_storage_mnt = {
     .type = FS_LITTLEFS,
@@ -35,7 +31,6 @@ static struct fs_mount_t lfs_storage_mnt = {
     .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
     .mnt_point = "/lfs",
 };
-#endif /* PARTITION_NODE */
 
 struct fs_mount_t *mp = &lfs_storage_mnt;
 
@@ -221,7 +216,8 @@ void fs_module_init(void)
            sbuf.f_bsize, sbuf.f_frsize,
            sbuf.f_blocks, sbuf.f_bfree);
 
-    rc = lsdir("/lfs");
+    //fs_mkdir("/lfs/log");
+    rc = lsdir("/lfs/log");
     if (rc < 0)
     {
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
@@ -232,3 +228,4 @@ void fs_module_init(void)
     mount_sd_fs();
 #endif
 }
+

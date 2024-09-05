@@ -7,10 +7,11 @@
 		compatible = "zephyr,sdhc-spi-slot";
 		reg = <1>;
 		status = "okay";
+		power-delay-ms = <5>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
 			status = "okay";
 		};
-		spi-max-frequency = <24000000>;
 	};
 };
