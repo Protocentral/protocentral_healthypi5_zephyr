@@ -109,28 +109,36 @@ static void sampling_thread(void)
     }
 }
 
-static void sensor_ecg_processing_callback(int result, uint8_t *buf,
-                                           uint32_t buf_len, void *userdata)
+static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
+                                          uint32_t buf_len, void *userdata)
 {
     const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
 
-    //printk("ECG NS: %d ", edata->num_samples_ecg);
+    // printk("ECG NS: %d ", edata->num_samples_ecg);
 
-    if (edata->num_samples_ecg > 0)
+    if ((edata->num_samples_ecg > 0) || (edata->num_samples_bioz > 0))
     {
         ecg_bioz_sensor_sample.ecg_num_samples = edata->num_samples_ecg;
+        ecg_bioz_sensor_sample.bioz_num_samples = edata->num_samples_bioz;
+
         for (int i = 0; i < edata->num_samples_ecg; i++)
         {
             ecg_bioz_sensor_sample.ecg_samples[i] = edata->ecg_samples[i];
         }
+
+        for (int i = 0; i < edata->num_samples_bioz; i++)
+        {
+            ecg_bioz_sensor_sample.bioz_sample[i] = edata->bioz_samples[i];
+        }
+
         ecg_bioz_sensor_sample.hr = edata->hr;
 
         k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_MSEC(1));
     }
 }
 
-void ecg_sampling_trigger_thread(void)
+void ecg_bioz_sample_trigger_thread(void)
 {
     LOG_INF("ECG/ BioZ Sampling Trigger Thread starting\n");
 
@@ -139,7 +147,7 @@ void ecg_sampling_trigger_thread(void)
         // k_sem_take(&sem_ecg_intb_recd, K_FOREVER);
 
         sensor_read(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
-        sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_processing_callback);
+        sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_bioz_processing_cb);
 
         k_sleep(K_MSEC(ECG_SAMPLING_INTERVAL_MS));
     }
@@ -148,6 +156,6 @@ void ecg_sampling_trigger_thread(void)
 #define SAMPLING_THREAD_STACKSIZE 2048
 #define SAMPLING_THREAD_PRIORITY 7
 
-K_THREAD_DEFINE(ecg_sampling_trigger_thread_id, 2048, ecg_sampling_trigger_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 2048, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
 
-//K_THREAD_DEFINE(sampling_thread_id, SAMPLING_THREAD_STACKSIZE, sampling_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
+// K_THREAD_DEFINE(sampling_thread_id, SAMPLING_THREAD_STACKSIZE, sampling_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
