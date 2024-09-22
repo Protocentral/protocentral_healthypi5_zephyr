@@ -13,6 +13,7 @@ struct hpi_sensor_data_t {
 
 #define ECG_POINTS_PER_SAMPLE   8
 #define BIOZ_POINTS_PER_SAMPLE  8
+#define PPG_POINTS_PER_SAMPLE   8
 
 struct hpi_ecg_bioz_sensor_data_t
 {
@@ -25,6 +26,12 @@ struct hpi_ecg_bioz_sensor_data_t
     uint8_t ecg_lead_off;
     uint8_t bioz_lead_off;
     bool _bioZSkipSample;
+};
+
+struct hpi_ppg_sensor_data_t
+{
+    int32_t ppg_red_samples[PPG_POINTS_PER_SAMPLE];
+    int32_t ppg_ir_samples[PPG_POINTS_PER_SAMPLE];
 };
 
  

@@ -4,6 +4,8 @@
 #include <zephyr/drivers/sensor.h>
 
 #include "max30001.h"
+#include "afe4400.h"
+
 #include "sampling_module.h"
 #include "sys_sm_module.h"
 
@@ -21,6 +23,7 @@ extern const struct device *const max30205_dev;
 #define ECG_SAMPLING_INTERVAL_MS 60
 
 SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), SENSOR_CHAN_VOLTAGE);
+SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
 
 RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
                          32,  /* submission queue size */
@@ -30,9 +33,16 @@ RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
                          4    /* memory alignment */
 );
 
-K_MSGQ_DEFINE(q_sample, sizeof(struct hpi_sensor_data_t), 100, 1);
+RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
+                         32,  /* submission queue size */
+                         32,  /* completion queue size */
+                         128, /* number of memory blocks */
+                         64,  /* size of each memory block */
+                         4    /* memory alignment */
+);
 
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
 
 static void sampling_thread(void)
 {
@@ -46,27 +56,10 @@ static void sampling_thread(void)
     {
         k_sleep(K_MSEC(SAMPLING_INTERVAL_MS));
 
-        /*struct k_timer next_val_timer;
-        k_timer_init(&next_val_timer, NULL, NULL);
-        k_timer_start(&next_val_timer, K_USEC(time_between_samples_us), K_NO_WAIT);
-        */
-
-        struct sensor_value ecg_sample;
-        struct sensor_value bioz_sample;
-
         struct sensor_value red_sample;
         struct sensor_value ir_sample;
 
-        struct sensor_value rtor_sample;
-        struct sensor_value hr_sample;
-
-        /* sensor_sample_fetch(max30001_dev);
-         sensor_channel_get(max30001_dev, SENSOR_CHAN_ECG_UV, &ecg_sample);
-         sensor_channel_get(max30001_dev, SENSOR_CHAN_BIOZ_UV, &bioz_sample);
-         sensor_channel_get(max30001_dev, SENSOR_CHAN_RTOR, &rtor_sample);
-         sensor_channel_get(max30001_dev, SENSOR_CHAN_HR, &hr_sample);
-         */
-
+        /*
         sensor_sample_fetch(afe4400_dev);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_RED, &red_sample);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_IR, &ir_sample);
@@ -87,25 +80,50 @@ static void sampling_thread(void)
         else
         {
             sample_count++;
-        }
+        }*/
 
-        struct hpi_sensor_data_t sensor_sample;
+        /*struct hpi_sensor_data_t sensor_sample;
 
-        sensor_sample.ecg_sample = ecg_sample.val1;
-        sensor_sample.bioz_sample = bioz_sample.val1;
+
         sensor_sample.raw_red = red_sample.val1;
         sensor_sample.raw_ir = ir_sample.val1;
         sensor_sample.temp = last_read_temp_value;
         sensor_sample._bioZSkipSample = false;
         sensor_sample.rtor = rtor_sample.val1;
         sensor_sample.hr = hr_sample.val1;
+        */
 
         // printk("%d ", sensor_sample.ecg_sample);
 
-        k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
+        // k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
 
         // busy loop until next value should be grabbed
         // while (k_timer_status_get(&next_val_timer) <= 0);
+    }
+}
+
+static volatile int hpi_sampling_ppg_sample_count = 0;
+
+static void sensor_ppg_process_cb(int result, uint8_t *buf, uint32_t buf_len, void *userdata)
+{
+    const struct afe4400_encoded_data *edata = (const struct afe4400_encoded_data *)buf;
+
+    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
+
+    if (hpi_sampling_ppg_sample_count < (PPG_POINTS_PER_SAMPLE))
+    {
+        ppg_sensor_sample.ppg_red_samples[hpi_sampling_ppg_sample_count] = edata->raw_sample_red;
+        ppg_sensor_sample.ppg_ir_samples[hpi_sampling_ppg_sample_count] = edata->raw_sample_ir;
+
+        hpi_sampling_ppg_sample_count++;
+    }
+    else
+    {   
+        k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1));
+        hpi_sampling_ppg_sample_count = 0;
+    
+        ppg_sensor_sample.ppg_red_samples[hpi_sampling_ppg_sample_count++] = edata->raw_sample_red;
+        ppg_sensor_sample.ppg_ir_samples[hpi_sampling_ppg_sample_count++] = edata->raw_sample_ir;   
     }
 }
 
@@ -138,14 +156,25 @@ static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
     }
 }
 
+void ppg_sample_trigger_thread(void)
+{
+    LOG_INF("PPG Sampling Trigger Thread starting\n");
+
+    for (;;)
+    {
+        sensor_read(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
+        sensor_processing_with_callback(&afe4400_read_rtio_ctx, sensor_ppg_process_cb);
+
+        k_sleep(K_MSEC(PPG_SAMPLING_INTERVAL_MS));
+    }
+}
+
 void ecg_bioz_sample_trigger_thread(void)
 {
     LOG_INF("ECG/ BioZ Sampling Trigger Thread starting\n");
 
     for (;;)
     {
-        // k_sem_take(&sem_ecg_intb_recd, K_FOREVER);
-
         sensor_read(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
         sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_bioz_processing_cb);
 
@@ -157,5 +186,4 @@ void ecg_bioz_sample_trigger_thread(void)
 #define SAMPLING_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 2048, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
-
-// K_THREAD_DEFINE(sampling_thread_id, SAMPLING_THREAD_STACKSIZE, sampling_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 2048, ppg_sample_trigger_thread, NULL, NULL, NULL, SAMPLING_THREAD_PRIORITY, 0, 1000);
