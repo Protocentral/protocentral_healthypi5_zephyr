@@ -65,6 +65,7 @@ uint8_t hpi_ov3_data[HPI_OV3_DATA_LEN];
 static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
+static bool settings_plot_enabled = true;
 
 static bool settings_log_data_enabled = false;       // true;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
@@ -90,7 +91,7 @@ int resp_sample_buffer_count = 0;
 
 // Externs
 extern struct k_msgq q_sample;
-extern struct k_msgq q_plot;
+extern struct k_msgq q_plot_ecg_bioz;
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
@@ -342,6 +343,13 @@ void data_thread(void)
                                          ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
                 }
             }
+
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+            if (settings_plot_enabled)
+            {
+                k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
+            }
+#endif
         }
 
         /*k_msgq_get(&q_sample, &sensor_sample, K_FOREVER);
@@ -431,11 +439,6 @@ void data_thread(void)
                 send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red);
             }
         }*/
-
-/***** Send to draw queue if enabled *****/
-#ifdef CONFIG_DISPLAY
-        // k_msgq_put(&q_plot, &sensor_sample, K_NO_WAIT);
-#endif
 
         /*#ifdef CONFIG_BT
                 if (settings_send_ble_enabled)

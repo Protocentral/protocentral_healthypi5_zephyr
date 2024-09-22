@@ -90,7 +90,7 @@ extern struct k_sem sem_ok_key_pressed;
 extern struct k_sem sem_up_key_pressed;
 extern struct k_sem sem_down_key_pressed;
 
-K_MSGQ_DEFINE(q_plot, sizeof(struct hpi_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
 extern struct k_msgq q_computed_val;
 
 enum hpi_sensor_data_type
@@ -698,8 +698,9 @@ void display_screens_thread(void)
     printk("Display screens inited");
     // k_sem_give(&sem_disp_inited);
     //  draw_scr_menu("A\nB\n");
-    struct hpi_sensor_data_t sensor_sample;
+    //struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
@@ -709,51 +710,53 @@ void display_screens_thread(void)
     int sample_count = 0;
     while (1)
     {
-        k_msgq_get(&q_plot, &sensor_sample, K_FOREVER);
+        if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        {
 
-        if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
-        {
-            hpi_disp_draw_plot((float)((sensor_sample.ecg_sample) / 100.0000));
-        }
-        else if (hpi_disp_curr_screen == HPI_DISP_SCR_PPG)
-        {
-            hpi_disp_draw_plot((sensor_sample.raw_ir) / 1000.0000);
-        }
+            if (hpi_disp_curr_screen == HPI_DISP_SCR_ECG)
+            {
+                hpi_disp_draw_plot((float)((sensor_sample.ecg_sample) / 100.0000));
+            }
+            else if (hpi_disp_curr_screen == HPI_DISP_SCR_PPG)
+            {
+                hpi_disp_draw_plot((sensor_sample.raw_ir) / 1000.0000);
+            }
 
-        else if (hpi_disp_curr_screen == HPI_DISP_SCR_RESP)
-        {
-            hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
-        }
+            else if (hpi_disp_curr_screen == HPI_DISP_SCR_RESP)
+            {
+                hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
+            }
 
-        if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
-        {
-            sample_count = 0;
-            hpi_disp_update_temp(sensor_sample.temp);
-            hpi_disp_update_hr(sensor_sample.hr);
-        }
-        else
-        {
-            sample_count++;
-        }
+            if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
+            {
+                sample_count = 0;
+                hpi_disp_update_temp(sensor_sample.temp);
+                hpi_disp_update_hr(sensor_sample.hr);
+            }
+            else
+            {
+                sample_count++;
+            }
 
-        if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
-        {
-            printk("Got computed data");
-            printk("SpO2: %d", computed_data.spo2);
-            printk("HR: %d", computed_data.hr);
-            printk("RR: %d\n", computed_data.rr);
+            if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
+            {
+                printk("Got computed data");
+                printk("SpO2: %d", computed_data.spo2);
+                printk("HR: %d", computed_data.hr);
+                printk("RR: %d\n", computed_data.rr);
 
-            // hpi_disp_update_hr(computed_data.hr);
-            hpi_disp_update_spo2(computed_data.spo2);
-            hpi_disp_update_rr(computed_data.rr);
-        }
+                // hpi_disp_update_hr(computed_data.hr);
+                hpi_disp_update_spo2(computed_data.spo2);
+                hpi_disp_update_rr(computed_data.rr);
+            }
 
-        lv_task_handler();
-        if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
-        {
-            down_key_event_handler();
+            lv_task_handler();
+            if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
+            {
+                down_key_event_handler();
+            }
+            k_sleep(K_MSEC(4));
         }
-        k_sleep(K_MSEC(4));
     }
 }
 
