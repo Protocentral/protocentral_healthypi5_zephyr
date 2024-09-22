@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(SENSOR_AFE4400, CONFIG_SENSOR_LOG_LEVEL);
 #define AFE4400_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB | \
                                SPI_MODE_CPOL | SPI_MODE_CPHA)
 
-static int _afe4400_reg_write(const struct device *dev, uint8_t reg, uint32_t val)
+int _afe4400_reg_write(const struct device *dev, uint8_t reg, uint32_t val)
 {
     const struct afe4400_config *config = dev->config;
     uint8_t cmd[] = {(reg), (uint8_t)(val >> 16), (uint8_t)(val >> 8), (uint8_t)val};
@@ -37,7 +37,7 @@ static int _afe4400_reg_write(const struct device *dev, uint8_t reg, uint32_t va
     return 0;
 }
 
-static uint32_t _afe4400_read_reg(const struct device *dev, uint8_t reg)
+uint32_t _afe4400_read_reg(const struct device *dev, uint8_t reg)
 {
     const struct afe4400_config *config = dev->config;
     uint8_t spiTxCommand = reg;
@@ -61,15 +61,15 @@ static int afe4400_sample_fetch(const struct device *dev, enum sensor_channel ch
 
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
     uint32_t led1val = _afe4400_read_reg(dev, LED1VAL);
-    led1val = (uint32_t) (led1val << 10);
-    int32_t led1val_signed = (int32_t) led1val;
-    drv_data->raw_sample_ir = (int32_t) led1val_signed>>10;
+    led1val = (uint32_t)(led1val << 10);
+    int32_t led1val_signed = (int32_t)led1val;
+    drv_data->raw_sample_ir = (int32_t)led1val_signed >> 10;
 
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
     uint32_t led2val = _afe4400_read_reg(dev, LED2VAL);
-    led2val = (uint32_t) (led2val << 10);
-    int32_t led2val_signed = (int32_t) led2val;
-    drv_data->raw_sample_red = (int32_t) led2val_signed>>10;
+    led2val = (uint32_t)(led2val << 10);
+    int32_t led2val_signed = (int32_t)led2val;
+    drv_data->raw_sample_red = (int32_t)led2val_signed >> 10;
 
     return 0;
 }
@@ -98,6 +98,12 @@ static int afe4400_channel_get(const struct device *dev, enum sensor_channel cha
 static const struct sensor_driver_api afe4400_api_funcs = {
     .sample_fetch = afe4400_sample_fetch,
     .channel_get = afe4400_channel_get,
+
+#ifdef CONFIG_SENSOR_ASYNC_API
+    .submit = afe4400_submit,
+    .get_decoder = afe4400_get_decoder,
+#endif
+
 };
 
 static int afe4400_chip_init(const struct device *dev)
@@ -162,7 +168,7 @@ static int afe4400_chip_init(const struct device *dev)
     _afe4400_reg_write(dev, ADCRSTCNT3, 0X001770);
     _afe4400_reg_write(dev, ADCRSTENDCT3, 0X001770);
 
-    //printk("\nafe4400_chip_init\n");
+    // printk("\nafe4400_chip_init\n");
 
     /* Wait for the sensor to be ready */
     k_sleep(K_MSEC(1));

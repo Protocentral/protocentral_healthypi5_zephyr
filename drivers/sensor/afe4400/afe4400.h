@@ -21,6 +21,17 @@ struct afe4400_data {
 	int32_t raw_sample_red;
 };
 
+struct afe4400_decoder_header
+{
+	uint64_t timestamp;
+} __attribute__((__packed__));
+
+struct afe4400_encoded_data {
+	struct afe4400_decoder_header header;
+	int32_t raw_sample_ir;
+	int32_t raw_sample_red;
+};
+
 // AFE4400 Register Map
 
 #define CONTROL0      0x00
@@ -73,3 +84,6 @@ struct afe4400_data {
 #define LED2ABSVAL    0x2e
 #define LED1ABSVAL    0x2f
 #define DIAG          0x30
+
+int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
+int afe4400_get_decoder(const struct device *dev, const struct sensor_decoder_api **decoder);

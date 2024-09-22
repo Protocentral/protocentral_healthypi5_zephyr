@@ -78,7 +78,7 @@ extern struct k_sem sem_ok_key_pressed;
 extern struct k_sem sem_up_key_pressed;
 extern struct k_sem sem_down_key_pressed;
 
-K_MSGQ_DEFINE(q_plot, sizeof(struct hpi_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
 extern struct k_msgq q_computed_val;
 
 uint8_t curr_screen = SCR_HOME;
@@ -381,8 +381,9 @@ void display_screens_thread(void)
     printk("Display screens inited");
     // k_sem_give(&sem_disp_inited);
     //  draw_scr_menu("A\nB\n");
-    struct hpi_sensor_data_t sensor_sample;
+    //struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
+    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
@@ -448,6 +449,7 @@ void display_screens_thread(void)
 
         lv_task_handler();
         k_sleep(K_MSEC(4));
+
     }
 }
 
