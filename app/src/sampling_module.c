@@ -41,8 +41,8 @@ RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
                          4    /* memory alignment */
 );
 
-K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
-K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
+K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
 static void sampling_thread(void)
 {
@@ -56,13 +56,24 @@ static void sampling_thread(void)
     {
         k_sleep(K_MSEC(SAMPLING_INTERVAL_MS));
 
-        struct sensor_value red_sample;
-        struct sensor_value ir_sample;
+        //struct sensor_value red_sample;
+        //struct sensor_value ir_sample;
 
         /*
         sensor_sample_fetch(afe4400_dev);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_RED, &red_sample);
         sensor_channel_get(afe4400_dev, SENSOR_CHAN_IR, &ir_sample);
+
+        struct hpi_sensor_data_t sensor_sample;
+
+
+        sensor_sample.raw_red = red_sample.val1;
+        sensor_sample.raw_ir = ir_sample.val1;
+        sensor_sample.temp = last_read_temp_value;
+        sensor_sample._bioZSkipSample = false;
+        sensor_sample.rtor = rtor_sample.val1;
+        sensor_sample.hr = hr_sample.val1;
+        */
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
@@ -80,25 +91,11 @@ static void sampling_thread(void)
         else
         {
             sample_count++;
-        }*/
-
-        /*struct hpi_sensor_data_t sensor_sample;
-
-
-        sensor_sample.raw_red = red_sample.val1;
-        sensor_sample.raw_ir = ir_sample.val1;
-        sensor_sample.temp = last_read_temp_value;
-        sensor_sample._bioZSkipSample = false;
-        sensor_sample.rtor = rtor_sample.val1;
-        sensor_sample.hr = hr_sample.val1;
-        */
+        }
 
         // printk("%d ", sensor_sample.ecg_sample);
 
         // k_msgq_put(&q_sample, &sensor_sample, K_NO_WAIT);
-
-        // busy loop until next value should be grabbed
-        // while (k_timer_status_get(&next_val_timer) <= 0);
     }
 }
 
@@ -118,12 +115,12 @@ static void sensor_ppg_process_cb(int result, uint8_t *buf, uint32_t buf_len, vo
         hpi_sampling_ppg_sample_count++;
     }
     else
-    {   
+    {
         k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1));
         hpi_sampling_ppg_sample_count = 0;
-    
+
         ppg_sensor_sample.ppg_red_samples[hpi_sampling_ppg_sample_count++] = edata->raw_sample_red;
-        ppg_sensor_sample.ppg_ir_samples[hpi_sampling_ppg_sample_count++] = edata->raw_sample_ir;   
+        ppg_sensor_sample.ppg_ir_samples[hpi_sampling_ppg_sample_count++] = edata->raw_sample_ir;
     }
 }
 
