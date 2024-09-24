@@ -22,25 +22,6 @@ extern const struct device *const max30205_dev;
 #define PPG_SAMPLING_INTERVAL_MS 1
 #define ECG_SAMPLING_INTERVAL_MS 60
 
-SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), SENSOR_CHAN_VOLTAGE);
-SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
-
-RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
-                         32,  /* submission queue size */
-                         32,  /* completion queue size */
-                         64, /* number of memory blocks */
-                         64,  /* size of each memory block */
-                         4    /* memory alignment */
-);
-
-RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
-                         32,  /* submission queue size */
-                         32,  /* completion queue size */
-                         64, /* number of memory blocks */
-                         64,  /* size of each memory block */
-                         4    /* memory alignment */
-);
-
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
 K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
@@ -62,9 +43,6 @@ RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
                          128,  /* size of each memory block */
                          4    /* memory alignment */
 );
-
-K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
-K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
 /*
 static void sampling_thread(void)
