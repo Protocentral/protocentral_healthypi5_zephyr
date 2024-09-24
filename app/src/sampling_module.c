@@ -44,10 +44,6 @@ RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
 K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
-<<<<<<< Updated upstream
-/*
-static void sampling_thread(void)
-=======
 SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), SENSOR_CHAN_VOLTAGE);
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
 
@@ -72,7 +68,7 @@ K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
 /*
 static void sampling_thread(void)
->>>>>>> Stashed changes
+
 {
     printk("Sampling Thread starting\n");
 
