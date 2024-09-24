@@ -496,25 +496,12 @@ void display_screens_thread(void)
     {
         if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
-            if (curr_screen == SCR_HOME)
+            if (curr_screen == SCR_ECG)
             {
-                // scr_home_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
-                // scr_home_plot_ppg((float)((sensor_sample.raw_ir) / 1000.0000));
+                hpi_ecg_disp_draw_plotECG(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
+                hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
+                // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
             }
-            else if (curr_screen == SCR_ECG)
-            {
-                // scr_ecg_plot_ecg((float)((sensor_sample.ecg_sample) / 100.0000));
-            }
-
-            /*else if (curr_screen == HPI_DISP_SCR_PPG)
-            {
-                hpi_disp_draw_plot((sensor_sample.raw_ir) / 1000.0000);
-            }
-
-            else if (curr_screen == HPI_DISP_SCR_RESP)
-            {
-                hpi_disp_draw_plot((sensor_sample.bioz_sample) / 100.0000);
-            }*/
         }
 
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
@@ -528,7 +515,7 @@ void display_screens_thread(void)
             sample_count++;
         }
 
-        if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
+        /*if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
         {
             printk("Got computed data");
             printk("SpO2: %d", computed_data.spo2);
@@ -543,7 +530,7 @@ void display_screens_thread(void)
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
         {
             down_key_event_handler();
-        }
+        }*/
 
         lv_task_handler();
         k_sleep(K_MSEC(4));

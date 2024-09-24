@@ -131,6 +131,7 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
     // regRxBuffer 0 contains NULL (for sent command), so read from 1 onwards
     // printk("%x %x %x %x\n", regRxBuffer[0], regRxBuffer[1], regRxBuffer[2], regRxBuffer[3]);
 
+
     for (int i = 0; i < num_bytes; i += 3)
     {
         // Get etag
@@ -522,6 +523,7 @@ static int max30001_chip_init(const struct device *dev)
     data->chip_cfg.reg_cnfg_bioz.bit.dhpf = 0b010;             // 0.5 Hz
     data->chip_cfg.reg_cnfg_bioz.bit.gain = config->bioz_gain; // FROM DTS
     data->chip_cfg.reg_cnfg_bioz.bit.fcgen = 0b0100;
+    data->chip_cfg.reg_cnfg_bioz.bit.ext_rbias = 0;
     data->chip_cfg.reg_cnfg_bioz.bit.cgmon = 0;
     data->chip_cfg.reg_cnfg_bioz.bit.cgmag = config->bioz_cgmag; // FROM DTS
     data->chip_cfg.reg_cnfg_bioz.bit.phoff = 0b0011;
@@ -534,7 +536,7 @@ static int max30001_chip_init(const struct device *dev)
     data->chip_cfg.reg_cnfg_bmux.bit.cg_mode = 0;
     data->chip_cfg.reg_cnfg_bmux.bit.en_bist = 0;
     data->chip_cfg.reg_cnfg_bmux.bit.rnom = 0;
-    data->chip_cfg.reg_cnfg_bmux.bit.rmod = 0;
+    data->chip_cfg.reg_cnfg_bmux.bit.rmod = 0b100;
     data->chip_cfg.reg_cnfg_bmux.bit.fbist = 0;
 
     _max30001RegWrite(dev, CNFG_GEN, data->chip_cfg.reg_cnfg_gen.all);
@@ -562,8 +564,8 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, CNFG_BIOZ_LC, 0x800000); // Turn OFF low current mode
     k_sleep(K_MSEC(100));
 
-    //_max30001RegWrite(dev, CNFG_BMUX, data->chip_cfg.reg_cnfg_bmux.all);
-    _max30001RegWrite(dev, CNFG_BMUX, 0x000040);
+    _max30001RegWrite(dev, CNFG_BMUX, data->chip_cfg.reg_cnfg_bmux.all);
+    //_max30001RegWrite(dev, CNFG_BMUX, 0x000040);
     k_sleep(K_MSEC(100));
 
     max30001_enable_rtor(dev);
@@ -571,8 +573,9 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, CNFG_CAL, 0x702000); // Calibration sources disabled
     k_sleep(K_MSEC(100));
 
+    //_max30001RegWrite(dev, MNGR_INT, 0x190000); // EFIT=4, BFIT=2
     //_max30001RegWrite(dev, MNGR_INT, 0x7B0000); // EFIT=16, BFIT=8
-    _max30001RegWrite(dev, MNGR_INT, 0x3B0000); // EFIT=8
+    _max30001RegWrite(dev, MNGR_INT, 0x3B0044); // EFIT=8, BFIT=4 
     //_max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
     //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
     k_sleep(K_MSEC(100));

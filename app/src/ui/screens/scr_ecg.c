@@ -20,7 +20,7 @@ static lv_chart_series_t *ser_ecg;
 
 static bool chart_ecg_update = true;
 
-//Chart Variables
+// Chart Variables
 static float y_max_ecg = 0;
 static float y_min_ecg = 10000;
 static float gx = 0;
@@ -45,7 +45,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     chart_ecg = lv_chart_create(scr_ecg);
     lv_obj_set_pos(chart_ecg, 10, 25);
 
-    lv_obj_set_size(chart_ecg, 400, 100);
+    lv_obj_set_size(chart_ecg, 450, 190);
     lv_obj_set_style_bg_color(chart_ecg, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
@@ -56,26 +56,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
 
     ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
 
-    //lv_obj_t *label_chart_title = lv_label_create(scr_ecg);
-
-    //lv_obj_align_to(label_chart_title, chart_ecg, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-    //lv_label_set_text(label_chart_title, "Showing ECG");
-
-    /*}
-    else if (m_data_type == HPI_SENSOR_DATA_PPG)
-    {
-        ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
-        curr_screen = HPI_DISP_SCR_PPG;
-        lv_label_set_text(label_chart_title, "Showing PPG");
-    }
-    else if (m_data_type == HPI_SENSOR_DATA_RESP)
-    {
-        ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
-        curr_screen = HPI_DISP_SCR_RESP;
-        lv_label_set_text(label_chart_title, "Showing RESP");
-    }*/
-   
-    curr_screen = SCR_HOME;
+    curr_screen = SCR_ECG;
 
     hpi_show_screen(scr_ecg, m_scroll_dir);
 }
@@ -107,7 +88,7 @@ void hpi_ecg_disp_draw_plotECG(int32_t *data_ecg, int num_samples, bool ecg_lead
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ecg_i = (data_ecg[i]/1000);
+            int32_t data_ecg_i = (data_ecg[i] / 1000);
 
             if (data_ecg_i < y_min_ecg)
             {
@@ -136,11 +117,9 @@ void hpi_ecg_disp_draw_plotECG(int32_t *data_ecg, int num_samples, bool ecg_lead
         // hpi_ecg_disp_add_samples(1);
         // hpi_ecg_disp_do_set_scale(DISP_WINDOW_SIZE_ECG);
     }
-    /*else if (ecg_lead_off == true)
-    {
-        lv_obj_add_flag(chart_ecg, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
-        ecg_plot_hidden = true;
-    }*/
-}
 
+    if (ecg_lead_off == true)
+    {
+        // printk("ECG Lead Off\n");
+    }
+}

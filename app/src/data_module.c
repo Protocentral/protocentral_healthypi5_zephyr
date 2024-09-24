@@ -305,15 +305,16 @@ void data_thread(void)
     bool power_up_data_ready = false;
     for (;;)
     {
-        k_sleep(K_MSEC(10));
+        k_sleep(K_MSEC(2));
 
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
 
+#ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
-                //ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
-                //ble_bioz_notify(ecg_bioz_sensor_sample.bioz_sample, ecg_bioz_sensor_sample.bioz_num_samples);
+                ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
+                ble_bioz_notify(ecg_bioz_sensor_sample.bioz_sample, ecg_bioz_sensor_sample.bioz_num_samples);
                 // b_notify(ecg_bioz_sensor_sample.bioz_sample);
 
                 /*resp_sample_buffer[resp_sample_buffer_count++] = ecg_bioz_sensor_sample.bioz_sample;
@@ -324,6 +325,7 @@ void data_thread(void)
 
                 }*/
             }
+#endif
 
             /***** Send to USB if enabled *****/
             if (settings_send_usb_enabled)
