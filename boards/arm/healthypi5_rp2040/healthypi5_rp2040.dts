@@ -194,8 +194,13 @@
 		rtor-enabled;
 		ecg-enabled;
 		bioz-enabled;
+<<<<<<< Updated upstream
 		ecg-gain = <3>;
 		ecg-invert;
+=======
+		ecg-gain = <1>;
+		//ecg-invert;
+>>>>>>> Stashed changes
 		//ecg-dcloff-enable;
 		//ecg-dcloff-current = <1>; // 5 nA
 
