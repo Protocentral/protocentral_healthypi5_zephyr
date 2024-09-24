@@ -22,10 +22,11 @@ enum hpi_disp_screens
     SCR_LIST_END
 };
 
-
 #define SCREEN_TRANS_TIME 100
-#define SAMPLE_RATE 125
-#define DISP_WINDOW_SIZE 625 // SAMPLE_RATE * 4
+
+#define SAMPLE_RATE 128
+#define ECG_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
+
 
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 

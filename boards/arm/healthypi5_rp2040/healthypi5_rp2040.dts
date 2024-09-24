@@ -44,18 +44,18 @@
 		label = "buttons";
 		button_up: sw1 {
 			label = "Button UP / SW1";
-			gpios = <&gpio0 15 GPIO_ACTIVE_LOW >;
-			zephyr,code = < INPUT_KEY_UP >;
+			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_KEY_UP>;
 		};
 		button_ok: sw2 {
 			label = "Button OK / SW2";
-			gpios = <&gpio0 14 GPIO_ACTIVE_LOW >;
-			zephyr,code = < INPUT_KEY_ENTER >;
+			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_KEY_ENTER>;
 		};
 		button_down: sw3 {
 			label = "Button DOWN / SW3";
 			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
-			zephyr,code = < INPUT_KEY_DOWN >;			
+			zephyr,code = <INPUT_KEY_DOWN>;
 		};
 	};
 
@@ -157,16 +157,16 @@
 	max17048: max17048@36 {
 		compatible = "maxim,max17048";
 		status = "ok";
-		reg = <0x36 >;
+		reg = <0x36>;
 	};
 
-	max30205:max30205@49 {
+	max30205: max30205@49 {
 		compatible = "maxim,max30205";
 		status = "ok";
 		reg = <0x49>;
 	};
 
-	atecc608a:  atecc608a@6a {
+	atecc608a: atecc608a@6a {
 		compatible = "atmel,atecc608";
 		reg = <0x6a>;
 	};
@@ -197,8 +197,10 @@
 		rtor-enabled;
 		ecg-enabled;
 		bioz-enabled;
+
 		ecg-gain = <2>;
 		//ecg-invert;
+
 		//ecg-dcloff-enable;
 		//ecg-dcloff-current = <1>; // 5 nA
 
@@ -220,7 +222,7 @@
 	pinctrl-names = "default";
 
 	status = "okay";
-	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;	//CS Reg 0 - Display, CS Reg 1 - SD Slot
+	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;    //CS Reg 0 - Display, CS Reg 1 - SD Slot
 };
 
 &wdt0 {
@@ -229,7 +231,7 @@
 
 &adc {
 	status = "disabled";
-	
+
 };
 
 zephyr_udc0: &usbd {

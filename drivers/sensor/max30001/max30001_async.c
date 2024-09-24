@@ -51,29 +51,33 @@ static int max30001_async_sample_fetch(const struct device *dev,
     if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
         max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
-        e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1);
-        e_fifo_num_bytes = ((e_fifo_num_samples * 3)); // 24 bit register + 1 dummy byte
+        e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1); // No of samples = EFIT + 1
+        e_fifo_num_bytes = ((e_fifo_num_samples * 3));                                                        // 24 bit register + 1 dummy byte
         *num_samples_ecg = e_fifo_num_samples;
 
-        //printk("ES: %d ", e_fifo_num_samples);
+        // printk("ES: %d ", e_fifo_num_samples);
         //_max30001_read_ecg_fifo(dev, e_fifo_num_bytes);
 
-        struct spi_buf rx_ecg_buf[2] = {{.buf = NULL, .len = 1}, {.buf = &buf_ecg, .len = (e_fifo_num_bytes + 1)}}; // 24 bit register + 1 dummy byte
+        struct spi_buf rx_ecg_buf[2] = {{.buf = NULL, .len = 1}, {.buf = &buf_ecg, .len = (e_fifo_num_bytes)}}; // 24 bit register + 1 dummy byte
         const struct spi_buf_set rx_ecg = {.buffers = rx_ecg_buf, .count = 2};
 
         spi_transceive_dt(&config->spi, &tx_ecg, &rx_ecg);
 
-        /*for (int i = 0; i < (e_fifo_num_bytes); i++)
-        {
-            buf_ecg[i] = buf_ecg[i+1];
-        }*/
+        b_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_BFIT) >> MAX30001_INT_SHIFT_BFIT) + 1);
+        b_fifo_num_bytes = (b_fifo_num_samples * 3);
+        *num_samples_bioz = b_fifo_num_samples;
+
+        struct spi_buf rx_bioz_buf[2] = {{.buf = NULL, .len = 1}, {.buf = &buf_bioz, .len = b_fifo_num_bytes}}; // 24 bit register
+        const struct spi_buf_set rx_bioz = {.buffers = rx_bioz_buf, .count = 2};
+
+        spi_transceive_dt(&config->spi, &tx_bioz, &rx_bioz);
 
         // Read all the samples from the FIFO
         for (int i = 0; i < e_fifo_num_samples; i++)
         {
             uint32_t etag = ((((uint8_t)buf_ecg[i * 3 + 2]) & 0x38) >> 3);
 
-            //printk("E %x ", etag);
+            // printk("E %x ", etag);
 
             if ((etag == 0x00) || (etag == 0x02)) // Valid sample
             {
@@ -81,10 +85,10 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 uecgtemp = (uint32_t)(uecgtemp << 8);
 
                 int32_t secgtemp = (int32_t)uecgtemp;
-                secgtemp = (int32_t)secgtemp >> 8;
-                // printf("%d ", secgtemp);
+                secgtemp = (int32_t)secgtemp >> 6;
 
-                ecg_samples[i] = secgtemp;
+                ecg_samples[i] = (int32_t)(secgtemp); //((secgtemp*1000*1000)/2621440);   // Convert to microvolts
+                // printf("%d ", ecg_samples[i]);
             }
             else if (etag == 0x06)
             {
@@ -98,26 +102,13 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 break;
             }
         }
-    }
-
-    /*if ((max30001_status & MAX30001_STATUS_MASK_BINT) == MAX30001_STATUS_MASK_BINT)
-    {
-        max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
-        b_fifo_num_samples = ((max30001_mngr_int & MAX30001_INT_MASK_BFIT) >> MAX30001_INT_SHIFT_BFIT) + 1;
-        b_fifo_num_bytes = ((b_fifo_num_samples * 3) + 1);
-        *num_samples_bioz = b_fifo_num_samples;
-
-        struct spi_buf rx_bioz_buf[2] = {{.buf = NULL, .len = 1}, {.buf = &buf_bioz, .len = b_fifo_num_bytes}}; // 24 bit register + 1 dummy byte
-        const struct spi_buf_set rx_bioz = {.buffers = rx_bioz_buf, .count = 2};
-
-        spi_transceive_dt(&config->spi, &tx_bioz, &rx_bioz);
 
         // Read all the samples from the FIFO
         for (int i = 0; i < b_fifo_num_samples; i++)
         {
             uint32_t btag = ((((unsigned char)buf_bioz[i * 3 + 2]) & 0x07));
 
-            // printk("E %x ", ecg_etag);
+            // printk("B %x ", btag);
 
             if ((btag == 0x00) || (btag == 0x02)) // Valid sample
             {
@@ -136,14 +127,32 @@ static int max30001_async_sample_fetch(const struct device *dev,
             }
             else if (btag == 0x07) // FIFO Overflow
             {
-                // max30001_fifo_reset(dev);
+                printk("BOVF ");
+                max30001_fifo_reset(dev);
                 // max30001_synch(dev);
                 break;
             }
         }
+
+        max30001_rtor = max30001_read_reg(dev, RTOR);
+        if (max30001_rtor > 0)
+        {
+            data->lastRRI = (uint16_t)((max30001_rtor >> 10) * 7.8125);
+            data->lastHR = (uint16_t)(60 * 1000 / data->lastRRI);
+
+            *hr = data->lastHR;
+            *rri = data->lastRRI;
+        }
+    }
+
+    /*if ((max30001_status & MAX30001_STATUS_MASK_BINT) == MAX30001_STATUS_MASK_BINT)
+    {
+        max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
+
+
     }*/
 
-    if ((max30001_status & MAX30001_STATUS_MASK_RRINT) == MAX30001_STATUS_MASK_RRINT)
+    /*if ((max30001_status & MAX30001_STATUS_MASK_RRINT) == MAX30001_STATUS_MASK_RRINT)
     {
         max30001_rtor = max30001_read_reg(dev, RTOR);
         if (max30001_rtor > 0)
@@ -154,7 +163,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
             *hr = data->lastHR;
             *rri = data->lastRRI;
         }
-    }
+    }*/
 
     return 0;
 }
