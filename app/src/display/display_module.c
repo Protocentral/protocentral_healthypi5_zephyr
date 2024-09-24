@@ -36,6 +36,8 @@ lv_style_t style_spo2;
 lv_style_t style_rr;
 lv_style_t style_temp;
 
+lv_style_t style_header_black;
+
 lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
 
@@ -114,6 +116,10 @@ void display_init_styles()
     lv_style_init(&style_h1);
     lv_style_set_text_color(&style_h1, lv_color_white());
     lv_style_set_text_font(&style_h1, &lv_font_montserrat_34);
+
+    lv_style_init(&style_header_black);
+    lv_style_set_text_color(&style_header_black, lv_color_black());
+    lv_style_set_text_font(&style_header_black, &lv_font_montserrat_16);
 
     // H2 welcome screen style
     lv_style_init(&style_h2);
@@ -397,6 +403,11 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_set_size(img1, 104, 10);
     */
 
+    lv_obj_t *header_bar = lv_obj_create(parent);
+    lv_obj_set_size(header_bar, 480, 25);
+    lv_obj_set_pos(header_bar, 0, 0);
+    lv_obj_set_style_bg_color(header_bar, lv_color_white(), LV_STATE_DEFAULT);
+
     if (showFWVersion)
     {
         // HealthyPi label
@@ -404,24 +415,27 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
         char fw_version[40];
         sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
         lv_label_set_text(label_hpi, fw_version);
-        lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 0, 0);
+        lv_obj_add_style(label_hpi, &style_header_black, LV_STATE_DEFAULT);
+        //lv_style_set_text_color(label_hpi, lv_color_black());
+        lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 3, 1);
     }
     // Label for Symbols
 
     label_batt_level = lv_label_create(parent);
     lv_label_set_text(label_batt_level, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_add_style(label_batt_level, &style_batt_sym, LV_STATE_DEFAULT);
-    lv_obj_align(label_batt_level, LV_ALIGN_TOP_RIGHT, -15, 0);
+    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align(label_batt_level, LV_ALIGN_TOP_RIGHT, -15, 1);
 
     label_batt_level_val = lv_label_create(parent);
     lv_label_set_text(label_batt_level_val, "--%");
-    // lv_obj_add_style(label_batt_level, &style_batt_sym, LV_STATE_DEFAULT);
-    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -7, 0);
+    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -7, 1);
+    lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
 
     label_sym_ble = lv_label_create(parent);
     lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
-    lv_obj_add_style(label_sym_ble, &style_batt_sym, LV_STATE_DEFAULT);
-    lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 0);
+    lv_obj_add_style(label_sym_ble, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 1);
 }
 
 void hpi_disp_update_batt_level(int batt_level)
