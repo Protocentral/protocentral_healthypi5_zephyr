@@ -319,15 +319,16 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
     case SCR_HOME:
         draw_scr_ecg(SCROLL_DOWN);
         break;
+    case SCR_RESP:
+        draw_scr_resp(SCROLL_DOWN);
+        break;
     /*case HPI_DISP_SCR_ECG:
         draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
         break;
     case HPI_DISP_SCR_PPG:
         draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
         break;
-    case HPI_DISP_SCR_RESP:
-        draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
-        break;*/
+    */
     default:
         break;
     }
@@ -501,7 +502,8 @@ void display_screens_thread(void)
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
-    draw_scr_ecg(SCROLL_DOWN);
+    //draw_scr_ecg(SCROLL_DOWN);
+    draw_scr_resp(SCROLL_DOWN);
 
     // draw_scr_welcome();
 
@@ -515,6 +517,10 @@ void display_screens_thread(void)
                 hpi_ecg_disp_draw_plotECG(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
                 hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
                 // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
+            } else if (curr_screen == SCR_RESP)
+            {
+                hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_sample , ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
+                //hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
             }
         }
 

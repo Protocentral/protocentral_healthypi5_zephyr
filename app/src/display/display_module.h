@@ -26,7 +26,7 @@ enum hpi_disp_screens
 
 #define SAMPLE_RATE 128
 #define ECG_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
-
+#define RESP_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
 
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
@@ -47,7 +47,11 @@ void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj);
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);
-void scr_ecg_plot_ecg(float plot_data);
+void hpi_ecg_disp_draw_plotECG(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
+
+// Resp Screen functions
+void draw_scr_resp(enum scroll_dir m_scroll_dir);
+void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
 
 
 //void draw_scr_chart_resp(void);
