@@ -48,7 +48,7 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
 
     lv_obj_set_style_size(chart_resp, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_resp, RESP_DISP_WINDOW_SIZE);
-    lv_chart_set_range(chart_resp, LV_CHART_AXIS_PRIMARY_Y, -1000, 250);
+    lv_chart_set_range(chart_resp, LV_CHART_AXIS_PRIMARY_Y, 0, 8000);
     lv_chart_set_div_line_count(chart_resp, 8, 0);
     lv_chart_set_update_mode(chart_resp, LV_CHART_UPDATE_MODE_CIRCULAR);
 
@@ -86,7 +86,11 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_resp_i = ((data_resp[i]));///5242880)*10;// in mV// (data_resp[i]);
+            int32_t data_resp_i = ((data_resp[i]));// / 10066); // in mV// (data_resp[i]);
+            /*  2^19	524288
+                BIOZ GAIN	40	V/V
+                CG_MAG	48	uA
+                den	10066.3296	*/
 
             if (data_resp_i < y_min_resp)
             {

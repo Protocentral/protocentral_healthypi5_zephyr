@@ -19,6 +19,8 @@
 #include "fs_module.h"
 #include "ble_module.h"
 
+#include "arm_math.h"
+
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
 #define CES_CMDIF_PKT_START_2 0xFA
@@ -90,12 +92,24 @@ int32_t resp_sample_buffer[64];
 int resp_sample_buffer_count = 0;
 
 // Externs
-extern struct k_msgq q_sample;
-extern struct k_msgq q_plot_ecg_bioz;
+//extern struct k_msgq q_sample;
+
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
 extern struct k_msgq q_ecg_bioz_sample;
+extern struct k_msgq q_ppg_sample;
+
+extern struct k_msgq q_plot_ecg_bioz;
+extern struct k_msgq q_plot_ppg;
+
+#define NUM_TAPS 10  /* Number of taps in the FIR filter (length of the moving average window) */
+#define BLOCK_SIZE 4 /* Number of samples processed per block */
+
+float firCoeffs[NUM_TAPS] = {0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990};
+
+arm_fir_instance_f32 sFIR;
+float firState[NUM_TAPS + BLOCK_SIZE - 1];
 
 void send_data_ov3_format(int16_t ecg_samples[8], int16_t bioz_samples[4], int16_t raw_ir[8], int16_t raw_red[8], int16_t temp, uint8_t hr, uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
@@ -140,7 +154,7 @@ void send_data_ov3_format(int16_t ecg_samples[8], int16_t bioz_samples[4], int16
     }
 }
 
-void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
+void sendData(int32_t ecg_sample, int32_t bioz_samples, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
               uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
 {
 
@@ -149,10 +163,10 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
     DataPacket[2] = ecg_sample >> 16;
     DataPacket[3] = ecg_sample >> 24;
 
-    DataPacket[4] = bioz_sample;
-    DataPacket[5] = bioz_sample >> 8;
-    DataPacket[6] = bioz_sample >> 16;
-    DataPacket[7] = bioz_sample >> 24;
+    DataPacket[4] = bioz_samples;
+    DataPacket[5] = bioz_samples >> 8;
+    DataPacket[6] = bioz_samples >> 16;
+    DataPacket[7] = bioz_samples >> 24;
 
     if (_bioZSkipSample == false)
     {
@@ -195,11 +209,11 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
     }
 }
 
-void send_data_text(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red)
+void send_data_text(int32_t ecg_sample, int32_t bioz_samples, int32_t raw_red)
 {
     char data[100];
     float f_ecg_sample = (float)ecg_sample / 1000;
-    float f_bioz_sample = (float)bioz_sample / 1000;
+    float f_bioz_sample = (float)bioz_samples / 1000;
     float f_raw_red = (float)raw_red / 1000;
 
     sprintf(data, "%.3f\t%.3f\t%.3f\r\n", (double)f_ecg_sample, (double)f_bioz_sample, (double)f_raw_red);
@@ -233,7 +247,7 @@ void record_init_session_log()
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
     {
         // log_buffer[i].ecg_sample = 0;
-        // log_buffer[i].bioz_sample = 0;
+        // log_buffer[i].bioz_samples = 0;
         log_buffer[i].raw_red = 0;
         log_buffer[i].raw_ir = 0;
         log_buffer[i].temp = 0;
@@ -268,7 +282,7 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int32_t raw_ir_
 
     // log_buffer[current_session_log_counter].ecg_sample = time;
     // log_buffer[current_session_log_counter].ecg_sample = ecg_val;
-    // log_buffer[current_session_log_counter].bioz_sample = bioz_val;
+    // log_buffer[current_session_log_counter].bioz_samples = bioz_val;
     log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
     log_buffer[current_session_log_counter].raw_red = raw_red_val;
     log_buffer[current_session_log_counter].temp = temp;
@@ -282,6 +296,7 @@ void data_thread(void)
     struct hpi_computed_data_t computed_data;
 
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
+    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
     record_init_session_log();
 
@@ -302,6 +317,12 @@ void data_thread(void)
     volatile int8_t n_buffer_count;        // data length
     volatile int8_t power_ir_buffer_count; // data length
 
+    float ecg_filt_in[8];
+    float ecg_filt_out[8];
+
+    /* Initialize the FIR filter */
+    arm_fir_init_f32(&sFIR, NUM_TAPS, firCoeffs, firState, BLOCK_SIZE);
+
     bool power_up_data_ready = false;
     for (;;)
     {
@@ -309,15 +330,28 @@ void data_thread(void)
 
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
+            // printk("S: %d", ecg_bioz_sensor_sample.ecg_num_samples);
+
+            /*for (int i = 0; i < ecg_bioz_sensor_sample.ecg_num_samples; i++)
+            {
+                ecg_filt_in[i] = (float)(ecg_bioz_sensor_sample.bioz_samples[i]/1000.0000 );
+            }
+
+            arm_fir_f32(&sFIR, ecg_filt_in, ecg_filt_out, BLOCK_SIZE);
+
+            for (int i = 0; i < ecg_bioz_sensor_sample.ecg_num_samples; i++)
+            {
+                ecg_bioz_sensor_sample.bioz_samples[i] = (int32_t)(ecg_filt_out[i] * 1000.0000);
+            }*/
 
 #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
-                ble_bioz_notify(ecg_bioz_sensor_sample.bioz_sample, ecg_bioz_sensor_sample.bioz_num_samples);
-                // b_notify(ecg_bioz_sensor_sample.bioz_sample);
+                ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                // b_notify(ecg_bioz_sensor_sample.bioz_samples);
 
-                /*resp_sample_buffer[resp_sample_buffer_count++] = ecg_bioz_sensor_sample.bioz_sample;
+                /*resp_sample_buffer[resp_sample_buffer_count++] = ecg_bioz_sensor_sample.bioz_samples;
                 if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
                 {
                     ble_bioz_notify(resp_sample_buffer, resp_sample_buffer_count);
@@ -332,16 +366,16 @@ void data_thread(void)
             {
                 /*if (settings_data_format == DATA_FMT_OPENVIEW)
                 {
-                    sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
+                    sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
                              (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
                 }
                 else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
                 {
-                    send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red);
+                    send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
                 }
                 else if (settings_data_format == DATA_FMT_HPI5_OV3)
                 {
-                    send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_sample, ecg_bioz_sensor_sample.ecg_samples,
+                    send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
                                          ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
                 }*/
             }
@@ -350,6 +384,24 @@ void data_thread(void)
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
+            }
+#endif
+        }
+
+        if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
+        {
+
+#ifdef CONFIG_BT
+            if (settings_send_ble_enabled)
+            {
+                ble_ppg_notify(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
+            }
+#endif
+
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+            if (settings_plot_enabled)
+            {
+                k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
 #endif
         }
@@ -397,7 +449,7 @@ void data_thread(void)
         dec++;
         */
 
-        /*resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
+        /*resWaveBuff = (int16_t)(sensor_sample.bioz_samples >> 4);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
@@ -433,12 +485,12 @@ void data_thread(void)
         {
             if (settings_data_format == DATA_FMT_OPENVIEW)
             {
-                sendData(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
+                sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
                          (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
             {
-                send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red);
+                send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
             }
         }*/
 
@@ -459,7 +511,7 @@ void data_thread(void)
                         ppg_sample_buffer_count = 0;
                     }
 
-                    resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_sample;
+                    resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_samples;
                     if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
                     {
                         ble_bioz_notify(resp_sample_buffer, resp_sample_buffer_count);
@@ -472,9 +524,9 @@ void data_thread(void)
 
         if (settings_log_data_enabled)
         {
-            // log_data(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red, sensor_sample.raw_ir,
+            // log_data(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
             //          sensor_sample.temp, 0, 0, 0, sensor_sample._bioZSkipSample);
-            // record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, sensor_sample.raw_red,
+            // record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red,
             //                         sensor_sample.raw_ir, sensor_sample.temp);
         }
     }

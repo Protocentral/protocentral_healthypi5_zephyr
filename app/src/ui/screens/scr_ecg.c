@@ -43,9 +43,9 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     draw_header(scr_ecg, true);
 
     chart_ecg = lv_chart_create(scr_ecg);
-    lv_obj_set_pos(chart_ecg, 10, 25);
+    lv_obj_set_pos(chart_ecg, 5, 30);
 
-    lv_obj_set_size(chart_ecg, 450, 190);
+    lv_obj_set_size(chart_ecg, 475, 200);
     lv_obj_set_style_bg_color(chart_ecg, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
@@ -82,7 +82,7 @@ static void hpi_ecg_disp_do_set_scale(int disp_window_size)
     }
 }
 
-void hpi_ecg_disp_draw_plotECG(int32_t *data_ecg, int num_samples, bool ecg_lead_off)
+void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off)
 {
     if (chart_ecg_update == true) // && ecg_lead_off == false)
     {

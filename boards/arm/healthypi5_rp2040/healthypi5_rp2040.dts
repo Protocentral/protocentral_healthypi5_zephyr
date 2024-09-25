@@ -198,7 +198,9 @@
 		ecg-enabled;
 		bioz-enabled;
 
+		bioz_cgmag = <4>;
 		ecg-gain = <2>;
+		bioz-gain = <2>;
 		//ecg-invert;
 
 		//ecg-dcloff-enable;

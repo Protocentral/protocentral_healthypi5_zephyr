@@ -106,9 +106,9 @@ static int max30001_async_sample_fetch(const struct device *dev,
         // Read all the samples from the FIFO
         for (int i = 0; i < b_fifo_num_samples; i++)
         {
-            uint32_t btag = ((((unsigned char)buf_bioz[i * 3 + 2]) & 0x07));
+            uint32_t btag = ((((uint8_t)buf_bioz[i * 3 + 2]) & 0x07));
 
-            // printk("B %x ", btag);
+            //printk("B %x ", btag);
 
             if ((btag == 0x00) || (btag == 0x02)) // Valid sample
             {
@@ -116,7 +116,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 u_bioz_temp = (uint32_t)(u_bioz_temp << 8);
 
                 int32_t s_bioz_temp = (int32_t)u_bioz_temp;
-                s_bioz_temp = (int32_t)s_bioz_temp >> 8;
+                s_bioz_temp = (int32_t)(s_bioz_temp >> 4);
                 // printf("%d ", secgtemp);
 
                 bioz_samples[i] = s_bioz_temp;

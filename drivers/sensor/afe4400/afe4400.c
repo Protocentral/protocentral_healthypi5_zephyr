@@ -63,13 +63,13 @@ static int afe4400_sample_fetch(const struct device *dev, enum sensor_channel ch
     uint32_t led1val = _afe4400_read_reg(dev, LED1VAL);
     led1val = (uint32_t)(led1val << 10);
     int32_t led1val_signed = (int32_t)led1val;
-    drv_data->raw_sample_ir = (int32_t)led1val_signed >> 10;
+    drv_data->raw_samples_ir = (int32_t)led1val_signed >> 10;
 
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
     uint32_t led2val = _afe4400_read_reg(dev, LED2VAL);
     led2val = (uint32_t)(led2val << 10);
     int32_t led2val_signed = (int32_t)led2val;
-    drv_data->raw_sample_red = (int32_t)led2val_signed >> 10;
+    drv_data->raw_samples_red = (int32_t)led2val_signed >> 10;
 
     return 0;
 }
@@ -81,11 +81,11 @@ static int afe4400_channel_get(const struct device *dev, enum sensor_channel cha
     switch (chan)
     {
     case SENSOR_CHAN_RED:
-        val->val1 = drv_data->raw_sample_red;
+        val->val1 = drv_data->raw_samples_red;
         val->val2 = 0;
         break;
     case SENSOR_CHAN_IR:
-        val->val1 = drv_data->raw_sample_ir;
+        val->val1 = drv_data->raw_samples_ir;
         val->val2 = 0;
         break;
     default:

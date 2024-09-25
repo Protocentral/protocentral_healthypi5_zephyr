@@ -65,6 +65,8 @@ extern struct k_sem sem_up_key_pressed;
 extern struct k_sem sem_down_key_pressed;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
+
 extern struct k_msgq q_computed_val;
 
 uint8_t curr_screen = SCR_HOME;
@@ -90,27 +92,27 @@ void display_init_styles()
     // HR Number label style
     lv_style_init(&style_hr);
     lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_RED));
-    lv_style_set_text_font(&style_hr, &lv_font_montserrat_42);
+    lv_style_set_text_font(&style_hr, &lv_font_montserrat_34);
 
     // SpO2 label style
     lv_style_init(&style_spo2);
     lv_style_set_text_color(&style_spo2, lv_palette_main(LV_PALETTE_YELLOW));
-    lv_style_set_text_font(&style_spo2, &lv_font_montserrat_42);
+    lv_style_set_text_font(&style_spo2, &lv_font_montserrat_34);
 
     // RR label style
     lv_style_init(&style_rr);
     lv_style_set_text_color(&style_rr, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_text_font(&style_rr, &lv_font_montserrat_42);
+    lv_style_set_text_font(&style_rr, &lv_font_montserrat_34);
 
     // Temp label style
     lv_style_init(&style_temp);
     lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_LIME));
-    lv_style_set_text_font(&style_temp, &lv_font_montserrat_42);
+    lv_style_set_text_font(&style_temp, &lv_font_montserrat_34);
 
     // Icon welcome screen style
     lv_style_init(&style_icon);
     lv_style_set_text_color(&style_icon, lv_palette_main(LV_PALETTE_YELLOW));
-    lv_style_set_text_font(&style_icon, &lv_font_montserrat_42);
+    lv_style_set_text_font(&style_icon, &lv_font_montserrat_34);
 
     // H1 welcome screen style
     lv_style_init(&style_h1);
@@ -119,7 +121,7 @@ void display_init_styles()
 
     lv_style_init(&style_header_black);
     lv_style_set_text_color(&style_header_black, lv_color_black());
-    lv_style_set_text_font(&style_header_black, &lv_font_montserrat_16);
+    lv_style_set_text_font(&style_header_black, &lv_font_montserrat_14);
 
     // H2 welcome screen style
     lv_style_init(&style_h2);
@@ -226,7 +228,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // HR Number label
     label_hr = lv_label_create(parent);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 50, 120);
     lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
@@ -242,9 +244,9 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_add_style(label_hr_sub, &style_sub, LV_STATE_DEFAULT);
 
     // HR BPM Subscript label
-    lv_obj_t *label_hr_status = lv_label_create(parent);
-    lv_label_set_text(label_hr_status, "ON");
-    lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
+    // lv_obj_t *label_hr_status = lv_label_create(parent);
+    // lv_label_set_text(label_hr_status, "ON");
+    // lv_obj_align_to(label_hr_status, label_hr_sub, LV_ALIGN_BOTTOM_MID, 0, 17);
     // lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
 
     // SPO2 Number label
@@ -301,9 +303,9 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
-    lv_obj_t *label_menu = lv_label_create(parent);
-    lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
-    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
+    // lv_obj_t *label_menu = lv_label_create(parent);
+    // lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
+    // lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
 }
 
 void down_key_event_handler()
@@ -386,15 +388,6 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
 
 void draw_header(lv_obj_t *parent, bool showFWVersion)
 {
-    /*static lv_style_t style;
-    lv_style_init(&style);
-    lv_style_set_bg_color(&style, lv_color_black());
-    lv_style_set_text_color(&style, lv_color_white());
-    lv_style_set_border_width(&style, 0);
-    lv_style_set_pad_all(&style, 0);
-    lv_obj_add_style(parent, &style, 0);
-    */
-
     // Draw Header bar
     // ProtoCentral logo
     /*LV_IMG_DECLARE(logo_oneline);
@@ -417,7 +410,7 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
         sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
         lv_label_set_text(label_hpi, fw_version);
         lv_obj_add_style(label_hpi, &style_header_black, LV_STATE_DEFAULT);
-        //lv_style_set_text_color(label_hpi, lv_color_black());
+        // lv_style_set_text_color(label_hpi, lv_color_black());
         lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 3, 1);
     }
     // Label for Symbols
@@ -430,13 +423,13 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     label_batt_level_val = lv_label_create(parent);
     lv_label_set_text(label_batt_level_val, "--%");
     lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -7, 1);
+    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -25, 1);
     lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
 
-    label_sym_ble = lv_label_create(parent);
-    lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
-    lv_obj_add_style(label_sym_ble, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 1);
+    // label_sym_ble = lv_label_create(parent);
+    // lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
+    // lv_obj_add_style(label_sym_ble, &style_header_black, LV_STATE_DEFAULT);
+    // lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 1);
 }
 
 void hpi_disp_update_batt_level(int batt_level)
@@ -498,12 +491,14 @@ void display_screens_thread(void)
     // struct hpi_sensor_data_t sensor_sample;
     struct hpi_computed_data_t computed_data;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
+    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
-    //draw_scr_ecg(SCROLL_DOWN);
-    draw_scr_resp(SCROLL_DOWN);
+    // draw_scr_ecg(SCROLL_DOWN);
+    //draw_scr_resp(SCROLL_DOWN);
+    draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
 
@@ -514,13 +509,23 @@ void display_screens_thread(void)
         {
             if (curr_screen == SCR_ECG)
             {
-                hpi_ecg_disp_draw_plotECG(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
+                hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
                 hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
                 // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
-            } else if (curr_screen == SCR_RESP)
+            }
+            else if (curr_screen == SCR_RESP)
             {
-                hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_sample , ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
-                //hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
+                hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
+                // hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
+            }
+        }
+
+        if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
+        {
+            if (curr_screen == SCR_PPG)
+            {
+                hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_samples, ppg_sensor_sample.ppg_ir_samples, ppg_sensor_sample.ppg_num_samples, ppg_sensor_sample.ppg_lead_off);
+                
             }
         }
 
