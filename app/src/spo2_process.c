@@ -90,7 +90,7 @@ void maxim_heart_rate_and_oxygen_saturation(uint32_t *pun_ir_buffer, int32_t n_i
     for (k = 1; k < n_npks; k++)
       n_peak_interval_sum += (an_ir_valley_locs[k] - an_ir_valley_locs[k - 1]);
     n_peak_interval_sum = n_peak_interval_sum / (n_npks - 1);
-    *pn_heart_rate = (int32_t)((FreqS * 60) / n_peak_interval_sum);
+    *pn_heart_rate = (int32_t)(((FreqS * 60) / n_peak_interval_sum)/2);
     *pch_hr_valid = 1;
   }
   else

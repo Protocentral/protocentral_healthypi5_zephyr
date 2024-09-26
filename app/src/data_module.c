@@ -443,6 +443,11 @@ void data_thread(void)
                 {
                     hpi_scr_home_update_spo2(spo2);
                 }
+
+                if(validHeartRate)
+                {
+                    hpi_scr_home_update_pr(heartRate);
+                }
                 
                 
                 for (int i = FreqS; i < BUFFER_SIZE; i++)

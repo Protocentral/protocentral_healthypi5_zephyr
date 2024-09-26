@@ -78,6 +78,7 @@ lv_obj_t *scr_chart_single_ppg;
 
 // GUI Labels
 static lv_obj_t *label_hr;
+static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
@@ -198,6 +199,22 @@ void hpi_scr_home_update_spo2(int spo2)
     lv_label_set_text(label_spo2, buf);
 }
 
+void hpi_scr_home_update_pr(int pr)
+{
+    if (label_pr == NULL)
+        return;
+
+    if (pr < 0)
+    {
+        lv_label_set_text(label_pr, "---");
+        return;
+    }
+
+    char buf[32];
+    sprintf(buf, "%d", pr);
+    lv_label_set_text(label_pr, buf);
+}
+
 void hpi_scr_home_update_rr(int rr)
 {
     if (label_rr == NULL)
@@ -228,7 +245,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // HR Number label
     label_hr = lv_label_create(parent);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 50, 120);
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 120);
     lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
@@ -267,10 +284,30 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
 
+    // Pulse Rate Number label
+    label_pr = lv_label_create(parent);
+    lv_label_set_text(label_pr, "---");
+    lv_obj_align_to(label_pr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_add_style(label_pr, &style_hr, LV_STATE_DEFAULT);
+
+    // Pulse Rate Title label
+    lv_obj_t *label_pr_title = lv_label_create(parent);
+    lv_label_set_text(label_pr_title, "Pulse");
+    lv_obj_align_to(label_pr_title, label_pr, LV_ALIGN_TOP_MID, 0, -15);
+    lv_obj_add_style(label_pr_title, &style_sub, LV_STATE_DEFAULT);
+
+    // Pulse Rate Sub BPM label
+    lv_obj_t *label_pr_sub = lv_label_create(parent);
+    lv_label_set_text(label_pr_sub, "bpm");
+    lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
+    lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
+
+
+
     // RR Number label
     label_rr = lv_label_create(parent);
     lv_label_set_text(label_rr, "---");
-    lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_align_to(label_rr, label_pr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
     lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
 
     // RR Title label
@@ -293,7 +330,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
 
     // Temp label
     lv_obj_t *label_temp_title = lv_label_create(parent);
-    lv_label_set_text(label_temp_title, "Temperature");
+    lv_label_set_text(label_temp_title, "Temp");
     lv_obj_align_to(label_temp_title, label_temp, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
@@ -497,7 +534,7 @@ void display_screens_thread(void)
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
     // draw_scr_ecg(SCROLL_DOWN);
-    //draw_scr_resp(SCROLL_DOWN);
+    // draw_scr_resp(SCROLL_DOWN);
     draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
@@ -525,7 +562,6 @@ void display_screens_thread(void)
             if (curr_screen == SCR_PPG)
             {
                 hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_samples, ppg_sensor_sample.ppg_ir_samples, ppg_sensor_sample.ppg_num_samples, ppg_sensor_sample.ppg_lead_off);
-                
             }
         }
 
