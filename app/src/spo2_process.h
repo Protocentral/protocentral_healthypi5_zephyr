@@ -36,7 +36,6 @@
 #define FreqS 125    //sampling frequency
 #define BUFFER_SIZE (FreqS * 4) 
 #define MA4_SIZE 4 // DONOT CHANGE
-//#define min(x,y) ((x) < (y) ? (x) : (y)) //Defined in Arduino.h
 
 static  int32_t an_x[ BUFFER_SIZE]; //ir
 static  int32_t an_y[ BUFFER_SIZE]; //red

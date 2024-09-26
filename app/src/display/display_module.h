@@ -28,7 +28,7 @@ enum hpi_disp_screens
 
 #define ECG_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
 #define RESP_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
-#define PPG_DISP_WINDOW_SIZE 2048 // SAMPLE_RATE * 4
+#define PPG_DISP_WINDOW_SIZE 500 // SAMPLE_RATE * 4
 
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 

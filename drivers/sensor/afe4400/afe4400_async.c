@@ -7,11 +7,13 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(SENSOR_AFE4400_ASYNC, CONFIG_SENSOR_LOG_LEVEL);
 
+#define AFE4400_READ_BLOCK_SIZE 1
+
 static int afe4400_async_sample_fetch(const struct device *dev, int32_t raw_ir_sample[8], int32_t raw_red_sample[8], uint32_t *num_samples)
 {
     // struct afe4400_data *drv_data = dev->data;
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < AFE4400_READ_BLOCK_SIZE; i++)
     {
         _afe4400_reg_write(dev, CONTROL0, 0x000001);
         uint32_t led1val = _afe4400_read_reg(dev, LED1VAL);
@@ -25,12 +27,13 @@ static int afe4400_async_sample_fetch(const struct device *dev, int32_t raw_ir_s
         int32_t led2val_signed = (int32_t)led2val;
         raw_red_sample[i] = (int32_t)led2val_signed >> 10;
 
-        //k_sleep(K_MSEC(2));
+        //if(AFE4400_READ_BLOCK_SIZE>1)
+        //k_sleep(K_MSEC(7));
 
         // printk("IR: %d, RED: %d\n", raw_ir_sample[i], raw_red_sample[i]);
     }
 
-    *num_samples = 8;
+    *num_samples = AFE4400_READ_BLOCK_SIZE;
 
     return 0;
 }

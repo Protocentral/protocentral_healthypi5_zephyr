@@ -19,7 +19,7 @@ extern const struct device *const max30205_dev;
 #define SAMPLING_INTERVAL_MS 6           // Time between samples in milliseconds
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
-#define PPG_SAMPLING_INTERVAL_MS 20
+#define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 60
 
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);

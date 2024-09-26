@@ -19,6 +19,7 @@
 #include "fs_module.h"
 #include "ble_module.h"
 
+
 #include "arm_math.h"
 #include "spo2_process.h"
 
@@ -303,8 +304,8 @@ void data_thread(void)
 
     int m_temp_sample_counter = 0;
 
-    uint32_t irBuffer[100];  // infrared LED sensor data
-    uint32_t redBuffer[100]; // red LED sensor data
+    uint32_t irBuffer[500];  // infrared LED sensor data
+    uint32_t redBuffer[500]; // red LED sensor data
 
     float ecg_filt_in[8];
     float ecg_filt_out[8];
@@ -324,6 +325,8 @@ void data_thread(void)
 
     int32_t init_buffer_count = 0;
 
+    bufferLength = BUFFER_SIZE;
+
     // Initialize red and IR buffers with first 100 samples
     while (init_buffer_count < BUFFER_SIZE)
     {
@@ -341,7 +344,7 @@ void data_thread(void)
     bool power_up_data_ready = false;
     for (;;)
     {
-        k_sleep(K_MSEC(2));
+        k_sleep(K_MSEC(1));
 
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
@@ -421,11 +424,13 @@ void data_thread(void)
 #endif
             if (spo2_time_count < FreqS)
             {
-                for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
+                /*for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
                 {
                     irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[i];
                     redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[i];
-                }
+                }*/
+                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
+                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[0];
 
                 spo2_time_count++;
             }
@@ -433,13 +438,19 @@ void data_thread(void)
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
-                printk("SPO2: %d, HR: %d\n", spo2, heartRate);
-                // dumping the first 25 sets of samples in the memory and shift the last 75 sets of samples to the top
+                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", spo2, validSPO2, heartRate, validHeartRate);
+                if(validSPO2)
+                {
+                    hpi_scr_home_update_spo2(spo2);
+                }
+                
+                
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
                 {
                     redBuffer[i - FreqS] = redBuffer[i];
                     irBuffer[i - FreqS] = irBuffer[i];
                 }
+
             }
         }
 
