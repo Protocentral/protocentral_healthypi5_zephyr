@@ -17,6 +17,6 @@ void hpi_sort_ascend(int32_t *pn_x, int32_t n_size);
 void hpi_sort_indices_descend(int32_t *pn_x, int32_t *pn_indx, int32_t n_size);
 
 void Resp_FilterProcess(int16_t * RESP_WorkingBuff, int16_t * CoeffBuf, int16_t* FilterOut);
-int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample);
-void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRate);
+void Resp_ProcessCurrSample(int16_t *CurrAqsSample,int16_t *respFiltered);
+void RESP_Algorithm_Interface(int16_t *CurrSample,volatile uint8_t *RespirationRate);
 void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationRate);

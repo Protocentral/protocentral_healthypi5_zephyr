@@ -63,7 +63,7 @@ uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
 volatile uint8_t globalRespirationRate = 0;
-int16_t resWaveBuff, respFilterout;
+//int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
 
 int32_t ecg_sample_buffer[64];
@@ -74,6 +74,13 @@ int ppg_sample_buffer_count = 0;
 
 int32_t resp_sample_buffer[64];
 int resp_sample_buffer_count = 0;
+
+int16_t resp_sample_algo[4];
+int16_t respFilterout[4];
+int resp_sample_algo_count = 0;
+int16_t respFiltered[4];
+
+
 
 // Externs
 extern struct k_msgq q_sample;
@@ -287,10 +294,19 @@ void data_thread(void)
 
         dec++;
 
-        resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
+        resp_sample_algo[resp_sample_algo_count++] = (int16_t)(sensor_sample.bioz_sample >> 4);
+        if (resp_sample_algo_count == SAMPLE_BUFF_WATERMARK)
+        {
+            Resp_ProcessCurrSample(resp_sample_algo,respFiltered);
+            RESP_Algorithm_Interface(respFiltered, &globalRespirationRate);
+            computed_data.rr = (uint32_t)globalRespirationRate;
+            resp_sample_algo_count = 0;
+        }
+
+        /*resWaveBuff = (int16_t)(sensor_sample.bioz_sample >> 4);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
-        computed_data.rr = (uint32_t)globalRespirationRate;
+        computed_data.rr = (uint32_t)globalRespirationRate;*/
 
         if (n_buffer_count > 99)
         {

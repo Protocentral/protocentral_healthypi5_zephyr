@@ -21,6 +21,7 @@ static int32_t an_x[BUFFER_SIZE];
 static int32_t an_x_1[BUFFER_SIZE];
 static int32_t an_y[BUFFER_SIZE];
 
+
 const uint8_t uch_spo2_table[184] = {95, 95, 95, 96, 96, 96, 97, 97, 97, 97, 97, 98, 98, 98, 98, 98, 99, 99, 99, 99,
                                      99, 99, 99, 99, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
                                      100, 100, 100, 100, 99, 99, 99, 99, 99, 99, 99, 99, 98, 98, 98, 98, 98, 98, 97, 97,
@@ -380,43 +381,48 @@ void Resp_FilterProcess(int16_t * RESP_WorkingBuff, int16_t * CoeffBuf, int16_t*
   *FilterOut = (int16_t)(acc >> 15);
 }
 
-int16_t Resp_ProcessCurrSample(int16_t CurrAqsSample)
+void Resp_ProcessCurrSample(int16_t *CurrAqsSample,int16_t *respFiltered)
 {
   static uint16_t bufStart=0, bufCur = FILTERORDER-1;    
-  int16_t temp1, temp2;//, RESPData;
+  int16_t temp1;//, RESPData;
   int16_t RESPData;
   int16_t FiltOut; 
-  temp1 = NRCOEFF * Pvev_DC_Sample;
-  Pvev_DC_Sample = (CurrAqsSample  - Pvev_Sample) + temp1;
-  Pvev_Sample = CurrAqsSample;
-  temp2 = Pvev_DC_Sample;
-  RESPData = (int16_t) temp2;   
-  RESPData = CurrAqsSample;   
-  /* Store the DC removed value in RESP_WorkingBuff buffer in millivolts range*/
-  RESP_WorkingBuff[bufCur] = RESPData;
-  Resp_FilterProcess(&RESP_WorkingBuff[bufCur],RespCoeffBuf,(int16_t*)&FiltOut);
-  /* Store the DC removed value in Working buffer in millivolts range*/
-  RESP_WorkingBuff[bufStart] = RESPData;
-  /* Store the filtered out sample to the LeadInfo buffer*/  
-  bufCur++;
-  bufStart++;
-  
-  if ( bufStart  >= (FILTERORDER-1))
-  {
-    bufStart=0; 
-    bufCur = FILTERORDER-1;
-  }
 
-  return FiltOut;
+  for (int i=0;i<4;i++)
+  {
+    temp1 = NRCOEFF * Pvev_DC_Sample;
+    Pvev_DC_Sample = (CurrAqsSample[i]  - Pvev_Sample) + temp1;
+    Pvev_Sample = CurrAqsSample[i];
+    RESPData = (int16_t) Pvev_DC_Sample;   
+
+    /* Store the DC removed value in RESP_WorkingBuff buffer in millivolts range*/
+    RESP_WorkingBuff[bufCur] = RESPData;
+    Resp_FilterProcess(&RESP_WorkingBuff[bufCur],RespCoeffBuf,(int16_t*)&FiltOut);
+    /* Store the DC removed value in Working buffer in millivolts range*/
+    RESP_WorkingBuff[bufStart] = RESPData;
+    respFiltered[i] = FiltOut;
+    /* Store the filtered out sample to the LeadInfo buffer*/  
+    bufCur++;
+    bufStart++;
+    
+    if ( bufStart  >= (FILTERORDER-1))
+    {
+      bufStart=0; 
+      bufCur = FILTERORDER-1;
+    }
+  }
 }
   
-void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRate)
+void RESP_Algorithm_Interface(int16_t *CurrSample,volatile uint8_t *RespirationRate)
 {
 
   static int16_t prev_data[64] ={0};
   long Mac=0;
 
-  prev_data[0] = CurrSample;
+  for (int k =0;k<4;k++)
+  {
+    prev_data[3-k] = CurrSample[k];
+  }
   
   for ( int i=63; i > 0; i--)
   {
@@ -425,26 +431,20 @@ void RESP_Algorithm_Interface(int16_t CurrSample,volatile uint8_t *RespirationRa
 
   }
   
-  Mac += CurrSample;
-  CurrSample = (int16_t) Mac >> 1;
-  RESP_Second_Prev_Sample = RESP_Prev_Sample ;
-  RESP_Prev_Sample = RESP_Current_Sample ;
-  RESP_Current_Sample = RESP_Next_Sample ;
-  RESP_Next_Sample = RESP_Second_Next_Sample ;
-  RESP_Second_Next_Sample = CurrSample;// << 3 ;
-  Respiration_Rate_Detection(RESP_Second_Next_Sample,RespirationRate);
+  Mac += CurrSample[0];
+
+  Respiration_Rate_Detection((int16_t) Mac >> 1,RespirationRate);
 }
 
 void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationRate)
 { 
-  static uint16_t skipCount = 0, SampleCount = 0,TimeCnt=0, SampleCountNtve=0, PtiveCnt =0,NtiveCnt=0 ;
+  static uint16_t skipCount = 0, SampleCount = 0,TimeCnt=0, SampleCountNtve=0, PtiveCnt =0;
   static int16_t MinThreshold = 0x7FFF, MaxThreshold = 0x8000, PrevSample = 0, PrevPrevSample = 0, PrevPrevPrevSample =0;
   static int16_t MinThresholdNew = 0x7FFF, MaxThresholdNew = 0x8000, AvgThreshold = 0;
-  static unsigned char startCalc=0, PtiveEdgeDetected=0, NtiveEdgeDetected=0, peakCount = 0;
-  static uint16_t PeakCount[8];   
-  SampleCount++;
-  SampleCountNtve++;
-  TimeCnt++; 
+  static unsigned char startCalc=0, PtiveEdgeDetected=0, peakCount = 0;
+  static uint16_t PeakCount[10];   
+  SampleCount += 4;
+  TimeCnt += 4;
   
   if (Resp_wave < MinThresholdNew) 
   {
@@ -470,7 +470,7 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
     
     if (TimeCnt >= 500)
     {
-      TimeCnt =0;
+      TimeCnt = 0;
       
       if ( (MaxThresholdNew - MinThresholdNew) > 400)
       {
@@ -493,48 +493,32 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
       
       if (PrevPrevPrevSample < AvgThreshold && Resp_wave > AvgThreshold)
       {
-        
-        if ( SampleCount > 40 &&  SampleCount < 700)
-        {
-          PtiveEdgeDetected = 1;
-          PtiveCnt = SampleCount;
-          skipCount = 4;
-        }
-        
+        PtiveEdgeDetected = 1;
+        PtiveCnt = SampleCount;
+        skipCount = 4;
         SampleCount = 0;
       }
       
-      if (PrevPrevPrevSample < AvgThreshold && Resp_wave > AvgThreshold)
-      {
-        
-        if ( SampleCountNtve > 40 &&  SampleCountNtve < 700)
-        {
-          NtiveEdgeDetected = 1;
-          NtiveCnt = SampleCountNtve;
-          skipCount = 4;
-        }
-        
-        SampleCountNtve = 0;
-      }
-      
-      if (PtiveEdgeDetected ==1 && NtiveEdgeDetected ==1)
+      if (PtiveEdgeDetected ==1)
       {
         PtiveEdgeDetected = 0;
-        NtiveEdgeDetected =0;
         
-        if (abs(PtiveCnt - NtiveCnt) < 5)
+        PeakCount[peakCount++] = PtiveCnt;
+        
+        if(peakCount == 10)
         {
-          PeakCount[peakCount++] = PtiveCnt;
-          PeakCount[peakCount++] = NtiveCnt;
-          
-          if( peakCount == 8)
+          peakCount = 0;
+          PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
+          PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7] + PeakCount[8] + PeakCount[9];
+          PtiveCnt = PtiveCnt >> 3;
+
+          peakCount = 9;
+          for (int k=0;k<9;k++)
           {
-            peakCount = 0;
-            PtiveCnt = PeakCount[0] + PeakCount[1] + PeakCount[2] + PeakCount[3] + 
-            PeakCount[4] + PeakCount[5] + PeakCount[6] + PeakCount[7];
-            PtiveCnt = PtiveCnt >> 3;
-            Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
+            PeakCount[k] = PeakCount[k+1];
           }
+    
+          Respiration_Rate = 6000/PtiveCnt; // 60 * 125/SampleCount;
         }
       }
     
@@ -542,7 +526,6 @@ void Respiration_Rate_Detection(int16_t Resp_wave,volatile uint8_t *RespirationR
       skipCount--;
     }
   }else{
-    TimeCnt++;
     
     if (TimeCnt >= 500)
     {
