@@ -20,6 +20,7 @@
 #include "ble_module.h"
 
 #include "arm_math.h"
+#include "spo2_process.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -92,7 +93,7 @@ int32_t resp_sample_buffer[64];
 int resp_sample_buffer_count = 0;
 
 // Externs
-//extern struct k_msgq q_sample;
+// extern struct k_msgq q_sample;
 
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
@@ -302,26 +303,40 @@ void data_thread(void)
 
     int m_temp_sample_counter = 0;
 
-    int32_t n_spo2;       // SPO2 value
-    int32_t n_heart_rate; // heart rate value
-
-    uint16_t aun_ir_buffer[100];  // infrared LED sensor data
-    uint16_t aun_red_buffer[100]; // red LED sensor data
-    uint16_t power_ir_buffer[32];
-    static uint16_t power_ir_average = 0;
-
-    int8_t ch_spo2_valid; // indicator to show if the SPO2 calculation is valid
-    int8_t ch_hr_valid;   // indicator to show if the heart rate calculation is valid
-
-    int dec = 0;
-    volatile int8_t n_buffer_count;        // data length
-    volatile int8_t power_ir_buffer_count; // data length
+    uint32_t irBuffer[100];  // infrared LED sensor data
+    uint32_t redBuffer[100]; // red LED sensor data
 
     float ecg_filt_in[8];
     float ecg_filt_out[8];
 
+    int32_t bufferLength;  // data length
+    int32_t spo2;          // SPO2 value
+    int8_t validSPO2;      // indicator to show if the SPO2 calculation is valid
+    int32_t heartRate;     // heart rate value
+    int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
+
+    uint32_t ppg_buffer_count = 0;
+
+    uint32_t spo2_time_count = 0;
+
     /* Initialize the FIR filter */
     arm_fir_init_f32(&sFIR, NUM_TAPS, firCoeffs, firState, BLOCK_SIZE);
+
+    int32_t init_buffer_count = 0;
+
+    // Initialize red and IR buffers with first 100 samples
+    while (init_buffer_count < BUFFER_SIZE)
+    {
+        if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_FOREVER) == 0)
+        {
+            for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
+            {
+                irBuffer[init_buffer_count] = ppg_sensor_sample.ppg_ir_samples[i];
+                redBuffer[init_buffer_count] = ppg_sensor_sample.ppg_red_samples[i];
+                init_buffer_count++;
+            }
+        }
+    }
 
     bool power_up_data_ready = false;
     for (;;)
@@ -404,6 +419,28 @@ void data_thread(void)
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
 #endif
+            if (spo2_time_count < FreqS)
+            {
+                for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
+                {
+                    irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[i];
+                    redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[i];
+                }
+
+                spo2_time_count++;
+            }
+            else
+            {
+                spo2_time_count = 0;
+                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
+                printk("SPO2: %d, HR: %d\n", spo2, heartRate);
+                // dumping the first 25 sets of samples in the memory and shift the last 75 sets of samples to the top
+                for (int i = FreqS; i < BUFFER_SIZE; i++)
+                {
+                    redBuffer[i - FreqS] = redBuffer[i];
+                    irBuffer[i - FreqS] = irBuffer[i];
+                }
+            }
         }
 
         /*k_msgq_get(&q_sample, &sensor_sample, K_FOREVER);
@@ -419,66 +456,12 @@ void data_thread(void)
 #endif
         }
 
-        if (dec == 20)
-        {
-            aun_ir_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_ir;   //((afe44xx_raw_data->IR_data) >> 4);
-            aun_red_buffer[n_buffer_count] = (uint16_t)sensor_sample.raw_red; //((afe44xx_raw_data->RED_data) >> 4);
 
-            n_buffer_count++;
-            dec = 0;
-        }
-
-        if (power_ir_buffer_count < 32)
-        {
-            power_ir_buffer[power_ir_buffer_count] = (uint16_t)sensor_sample.raw_ir;
-            power_ir_buffer_count++;
-        }
-        else
-        {
-            if (power_up_data_ready == false)
-            {
-                for (int i = 0; i < 32; i++)
-                {
-                    power_ir_average += power_ir_buffer[i];
-                }
-                power_ir_average = power_ir_average / 32;
-                power_up_data_ready = true;
-            }
-        }
-
-        dec++;
-        */
 
         /*resWaveBuff = (int16_t)(sensor_sample.bioz_samples >> 4);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
         RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
-
-        if (n_buffer_count > 99)
-        {
-            // n_buffer_count = 75;
-            n_buffer_count = 0;
-
-            // printf("Calculating SPO2...\n");
-            hpi_estimate_spo2(aun_ir_buffer, 100, aun_red_buffer, power_ir_average, &n_spo2, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-            // printk("SPO2: %d, SPO2 Valid: %d, HR: %d\n", n_spo2, ch_spo2_valid, n_heart_rate);
-
-            computed_data.hr = sensor_sample.hr; // HR from MAX30001 RtoR detection algorithm
-            // computed_data.rr = -999;
-            computed_data.spo2_valid = ch_spo2_valid;
-            computed_data.spo2 = n_spo2;
-            computed_data.hr_valid = ch_hr_valid;
-
-#ifdef CONFIG_BT
-            ble_spo2_notify(n_spo2);
-            ble_hrs_notify(computed_data.hr);
-            ble_resp_rate_notify(computed_data.rr);
-
-#endif
-
-            k_msgq_put(&q_computed_val, &computed_data, K_NO_WAIT);
-        }
-        *
 
         /***** Send to USB if enabled *****/
         /*if (settings_send_usb_enabled)
