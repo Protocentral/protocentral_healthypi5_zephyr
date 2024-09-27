@@ -52,8 +52,9 @@ enum hpi5_data_format
 } hpi5_data_format_t;
 
 char DataPacket[DATA_LEN];
-const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
+
 const uint8_t DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
+const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 
 #define HPI_OV3_DATA_LEN 62
 #define HPI_OV3_DATA_ECG_LEN 8
