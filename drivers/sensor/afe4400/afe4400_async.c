@@ -19,13 +19,13 @@ static int afe4400_async_sample_fetch(const struct device *dev, int32_t raw_ir_s
         uint32_t led1val = _afe4400_read_reg(dev, LED1VAL);
         led1val = (uint32_t)(led1val << 10);
         int32_t led1val_signed = (int32_t)led1val;
-        raw_ir_sample[i] = (int32_t)led1val_signed >> 10;
+        raw_ir_sample[i] = (int32_t)led1val_signed >> 18;
 
         _afe4400_reg_write(dev, CONTROL0, 0x000001);
         uint32_t led2val = _afe4400_read_reg(dev, LED2VAL);
         led2val = (uint32_t)(led2val << 10);
         int32_t led2val_signed = (int32_t)led2val;
-        raw_red_sample[i] = (int32_t)led2val_signed >> 10;
+        raw_red_sample[i] = (int32_t)led2val_signed >> 18;
 
         //if(AFE4400_READ_BLOCK_SIZE>1)
         //k_sleep(K_MSEC(7));
