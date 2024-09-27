@@ -10,7 +10,6 @@
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "sampling_module.h"
-#include "algos.h"
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
@@ -19,9 +18,10 @@
 #include "fs_module.h"
 #include "ble_module.h"
 
-
 #include "arm_math.h"
+
 #include "spo2_process.h"
+#include "resp_process.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -311,9 +311,9 @@ void data_thread(void)
     float ecg_filt_out[8];
 
     int32_t bufferLength;  // data length
-    int32_t spo2;          // SPO2 value
+    int32_t m_spo2;        // SPO2 value
     int8_t validSPO2;      // indicator to show if the SPO2 calculation is valid
-    int32_t heartRate;     // heart rate value
+    int32_t m_hr;          // heart rate value
     int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
 
     uint32_t ppg_buffer_count = 0;
@@ -341,7 +341,6 @@ void data_thread(void)
         }
     }
 
-    bool power_up_data_ready = false;
     for (;;)
     {
         k_sleep(K_MSEC(1));
@@ -362,23 +361,25 @@ void data_thread(void)
                 ecg_bioz_sensor_sample.bioz_samples[i] = (int32_t)(ecg_filt_out[i] * 1000.0000);
             }*/
 
+            int16_t resp_i16_buf[4];
+            int16_t resp_i16_filt_out[4];
+
+            for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            {
+                resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
+            }
+
+            resp_process_sample(resp_i16_buf, resp_i16_filt_out);
+            resp_algo_process(resp_i16_filt_out, &globalRespirationRate);           
+
 #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
+                ble_resp_rate_notify(globalRespirationRate);
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-                // b_notify(ecg_bioz_sensor_sample.bioz_samples);
-
-                /*resp_sample_buffer[resp_sample_buffer_count++] = ecg_bioz_sensor_sample.bioz_samples;
-                if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-                {
-                    ble_bioz_notify(resp_sample_buffer, resp_sample_buffer_count);
-                    resp_sample_buffer_count = 0;
-
-                }*/
             }
 #endif
-
             /***** Send to USB if enabled *****/
             if (settings_send_usb_enabled)
             {
@@ -437,25 +438,30 @@ void data_thread(void)
             else
             {
                 spo2_time_count = 0;
-                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &spo2, &validSPO2, &heartRate, &validHeartRate);
-                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", spo2, validSPO2, heartRate, validHeartRate);
-                if(validSPO2)
+                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
+                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                if (validSPO2)
                 {
-                    hpi_scr_home_update_spo2(spo2);
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+                    hpi_scr_home_update_spo2(m_spo2);
+#endif
+#ifdef CONFIG_BT
+                    ble_spo2_notify(m_spo2);
+#endif
                 }
 
-                if(validHeartRate)
+                if (validHeartRate)
                 {
-                    hpi_scr_home_update_pr(heartRate);
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+                    hpi_scr_home_update_pr(m_hr);
+#endif
                 }
-                
-                
+
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
                 {
                     redBuffer[i - FreqS] = redBuffer[i];
                     irBuffer[i - FreqS] = irBuffer[i];
                 }
-
             }
         }
 
@@ -476,7 +482,7 @@ void data_thread(void)
 
         /*resWaveBuff = (int16_t)(sensor_sample.bioz_samples >> 4);
         respFilterout = Resp_ProcessCurrSample(resWaveBuff);
-        RESP_Algorithm_Interface(respFilterout, &globalRespirationRate);
+        resp_algo_process(respFilterout, &globalRespirationRate);
         computed_data.rr = (uint32_t)globalRespirationRate;
 
         /***** Send to USB if enabled *****/

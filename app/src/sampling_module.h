@@ -13,7 +13,7 @@ struct hpi_sensor_data_t {
 
 #define ECG_POINTS_PER_SAMPLE   8
 #define BIOZ_POINTS_PER_SAMPLE  4
-#define PPG_POINTS_PER_SAMPLE   8
+#define PPG_POINTS_PER_SAMPLE   1
 
 struct hpi_ecg_bioz_sensor_data_t
 {
