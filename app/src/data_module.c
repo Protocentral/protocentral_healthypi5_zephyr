@@ -378,12 +378,14 @@ void data_thread(void)
                 ble_resp_rate_notify(globalRespirationRate);
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                ble_hrs_notify(ecg_bioz_sensor_sample.hr);
+
             }
 #endif
             /***** Send to USB if enabled *****/
             if (settings_send_usb_enabled)
             {
-                /*if (settings_data_format == DATA_FMT_OPENVIEW)
+                if (settings_data_format == DATA_FMT_OPENVIEW)
                 {
                     sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
                              (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
@@ -396,7 +398,7 @@ void data_thread(void)
                 {
                     send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
                                          ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-                }*/
+                }
             }
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
