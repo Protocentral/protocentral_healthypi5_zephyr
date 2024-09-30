@@ -97,7 +97,7 @@
 		//keyok = &button_ok;
 
 		watchdog0 = &wdt0;
-		pwm-led0 = &pwm_led0;
+		//pwm-led0 = &pwm_led0;
 
 		max30001 = &max30001;
 		afe4400 = &afe4400;
