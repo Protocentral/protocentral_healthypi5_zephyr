@@ -371,7 +371,7 @@ void data_thread(void)
             }
 
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
-            resp_algo_process(resp_i16_filt_out, &globalRespirationRate);           
+            resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
 #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
@@ -380,7 +380,6 @@ void data_thread(void)
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
                 ble_hrs_notify(ecg_bioz_sensor_sample.hr);
-
             }
 #endif
             /***** Send to USB if enabled *****/
@@ -428,11 +427,6 @@ void data_thread(void)
 #endif
             if (spo2_time_count < FreqS)
             {
-                /*for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
-                {
-                    irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[i];
-                    redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[i];
-                }*/
                 irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
                 redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[0];
 
@@ -442,7 +436,7 @@ void data_thread(void)
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
-                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
@@ -467,10 +461,7 @@ void data_thread(void)
                 }
             }
         }
-
-        /*k_msgq_get(&q_sample, &sensor_sample, K_FOREVER);
-        // Data is now available in sensor_sample, Send, store or process data here
-
+        /*
         m_temp_sample_counter++;
 
         if (m_temp_sample_counter > TEMP_CALC_BUFFER_LENGTH)
@@ -480,54 +471,8 @@ void data_thread(void)
             ble_temp_notify((int16_t)sensor_sample.temp);
 #endif
         }
-
-
-
-        /*resWaveBuff = (int16_t)(sensor_sample.bioz_samples >> 4);
-        respFilterout = Resp_ProcessCurrSample(resWaveBuff);
-        resp_algo_process(respFilterout, &globalRespirationRate);
-        computed_data.rr = (uint32_t)globalRespirationRate;
-
-        /***** Send to USB if enabled *****/
-        /*if (settings_send_usb_enabled)
-        {
-            if (settings_data_format == DATA_FMT_OPENVIEW)
-            {
-                sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
-                         (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-            }
-            else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
-            {
-                send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
-            }
-        }*/
-
-        /*#ifdef CONFIG_BT
-                if (settings_send_ble_enabled)
-                {
-                    ecg_sample_buffer[sample_buffer_count++] = sensor_sample.ecg_sample;
-                    if (sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-                    {
-                        ble_ecg_notify(ecg_sample_buffer, sample_buffer_count);
-                        sample_buffer_count = 0;
-                    }
-
-                    ppg_sample_buffer[ppg_sample_buffer_count++] = (int16_t)((sensor_sample.raw_ir / 1000));
-                    if (ppg_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-                    {
-                        ble_ppg_notify(ppg_sample_buffer, ppg_sample_buffer_count);
-                        ppg_sample_buffer_count = 0;
-                    }
-
-                    resp_sample_buffer[resp_sample_buffer_count++] = sensor_sample.bioz_samples;
-                    if (resp_sample_buffer_count >= SAMPLE_BUFF_WATERMARK)
-                    {
-                        ble_bioz_notify(resp_sample_buffer, resp_sample_buffer_count);
-                        resp_sample_buffer_count = 0;
-                    }
-                }
-        #endif
         */
+
         /****** Send to log queue if enabled ******/
 
         if (settings_log_data_enabled)
