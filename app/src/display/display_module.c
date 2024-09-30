@@ -69,7 +69,7 @@ K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
 
 extern struct k_msgq q_computed_val;
 
-uint8_t curr_screen = SCR_HOME;
+uint8_t curr_screen = SCR_ECG;
 
 lv_obj_t *scr_chart_single;
 
@@ -302,8 +302,6 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
 
-
-
     // RR Number label
     label_rr = lv_label_create(parent);
     lv_label_set_text(label_rr, "---");
@@ -355,19 +353,19 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 {
     switch (m_screen)
     {
-    case SCR_HOME:
+    case SCR_ECG:
         draw_scr_ecg(SCROLL_DOWN);
         break;
     case SCR_RESP:
         draw_scr_resp(SCROLL_DOWN);
         break;
-    /*case HPI_DISP_SCR_ECG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
+    case SCR_PPG:
+        draw_scr_ppg(SCROLL_DOWN);
         break;
-    case HPI_DISP_SCR_PPG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
-        break;
-    */
+        // case HPI_DISP_SCR_PPG:
+        //     draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
+        //     break;
+
     default:
         break;
     }
@@ -418,9 +416,9 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
     lv_obj_add_event_cb(parent, disp_screen_event, LV_EVENT_GESTURE, NULL);
 
     if (m_scroll_dir == SCROLL_LEFT)
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_LEFT, SCREEN_TRANS_TIME, 0, true);
+        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
     else
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
+        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
 }
 
 void draw_header(lv_obj_t *parent, bool showFWVersion)
@@ -519,9 +517,9 @@ void display_screens_thread(void)
     m_keypad_drv.read_cb = keypad_read;
     m_keypad_indev = lv_indev_drv_register(&m_keypad_drv);
     */
-   lv_indev_t *touch_indev;
+    lv_indev_t *touch_indev;
 
-   touch_indev = lv_indev_get_next(NULL);
+    touch_indev = lv_indev_get_next(NULL);
     while (touch_indev)
     {
         if (lv_indev_get_type(touch_indev) == LV_INDEV_TYPE_POINTER)
@@ -545,9 +543,9 @@ void display_screens_thread(void)
     // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
     // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
 
-    // draw_scr_ecg(SCROLL_DOWN);
+    draw_scr_ecg(SCROLL_DOWN);
     // draw_scr_resp(SCROLL_DOWN);
-    draw_scr_ppg(SCROLL_DOWN);
+    //draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
 
@@ -606,7 +604,7 @@ void display_screens_thread(void)
         }*/
 
         lv_task_handler();
-        k_sleep(K_MSEC(4));
+        k_sleep(K_MSEC(1));
     }
 }
 

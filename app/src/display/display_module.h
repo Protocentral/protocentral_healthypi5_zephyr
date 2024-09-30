@@ -14,7 +14,7 @@ enum hpi_disp_screens
 {
     SCR_LIST_START,
 
-    SCR_HOME,
+    //SCR_HOME,
     SCR_ECG,
     SCR_PPG,
     SCR_RESP,
@@ -22,7 +22,7 @@ enum hpi_disp_screens
     SCR_LIST_END
 };
 
-#define SCREEN_TRANS_TIME 100
+#define SCREEN_TRANS_TIME 1000
 
 #define SAMPLE_RATE 128
 

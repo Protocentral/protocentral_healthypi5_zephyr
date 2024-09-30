@@ -52,7 +52,7 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     lv_chart_set_div_line_count(chart_ppg, 0, 0);
     lv_chart_set_update_mode(chart_ppg, LV_CHART_UPDATE_MODE_CIRCULAR);
 
-    ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
 
     curr_screen = SCR_PPG;
 
