@@ -236,11 +236,11 @@ void resp_rate_detect(int16_t Resp_wave, volatile uint8_t *RespirationRate)
     *RespirationRate = (uint8_t)Respiration_Rate;
 }
 
-void cmsis_detrend(int16_t *resp_signal,int16_t *detrended_signal)
+void cmsis_detrend(int32_t *resp_signal,int32_t *detrended_signal)
 {
-    int16_t length,mean_signal,mean_time,cov_st=0,var_t=0,intercept,slope;
-    length = sizeof(resp_signal)/sizeof(int16_t);
-    int16_t trend[length];
+    int32_t length,mean_signal,mean_time,cov_st=0,var_t=0,intercept,slope;
+    length = sizeof(resp_signal)/sizeof(int32_t);
+    int32_t trend[length];
 
     float* time = (float*) malloc(length * sizeof(float));  // Allocate memory for the array    
     for (int i = 0; i < length; i++) {
@@ -250,13 +250,9 @@ void cmsis_detrend(int16_t *resp_signal,int16_t *detrended_signal)
     for (int i=0;i<length;i++)
     {
         mean_time += time[i];
-    }
-
-
-    for (int i=0;i<length;i++)
-    {
         mean_signal += resp_signal[i];
     }
+
 
     for (int k=0;k<length;k++)
     {
@@ -271,10 +267,43 @@ void cmsis_detrend(int16_t *resp_signal,int16_t *detrended_signal)
     for (int i=0;i<length;i++)
     {
         trend[i] = slope * time[i] + intercept;
-    }
-
-    for (int i =0;i<length;i++)
-    {
         detrended_signal[i] = resp_signal[i] - trend[i];
     }
 }
+
+int32_t linear_interpolate (int32_t x, int32_t x1, int32_t x2, int32_t y1, int32_t y2)
+{
+    if (x2 == x1)
+        return y1;  #//Prevent division by zero
+    return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
+}
+
+void cmsis_interp1d(int32_t *x_data,int32_t *y_data,int32_t *interp_points, int32_t *interp_values)
+{
+    length = sizeof(interp_points)/sizeof(int32_t);
+    float* interp_values = (float*) malloc(length * sizeof(float));  // Allocate memory for the array    
+    for (int i = 0; i < length; i++) {
+        interp_values[i] = 0;  // Populate array with sequential floats
+    }
+
+    for (int i=0;i<length;i++)
+    {
+        for (int j=0;j<(sizeof(x_data)/sizeof(int32_t))-1;j++)
+        {
+            if (x_data[j] <= interp_points[i]) && (interp_points[i] <= x_data[j + 1])
+            {
+                interp_values[i] = linear_interpolate(interp_points[i], x_data[j], x_data[j + 1], y_data[j], y_data[j + 1]);
+                break;
+            }
+            else
+            {
+                if (interp_points[i] < x_data[0])
+                    interp_values[i] = linear_interpolate(interp_points[i], x_data[0], x_data[1], y_data[0], y_data[1]);
+                else if (interp_points[i] > x_data[-1])                    
+                    interp_values[i] = linear_interpolate(interp_points[i], x_data[-2], x_data[-1], y_data[-2], y_data[-1]);
+            }
+        }
+    }
+}
+
+
