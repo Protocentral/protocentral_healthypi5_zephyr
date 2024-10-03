@@ -3,6 +3,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
+#include <math.h>
+
 
 #include "resp_process.h"
 
@@ -232,4 +234,47 @@ void resp_rate_detect(int16_t Resp_wave, volatile uint8_t *RespirationRate)
     }
 
     *RespirationRate = (uint8_t)Respiration_Rate;
+}
+
+void cmsis_detrend(int16_t *resp_signal,int16_t *detrended_signal)
+{
+    int16_t length,mean_signal,mean_time,cov_st=0,var_t=0,intercept,slope;
+    length = sizeof(resp_signal)/sizeof(int16_t);
+    int16_t trend[length];
+
+    float* time = (float*) malloc(length * sizeof(float));  // Allocate memory for the array    
+    for (int i = 0; i < length; i++) {
+        time[i] = (float)i;  // Populate array with sequential floats
+    }
+
+    for (int i=0;i<length;i++)
+    {
+        mean_time += time[i];
+    }
+
+
+    for (int i=0;i<length;i++)
+    {
+        mean_signal += resp_signal[i];
+    }
+
+    for (int k=0;k<length;k++)
+    {
+        cov_st += (time[k] - mean_time) * (resp_signal[k] - mean_signal);
+        var_t += pow((time[k] - mean_time),2);
+    }
+
+    slope = cov_st / var_t;
+    intercept = mean_signal - slope * mean_time;
+
+    // Generate the trend (best fit line)
+    for (int i=0;i<length;i++)
+    {
+        trend[i] = slope * time[i] + intercept;
+    }
+
+    for (int i =0;i<length;i++)
+    {
+        detrended_signal[i] = resp_signal[i] - trend[i];
+    }
 }
