@@ -4,6 +4,8 @@
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
 
+LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
+
 #include "max30001.h"
 
 #include "data_module.h"
