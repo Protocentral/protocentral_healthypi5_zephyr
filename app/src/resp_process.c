@@ -3,6 +3,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
+#include <arm_math.h>
 #include <math.h>
 
 
@@ -281,7 +282,7 @@ int32_t linear_interpolate (int32_t x, int32_t x1, int32_t x2, int32_t y1, int32
 void cmsis_interp1d(int32_t *x_data,int32_t *y_data,int32_t *interp_points, int32_t *interp_values)
 {
     length = sizeof(interp_points)/sizeof(int32_t);
-    float* interp_values = (float*) malloc(length * sizeof(float));  // Allocate memory for the array    
+    int32_t* interp_values = (int32_t*) malloc(length * sizeof(int32_t));  // Allocate memory for the array    
     for (int i = 0; i < length; i++) {
         interp_values[i] = 0;  // Populate array with sequential floats
     }
@@ -305,5 +306,80 @@ void cmsis_interp1d(int32_t *x_data,int32_t *y_data,int32_t *interp_points, int3
         }
     }
 }
+
+void cmsis_tukey_window (int32_t length,int32_t alpha, int32_t *tukey_win)
+{
+    int32_t middle_region_start,middle_region_end;
+
+    middle_region_start = int(alpha * (length - 1) / 2);
+    middle_region_end = length - middle_region_start;
+
+    //Apply cosine taper in the first region
+    for (int n=0;n<middle_region_start;n++)
+    {
+        tukey_win[n] = 0.5 * (1 + np.cos(np.pi * ((2 * n) / (alpha * (length - 1)) - 1)));
+    }
+
+    // Middle region is flat
+    for (int n=middle_region_start;n<middle_region_end;n++)
+    {
+        tukey_win[n] = 1;
+    }
+
+    // Apply cosine taper in the last region
+    for (int n=middle_region_end;n<length;n++)
+    {
+        tukey_win[n] = 0.5 * (1 + np.cos(np.pi * ((2 * n) / (alpha * (length - 1)) - 2 / alpha + 1)))
+
+    }
+}
+
+void lp_filter_signal_to_remove_freqs_above_resp(int32_t *s,int32_t s_filt)
+{
+    firf32 = arm_fir_instance_f32();
+    int32_t blockSize = sizeof(s)/sizeof(int32_t);
+    int32_t numTaps = 10;
+    int32_t stateLength = numTaps + blockSize - 1;
+
+    float *coefficients = (float*) malloc(numTaps * sizeof(float));  // Allocate memory for coefficients
+    float *state = (float*) malloc(stateLength * sizeof(float));  // Allocate memory for coefficients
+
+    // Fill the coefficients array
+    for (int i = 0; i < numTaps; i++) {
+        coefficients[i] = 1.0 / numTaps;  // Equivalent to np.ones(numTaps) / numTaps
+    }
+
+    for (int i = 0; i < stateLength; i++) {
+        state[i] = 0;  // Equivalent to np.ones(numTaps) / numTaps
+    }
+    arm_fir_init_f32(firf32, numTaps, coefficients, state,blockSize);
+
+    arm_fir_f32(firf32,s,s_filt,blockSize);
+}
+
+void lpf_to_exclude_resp(int32_t *sig, int32_t wins_t_start,float *lpf_sig,int32_t lpf_sig_fs)
+{
+    int32_t duration_of_signal = sizeof(sig)/sizeof(int32_t);
+    float prop_of_win_in_outer_regions = 2 * 2 / duration_of_signal;
+    float* tukey_win = (float*) malloc(length * sizeof(float));  // Allocate memory for the array    
+    int32_t* d_s_win = (int32_t*) malloc(length * sizeof(int32_t));  // Allocate memory for the array    
+    float *s_filt = (float*) malloc(sizeof(sig) * sizeof(float));
+
+
+    for (int i = 0; i < length; i++) {
+        tukey_win[i] = 0;  // Populate array with sequential floats
+    }
+
+    cmsis_tukey_window(duration_of_signal, prop_of_win_in_outer_regions,&tukey_win);
+    cmsis_detrend(sig,d_s_win);
+    lp_filter_signal_to_remove_freqs_above_resp(d_s_win,s_filt,64);
+}
+
+void ref_cto_mod(int32_t rel_sig)
+{
+    
+}
+
+
 
 
