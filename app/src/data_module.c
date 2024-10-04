@@ -307,8 +307,8 @@ void data_thread(void)
 
     int m_temp_sample_counter = 0;
 
-    uint32_t irBuffer[500];  // infrared LED sensor data
-    uint32_t redBuffer[500]; // red LED sensor data
+    uint32_t irBuffer[IR_RED_BUFFER_SIZE];  // infrared LED sensor data
+    uint32_t redBuffer[IR_RED_BUFFER_SIZE]; // red LED sensor data
 
     float ecg_filt_in[8];
     float ecg_filt_out[8];
@@ -367,10 +367,24 @@ void data_thread(void)
             int16_t resp_i16_buf[4];
             int16_t resp_i16_filt_out[4];
 
+            //int32_t resp_i32_buf[4];
+            //int32_t resp_i32_filt_out[4];
+
             for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
             {
-                resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
+                //resp_i32_buf[i] = ecg_bioz_sensor_sample.bioz_samples[i];
+                resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i]>>4);
+                // resp_i16_filt_out[i] = (resp_i16_buf[i]>>16);
             }
+
+            //hpi_rrest_detrend(resp_i32_buf, resp_i32_filt_out);
+
+#if 0
+            for(int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            {
+                resp_i32_filt_out[i] = ecg_bioz_sensor_sample.bioz_samples[i];
+            }
+#endif
 
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
             resp_algo_process(resp_i16_filt_out, &globalRespirationRate);

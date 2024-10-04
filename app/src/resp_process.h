@@ -10,6 +10,9 @@ void resp_process_sample(int16_t *CurrAqsSample, int16_t *respFiltered);
 void resp_algo_process(int16_t *CurrSample,volatile uint8_t *RespirationRate);
 void resp_rate_detect(int16_t Resp_wave,volatile uint8_t *RespirationRate);
 
+// RRest
+void hpi_rrest_detrend(int32_t *resp_signal, int32_t *detrended_signal);
+
 struct bioz_signal_parameters
 {
     int32_t filtered_signal[RESP_DOWN_SAMPLE_SIZE];
