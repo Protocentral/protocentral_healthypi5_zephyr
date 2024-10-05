@@ -11,6 +11,8 @@
 #include "cmd_module.h"
 #include "sampling_module.h"
 
+LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
+
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
 #endif
@@ -346,6 +348,7 @@ void data_thread(void)
     {
         k_sleep(K_MSEC(1));
 
+        // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
             // printk("S: %d", ecg_bioz_sensor_sample.ecg_num_samples);
@@ -382,24 +385,6 @@ void data_thread(void)
                 ble_hrs_notify(ecg_bioz_sensor_sample.hr);
             }
 #endif
-            /***** Send to USB if enabled *****/
-            if (settings_send_usb_enabled)
-            {
-                if (settings_data_format == DATA_FMT_OPENVIEW)
-                {
-                    sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
-                             (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-                }
-                else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
-                {
-                    send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
-                }
-                else if (settings_data_format == DATA_FMT_HPI5_OV3)
-                {
-                    send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
-                                         ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-                }
-            }
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
@@ -409,6 +394,7 @@ void data_thread(void)
 #endif
         }
 
+        /* Get Sample from PPG sampling queue */
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
 
@@ -481,6 +467,25 @@ void data_thread(void)
             //          sensor_sample.temp, 0, 0, 0, sensor_sample._bioZSkipSample);
             // record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red,
             //                         sensor_sample.raw_ir, sensor_sample.temp);
+        }
+
+        /***** Send to USB if enabled *****/
+        if (settings_send_usb_enabled)
+        {
+            if (settings_data_format == DATA_FMT_OPENVIEW)
+            {
+                sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
+                         (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+            }
+            else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
+            {
+                send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
+            }
+            else if (settings_data_format == DATA_FMT_HPI5_OV3)
+            {
+                send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
+                                     ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+            }
         }
     }
 }
