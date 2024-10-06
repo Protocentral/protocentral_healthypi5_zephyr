@@ -346,7 +346,7 @@ void data_thread(void)
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
-    record_init_session_log();
+    //record_init_session_log();
 
     int m_temp_sample_counter = 0;
 
@@ -429,12 +429,12 @@ void data_thread(void)
             }
 //#endif
 
-//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
-//#endif
+#endif
         }
 
         /* Get Sample from PPG sampling queue */
@@ -448,12 +448,12 @@ void data_thread(void)
             }
 //#endif
 
-//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
-//#endif
+#endif
             if (spo2_time_count < FreqS)
             {
                 irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
@@ -468,9 +468,9 @@ void data_thread(void)
                 LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
-//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_spo2(m_spo2);
-//#endif
+#endif
 //#ifdef CONFIG_BT
                     ble_spo2_notify(m_spo2);
 //#endif
@@ -478,9 +478,9 @@ void data_thread(void)
 
                 if (validHeartRate)
                 {
-//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_pr(m_hr);
-//#endif
+#endif
                 }
 
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
@@ -545,4 +545,4 @@ void data_thread(void)
 #define DATA_THREAD_STACKSIZE 4096
 #define DATA_THREAD_PRIORITY 7
 
-    // K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
