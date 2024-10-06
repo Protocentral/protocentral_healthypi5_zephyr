@@ -40,7 +40,7 @@ RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
                          16,  /* submission queue size */
                          16,  /* completion queue size */
                          64,  /* number of memory blocks */
-                         128, /* size of each memory block */
+                         32, /* size of each memory block */
                          4    /* memory alignment */
 );
 
