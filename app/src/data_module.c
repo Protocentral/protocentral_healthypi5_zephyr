@@ -76,11 +76,11 @@ static bool settings_send_ble_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
 
-extern bool settings_log_data_enabled;       // true;
+extern bool settings_log_data_enabled; // true;
 extern struct fs_mount_t *mp;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
-//struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
+// struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_log_counter = 0;
@@ -106,7 +106,6 @@ int resp_sample_buffer_count = 0;
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 extern struct healthypi_session_log_header_t healthypi_session_log_header;
-
 
 extern struct k_msgq q_ecg_bioz_sample;
 extern struct k_msgq q_ppg_sample;
@@ -252,7 +251,7 @@ void send_data_text_1(int32_t in_sample)
 // Start a new session log
 void record_init_next_session_log(bool write_to_file)
 {
-    //if data is pending in the log Buffer
+    // if data is pending in the log Buffer
 
     if ((current_session_log_counter > 0) && (write_to_file))
     {
@@ -265,7 +264,7 @@ void record_init_next_session_log(bool write_to_file)
     {
         // log_buffer[i].ecg_sample = 0;
         // log_buffer[i].bioz_samples = 0;
-        log_buffer[i].raw_red = 0;
+        // log_buffer[i] .raw_red = 0;
         log_buffer[i].ecg_sample = 0;
         log_buffer[i].bioz_sample = 0;
         log_buffer[i].raw_ir = 0;
@@ -273,15 +272,15 @@ void record_init_next_session_log(bool write_to_file)
 
     current_session_log_counter = 0;
     healthypi_session_log_header.session_id = 0;
-    healthypi_session_log_header.session_start_time.day=0;
-    healthypi_session_log_header.session_start_time.hour=0;
-    healthypi_session_log_header.session_start_time.minute=0;
-    healthypi_session_log_header.session_start_time.month=0;
-    healthypi_session_log_header.session_start_time.second=0;
-    healthypi_session_log_header.session_start_time.year =0;
+    healthypi_session_log_header.session_start_time.day = 0;
+    healthypi_session_log_header.session_start_time.hour = 0;
+    healthypi_session_log_header.session_start_time.minute = 0;
+    healthypi_session_log_header.session_start_time.month = 0;
+    healthypi_session_log_header.session_start_time.second = 0;
+    healthypi_session_log_header.session_start_time.year = 0;
 
-    healthypi_session_log_header.session_id=0;
-    healthypi_session_log_header.session_size=0;
+    healthypi_session_log_header.session_id = 0;
+    healthypi_session_log_header.session_size = 0;
 }
 
 char *log_get_current_session_id_str(void)
@@ -312,14 +311,12 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_
             printk("FAILED to return stats");
         }
 
-        printk("free: %lu, available : %f\n",sbuf.f_bfree,(0.25 * sbuf.f_blocks));
+        printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
 
         if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
         {
             settings_log_data_enabled = false;
             record_init_next_session_log(false);
-
-
         }
         else
         {
@@ -328,16 +325,15 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_
             log_buffer[current_session_log_counter].ecg_sample = ecg_val;
             log_buffer[current_session_log_counter].bioz_sample = bioz_val;
             log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
-
         }
     }
 
     // log_buffer[current_session_log_counter].ecg_sample = time;
     // log_buffer[current_session_log_counter].ecg_sample = ecg_val;
     // log_buffer[current_session_log_counter].bioz_samples = bioz_val;
-    log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
-    log_buffer[current_session_log_counter].raw_red = raw_red_val;
-    log_buffer[current_session_log_counter].temp = temp;
+    // log_buffer[current_session_log_counter].raw_ir = raw_ir_val;
+    // log_buffer[current_session_log_counter].raw_red = raw_red_val;
+    // log_buffer[current_session_log_counter].temp = temp;
 }
 
 void data_thread(void)
@@ -423,7 +419,7 @@ void data_thread(void)
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
             resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
-#ifdef CONFIG_BT
+//#ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
                 ble_resp_rate_notify(globalRespirationRate);
@@ -431,33 +427,33 @@ void data_thread(void)
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
                 ble_hrs_notify(ecg_bioz_sensor_sample.hr);
             }
-#endif
+//#endif
 
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
-#endif
+//#endif
         }
 
         /* Get Sample from PPG sampling queue */
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
 
-#ifdef CONFIG_BT
+//#ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
                 ble_ppg_notify(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
             }
-#endif
+//#endif
 
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
-#endif
+//#endif
             if (spo2_time_count < FreqS)
             {
                 irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
@@ -472,19 +468,19 @@ void data_thread(void)
                 LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_spo2(m_spo2);
-#endif
-#ifdef CONFIG_BT
+//#endif
+//#ifdef CONFIG_BT
                     ble_spo2_notify(m_spo2);
-#endif
+//#endif
                 }
 
                 if (validHeartRate)
                 {
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+//#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_pr(m_hr);
-#endif
+//#endif
                 }
 
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
@@ -533,14 +529,15 @@ void data_thread(void)
                 send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
                                      ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
-        #endif
+            // #endif
 
-        /****** Send to log queue if enabled ******/
+            /****** Send to log queue if enabled ******/
 
-        if (settings_log_data_enabled)
-        {
-            //printk("recording data to log file\n");
-            record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_sample, (int16_t)(sensor_sample.raw_ir/1000));
+            if (settings_log_data_enabled)
+            {
+                // printk("recording data to log file\n");
+                record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_samples, (int16_t)(sensor_sample.raw_ir / 1000));
+            }
         }
     }
 }
@@ -548,4 +545,4 @@ void data_thread(void)
 #define DATA_THREAD_STACKSIZE 4096
 #define DATA_THREAD_PRIORITY 7
 
-K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
+    // K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
