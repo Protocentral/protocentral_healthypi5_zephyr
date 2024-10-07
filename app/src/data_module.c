@@ -16,7 +16,7 @@
 LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-#include "display_module.h"
+#include "display_module.h"`
 #endif
 
 #include "fs_module.h"

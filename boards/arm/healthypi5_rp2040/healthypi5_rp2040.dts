@@ -225,6 +225,18 @@
 
 	status = "okay";
 	cs-gpios = <&gpio0 29 GPIO_ACTIVE_LOW>, <&gpio0 13 GPIO_ACTIVE_LOW>;    //CS Reg 0 - Display, CS Reg 1 - SD Slot
+
+	sdhc0: sdhc@1 {
+		compatible = "zephyr,sdhc-spi-slot";
+		reg = <1>;
+		status = "okay";
+		power-delay-ms = <5>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
+		mmc {
+			compatible = "zephyr,sdmmc-disk";
+			status = "okay";
+		};
+	};
 };
 
 &wdt0 {
