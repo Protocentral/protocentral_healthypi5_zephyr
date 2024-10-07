@@ -3,6 +3,9 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <stdio.h>
+#include <arm_math.h>
+#include <math.h>
+
 
 LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 
@@ -309,6 +312,7 @@ void data_thread(void)
 
     uint32_t irBuffer[IR_RED_BUFFER_SIZE];  // infrared LED sensor data
     uint32_t redBuffer[IR_RED_BUFFER_SIZE]; // red LED sensor data
+    int32_t biozBuffer[RESP_RREST_BUFF_SIZE];
 
     float ecg_filt_in[8];
     float ecg_filt_out[8];
@@ -322,13 +326,16 @@ void data_thread(void)
     uint32_t ppg_buffer_count = 0;
 
     uint32_t spo2_time_count = 0;
+    uint32_t bioz_time_count =0;
 
     /* Initialize the FIR filter */
     arm_fir_init_f32(&sFIR, NUM_TAPS, firCoeffs, firState, BLOCK_SIZE);
 
     int32_t init_buffer_count = 0;
+    int32_t init_bioz_buffer_count = 0;
 
     bufferLength = BUFFER_SIZE;
+
 
     // Initialize red and IR buffers with first 100 samples
     while (init_buffer_count < BUFFER_SIZE)
@@ -344,12 +351,63 @@ void data_thread(void)
         }
     }
 
+    // Initialize Bioz buffers with first 2048 samples
+    while (init_bioz_buffer_count < RESP_ALGO_WINDOW_SIZE)
+    {
+        if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_FOREVER) == 0)
+        {
+            for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            {
+                biozBuffer[init_bioz_buffer_count] =  ecg_bioz_sensor_sample.bioz_samples[i];
+                init_bioz_buffer_count++;
+            }
+        }
+    }
+
     for (;;)
     {
         k_sleep(K_MSEC(1));
 
+        float *win_time = arange(0, (int)RESP_ALGO_WINDOW_SIZE/RESP_FREQ, 1/64);
+
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
+
+            if (bioz_time_count < RESP_FREQ)
+            {
+                biozBuffer[RESP_ALGO_WINDOW_SIZE - RESP_FREQ + bioz_time_count] =  ecg_bioz_sensor_sample.bioz_samples[0];
+                bioz_time_count++;
+            }
+            else
+            {
+                bioz_time_count = 0;
+                //process bioz
+                float *lpf_sig = (float *)malloc(sizeof(biozBuffer) * sizeof(float)); 
+                int32_t lpf_sig_fs;    // Allocate memory for the array
+                lpf_to_exclude_resp(biozBuffer, win_time, lpf_sig, lpf_sig_fs);
+                float *interp_t = arange(0, (int)RESP_ALGO_WINDOW_SIZE, 1/DOWNSAMPLE_FREQ);
+                float *interp_data_v = (float *)malloc(sizeof(RESP_DOWN_SAMPLE_SIZE) * sizeof(float)); 
+
+                cmsis_interp1d(win_time, biozBuffer, interp_t, interp_data_v);
+                replace_nan_with_median(interp_data_v, sizeof(interp_data_v) / sizeof(interp_data_v[0]));                
+                
+                //Normalize the signal
+                float32_t mean_result;
+                float32_t std_result ; 
+                arm_mean_f32(interp_data_v,RESP_DOWN_SAMPLE_SIZE, &mean_result);
+                arm_std_f32(interp_data_v, RESP_DOWN_SAMPLE_SIZE, &std_result);
+                float *rel_sig_v = (float *)malloc(sizeof(RESP_DOWN_SAMPLE_SIZE) * sizeof(float)); 
+
+                for (int i =0;i<sizeof(interp_data_v)/sizeof(interp_data_v[0]);i++)
+                {
+                    rel_sig_v[i] = (interp_data_v[i] - (float)mean_result)/(float)std_result;
+                }
+                
+                for (int i = RESP_FREQ; i < BUFFER_SIZE; i++)
+                {
+                    biozBuffer[i - RESP_FREQ] = biozBuffer[i];
+                }
+            }
             // printk("S: %d", ecg_bioz_sensor_sample.ecg_num_samples);
 
             /*for (int i = 0; i < ecg_bioz_sensor_sample.ecg_num_samples; i++)
@@ -364,18 +422,18 @@ void data_thread(void)
                 ecg_bioz_sensor_sample.bioz_samples[i] = (int32_t)(ecg_filt_out[i] * 1000.0000);
             }*/
 
-            int16_t resp_i16_buf[4];
-            int16_t resp_i16_filt_out[4];
+            //int16_t resp_i16_buf[4];
+            //int16_t resp_i16_filt_out[4];
 
             //int32_t resp_i32_buf[4];
             //int32_t resp_i32_filt_out[4];
 
-            for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
-            {
+            //for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            //{
                 //resp_i32_buf[i] = ecg_bioz_sensor_sample.bioz_samples[i];
-                resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i]>>4);
+                //resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i]>>4);
                 // resp_i16_filt_out[i] = (resp_i16_buf[i]>>16);
-            }
+            //}
 
             //hpi_rrest_detrend(resp_i32_buf, resp_i32_filt_out);
 
@@ -386,8 +444,8 @@ void data_thread(void)
             }
 #endif
 
-            resp_process_sample(resp_i16_buf, resp_i16_filt_out);
-            resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
+            //resp_process_sample(resp_i16_buf, resp_i16_filt_out);
+            //resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
 #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
@@ -424,6 +482,8 @@ void data_thread(void)
             }
 #endif
         }
+
+        
 
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {

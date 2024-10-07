@@ -19,7 +19,6 @@ uint8_t Respiration_Rate = 0;
 
 #define FILTERORDER 161 /* DC Removal Numerator Coeff*/
 #define NRCOEFF (0.992)
-struct bioz_signal_parameters bioz_signal;
 
 int16_t RESP_WorkingBuff[2 * FILTERORDER];
 int16_t Pvev_DC_Sample = 0, Pvev_Sample = 0;
