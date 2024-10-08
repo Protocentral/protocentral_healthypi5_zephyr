@@ -47,9 +47,6 @@ volatile bool cmd_module_ble_connected = false;
 extern struct k_msgq q_sample;
 extern int global_dev_status;
 extern struct fs_mount_t *mp;
-struct hpi_sensor_data_t sensor_sample;
-struct fs_dir_t dir;
-struct fs_file_t file;
 bool  settings_log_data_enabled = false; 
 int current_log_counter;
 
@@ -94,15 +91,6 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
     rc = fs_close(&file);
 
     printk("old header\n");
-    /*printk("file size %d\n",k_header.session_size);
-    printk("file name %d\n",k_header.session_id);
-    printk("year %d\n",k_header.session_start_time.year);
-    printk("month %d\n",k_header.session_start_time.month);
-    printk("day %d\n",k_header.session_start_time.day);
-    printk("hour %d\n",k_header.session_start_time.hour);
-    printk("minute %d\n",k_header.session_start_time.minute);
-    printk("second %d\n",k_header.session_start_time.second);*/
-
     k_header.session_size = file_size;
 
 
@@ -434,6 +422,7 @@ void fetch_file_data(uint16_t session_id)
 void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
 
+    printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n",m_sec, m_min, m_hour, m_day, m_month, m_year);
     //store new log start time temporily
     uint8_t second, minute, hour, day, month, year;
     year = m_year;
@@ -442,8 +431,6 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     hour = m_hour;
     minute = m_min;
     second = m_sec;
-
-    record_init_next_session_log(true);
 
     //update structure with new log start time
     healthypi_session_log_header.session_start_time.year = year;
@@ -458,7 +445,7 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     healthypi_session_log_header.session_id = (rand[0] | (rand[1] << 8));
     healthypi_session_log_header.session_size = 0;
 
-    //printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
+    printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
 }
 
 
@@ -634,7 +621,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
         set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);        
      
-        struct fs_statvfs sbuf;
+        /*struct fs_statvfs sbuf;
 
         rc = fs_statvfs(mp->mnt_point, &sbuf);
         if (rc < 0)
@@ -656,7 +643,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             //if memory available is less than 25%
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }
+        }*/
         break;
 
     default:
@@ -960,8 +947,6 @@ void cmd_thread(void)
         k_sleep(K_MSEC(1000));
     }
 }
-
-
 
 
 #define CMD_THREAD_STACKSIZE 1024

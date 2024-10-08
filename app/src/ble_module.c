@@ -131,7 +131,7 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 {
 	const uint8_t *buffer = buf;
 
-	//printk("Received CMD len %d \n", len);
+	printk("Received CMD len %d \n", len);
 
 	for (uint8_t i = 0; i < len; i++)
 	{

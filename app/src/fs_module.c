@@ -192,7 +192,7 @@ static int mount_sd_fs()
 
 void fs_module_init(void)
 {
-    int rc;
+    /*int rc;
     struct fs_statvfs sbuf;
 
     printk("Initing FS...\n");
@@ -222,10 +222,9 @@ void fs_module_init(void)
     {
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
         // goto out;
-    }
+    }*/
 
 #ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
     mount_sd_fs();
 #endif
 }
-
