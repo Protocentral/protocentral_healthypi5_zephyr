@@ -316,7 +316,7 @@ void record_session_add_point(int32_t ecg_val, int32_t bioz_val, int16_t raw_ir_
         if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
         {
             settings_log_data_enabled = false;
-            record_init_next_session_log(false);
+            //record_init_next_session_log(false);
         }
         else
         {
@@ -536,13 +536,13 @@ void data_thread(void)
             if (settings_log_data_enabled)
             {
                 // printk("recording data to log file\n");
-                record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_samples, (int16_t)(sensor_sample.raw_ir / 1000));
+                //record_session_add_point(sensor_sample.ecg_sample, sensor_sample.bioz_samples, (int16_t)(sensor_sample.raw_ir / 1000));
             }
         }
     }
 }
 
-#define DATA_THREAD_STACKSIZE 4096
+#define DATA_THREAD_STACKSIZE 8192
 #define DATA_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);

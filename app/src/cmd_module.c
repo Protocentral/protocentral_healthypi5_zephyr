@@ -5,10 +5,9 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
-#include <zephyr/random/random.h> 
+#include <zephyr/random/random.h>
 #include <stdio.h>
 #include <string.h>
-
 
 #include "fs_module.h"
 #include "cmd_module.h"
@@ -22,21 +21,20 @@
 
 // #include "tdcs3.h"
 
-//#define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
+// #define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
 #define MAX_MSG_SIZE 32
 
-#define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
-#define CMDIF_BLE_UART_MAX_PKT_SIZE 128 // Max Packet Size in bytes
+#define FILE_TRANSFER_BLE_PACKET_SIZE 64 // (16*7)
+#define CMDIF_BLE_UART_MAX_PKT_SIZE 128  // Max Packet Size in bytes
 
 K_SEM_DEFINE(sem_ble_connected, 0, 1);
 K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
 
-K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 128, 4);
+K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 16, 1);
 
-//static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
+// static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
 struct healthypi_session_log_header_t healthypi_session_log_header;
-
 
 int cmd_pkt_len;
 int cmd_pkt_pos_counter, cmd_pkt_data_counter;
@@ -47,11 +45,11 @@ volatile bool cmd_module_ble_connected = false;
 extern struct k_msgq q_sample;
 extern int global_dev_status;
 extern struct fs_mount_t *mp;
-bool  settings_log_data_enabled = false; 
+bool settings_log_data_enabled = false;
 int current_log_counter;
 
 int8_t data_pkt[272];
-uint8_t buf_log[1024];// 56 bytes / session, 18 sessions / packet
+uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -66,7 +64,7 @@ K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
 
-void update_session_size_in_header (uint16_t file_size,char *m_file_path)
+void update_session_size_in_header(uint16_t file_size, char *m_file_path)
 {
     struct fs_file_t file;
 
@@ -85,14 +83,13 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
     }
 
     rc = fs_seek(&file, 0, FS_SEEK_SET);
-    
+
     rc = fs_read(&file, (struct healthypi_session_log_header_t *)&k_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
 
     printk("old header\n");
     k_header.session_size = file_size;
-
 
     rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
@@ -132,7 +129,6 @@ void update_session_size_in_header (uint16_t file_size,char *m_file_path)
     printk("hour %d\n",s_header.session_start_time.hour);
     printk("minute %d\n",s_header.session_start_time.minute);
     printk("second %d\n",s_header.session_start_time.second);*/
-
 }
 
 void write_header_to_new_file()
@@ -156,7 +152,7 @@ void write_header_to_new_file()
     {
         printk("FAIL: open %s: %d", fname, rc);
     }
-    
+
     rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
 
     rc = fs_close(&file);
@@ -170,7 +166,7 @@ struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
 
     struct healthypi_session_log_header_t m_header;
 
-    //printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
+    // printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
 
     char m_file_name[30];
     snprintf(m_file_name, sizeof(m_file_name), "/lfs/log/%u", file_id);
@@ -201,8 +197,6 @@ struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
 
     return m_header;
 }
-
-
 
 uint16_t log_get_count(void)
 {
@@ -298,9 +292,8 @@ int log_get_all_file_header(void)
             struct healthypi_session_log_header_t m_header = log_get_file_header(session_id);
             memcpy(&buf_log, &m_header, sizeof(struct healthypi_session_log_header_t));
             cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_log_header_t));
-            printk("Header of file id %d sent\n",session_id);
+            printk("Header of file id %d sent\n", session_id);
         }
-
     }
     fs_closedir(&dirp);
 
@@ -337,9 +330,9 @@ uint32_t transfer_get_file_length(char *m_file_name)
             break;
         }
 
-        if (strncmp(m_file_name,entry.name,sizeof(m_file_name)) == 0)
+        if (strncmp(m_file_name, entry.name, sizeof(m_file_name)) == 0)
         {
-            //printk(" file name %s : size %d\n",entry.name,entry.size);
+            // printk(" file name %s : size %d\n",entry.name,entry.size);
             file_len = entry.size;
         }
     }
@@ -354,8 +347,8 @@ void transfer_send_file(uint16_t file_id)
 
     char m_file_name[30];
     char m_file_path[30];
-    
-    sprintf(m_file_name,"%d",file_id);
+
+    sprintf(m_file_name, "%d", file_id);
     uint32_t file_len = transfer_get_file_length(m_file_name);
 
     uint16_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
@@ -372,10 +365,10 @@ void transfer_send_file(uint16_t file_id)
     printk("File name: %s Size:%d NW: %d \n", m_file_name, file_len, number_writes);
     snprintf(m_file_path, sizeof(m_file_path), "/lfs/log/%d", file_id);
 
-    update_session_size_in_header(number_writes,m_file_path);
+    update_session_size_in_header(number_writes, m_file_path);
 
     fs_file_t_init(&m_file);
-    
+
     rc = fs_open(&m_file, m_file_path, FS_O_READ);
 
     if (rc != 0)
@@ -393,9 +386,9 @@ void transfer_send_file(uint16_t file_id)
             return;
         }
 
-        cmdif_send_ble_file_data(m_buffer,FILE_TRANSFER_BLE_PACKET_SIZE); //FILE_TRANSFER_BLE_PACKET_SIZE);
+        cmdif_send_ble_file_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
         k_sleep(K_MSEC(50));
-        //printk("\n");
+        // printk("\n");
     }
 
     rc = fs_close(&m_file);
@@ -408,22 +401,17 @@ void transfer_send_file(uint16_t file_id)
     printk("File sent\n");
 }
 
-
-
 void fetch_file_data(uint16_t session_id)
 {
     printk("Getting Log id %u data\n", session_id);
     transfer_send_file(session_id);
 }
 
-
-
-
 void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
 
-    printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n",m_sec, m_min, m_hour, m_day, m_month, m_year);
-    //store new log start time temporily
+    printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
+    // store new log start time temporily
     uint8_t second, minute, hour, day, month, year;
     year = m_year;
     month = m_month;
@@ -432,7 +420,7 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     minute = m_min;
     second = m_sec;
 
-    //update structure with new log start time
+    // update structure with new log start time
     healthypi_session_log_header.session_start_time.year = year;
     healthypi_session_log_header.session_start_time.month = month;
     healthypi_session_log_header.session_start_time.day = day;
@@ -445,9 +433,8 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     healthypi_session_log_header.session_id = (rand[0] | (rand[1] << 8));
     healthypi_session_log_header.session_size = 0;
 
-    printk("Header data for log file %d set\n",healthypi_session_log_header.session_id);
+    printk("Header data for log file %d set\n", healthypi_session_log_header.session_id);
 }
-
 
 void ces_parse_packet(char rxch)
 {
@@ -561,22 +548,21 @@ void delete_log_file(uint16_t session_id)
     printk("File %d deleted %s\n", log_file_name);
 }
 
-
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
     int rc;
     uint8_t cmd_cmd_id = in_pkt_buf[0];
 
-    //printk("Recd Command: %X\n", cmd_cmd_id);
+    // printk("Recd Command: %X\n", cmd_cmd_id);
 
     switch (cmd_cmd_id)
     {
 
     case HPI_CMD_GET_DEVICE_STATUS:
         printk("Recd Get Device Status Command\n");
-        //cmdif_send_ble_device_status_response();
+        // cmdif_send_ble_device_status_response();
         break;
-    
+
     case HPI_CMD_RESET:
         printk("Recd Reset Command\n");
         printk("Rebooting...\n");
@@ -586,13 +572,13 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
-        //fs_mkdir("/lfs/log");
+        // fs_mkdir("/lfs/log");
         log_get_count();
         break;
 
     case CMD_LOG_FILE_HEADER:
         printk("Sending log file headers\n");
-        log_get_all_file_header();        
+        log_get_all_file_header();
         break;
 
     case CMD_FETCH_LOG_FILE_DATA:
@@ -603,9 +589,9 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     case CMD_LOGGING_END:
         printk("Command to end logging\n");
         settings_log_data_enabled = false;
-        //record_init_next_session_log();
+        // record_init_next_session_log();
         break;
-    
+
     case CMD_LOG_WIPE_ALL:
         printk("Command to delete all files\n");
         delete_all_log_files();
@@ -616,11 +602,11 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         delete_log_file(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
-    case CMD_LOGGING_START:    
+    case CMD_LOGGING_START:
         printk("Command to start logging\n");
 
-        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);        
-     
+        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+
         /*struct fs_statvfs sbuf;
 
         rc = fs_statvfs(mp->mnt_point, &sbuf);
@@ -630,14 +616,14 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         }
 
         printk("free: %lu, available : %f\n",sbuf.f_bfree,(0.25 * sbuf.f_blocks));
-        
+
         //if memory available is greater than 25%
         if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
         {
             settings_log_data_enabled = true;
-            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);   
-            write_header_to_new_file();      
-                  
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
+            write_header_to_new_file();
+
         }
         else
         {
@@ -653,7 +639,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 }
 
 void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
-{    
+{
     uint8_t cmd_pkt[1 + m_data_len];
     cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
 
@@ -667,7 +653,7 @@ void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
 
 void cmdif_send_memory_status(uint8_t m_cmd)
 {
-    //printk("Sending BLE Status\n");
+    // printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_STATUS;
@@ -679,20 +665,20 @@ void cmdif_send_memory_status(uint8_t m_cmd)
 
 void cmdif_send_file_count(uint8_t m_cmd)
 {
-    //printk("Sending BLE Status\n");
+    // printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
     cmd_pkt[1] = 0x54;
     cmd_pkt[2] = m_cmd;
 
-    //printk("sending response\n");
+    // printk("sending response\n");
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_ble_file_data(int8_t *m_data,uint8_t m_data_len)
+void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len)
 {
-    //printk("Sending BLE Data: %d\n", m_data_len);
+    // printk("Sending BLE Data: %d\n", m_data_len);
 
     data_pkt[0] = CES_CMDIF_TYPE_DATA;
 
@@ -702,7 +688,6 @@ void cmdif_send_ble_file_data(int8_t *m_data,uint8_t m_data_len)
     }
     healthypi5_service_send_data(data_pkt, 1 + m_data_len);
 }
-
 
 // TODO: implement BLE UART
 /*void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
@@ -754,13 +739,13 @@ void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_
 
     for (int i = 0; i < 16; i++)
     {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
+        // uart_poll_out(esp_uart_dev, cmd_pkt[i]);
     }
 }
 
 void cmdif_send_ble_device_status_response(void)
 {
-    //cmdif_send_ble_status(WISER_CMD_GET_DEVICE_STATUS, global_dev_status);
+    // cmdif_send_ble_status(WISER_CMD_GET_DEVICE_STATUS, global_dev_status);
 }
 
 void cmdif_send_ble_command(uint8_t m_cmd)
@@ -778,7 +763,7 @@ void cmdif_send_ble_command(uint8_t m_cmd)
 
     for (int i = 0; i < 8; i++)
     {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
+        // uart_poll_out(esp_uart_dev, cmd_pkt[i]);
     }
 }
 
@@ -934,22 +919,23 @@ void cmd_thread(void)
 
     for (;;)
     {
-        k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_FOREVER);
-
-        printk("Recd BLE Packet len: ");
-        for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
+        if (k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_NO_WAIT) == 0)
         {
-            printk("%02X\t", rx_cmd_data_obj.data[i]);
+
+            printk("Recd BLE Packet len: %d", rx_cmd_data_obj.data_len);
+            for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
+            {
+                //printk("%02X\t", rx_cmd_data_obj.data[i]);
+            }
+            printk("\n");
+            hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len);
         }
-        printk("\n");
-        hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len); 
 
         k_sleep(K_MSEC(1000));
     }
 }
 
-
-#define CMD_THREAD_STACKSIZE 1024
+#define CMD_THREAD_STACKSIZE 2048
 #define CMD_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(cmd_thread_id, CMD_THREAD_STACKSIZE, cmd_thread, NULL, NULL, NULL, CMD_THREAD_PRIORITY, 0, 0);
