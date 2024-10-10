@@ -106,7 +106,6 @@ int resp_sample_buffer_count = 0;
 
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
-//extern struct healthypi_session_log_header_t healthypi_session_log_header;
 
 extern struct k_msgq q_ecg_bioz_sample;
 extern struct k_msgq q_ppg_sample;
@@ -292,7 +291,7 @@ char *log_get_current_session_id_str(void)
 }*/
 
 // Add a log point to the current session log
-void record_session_add_point(int16_t ecg_samples[8], int16_t raw_ir[8])
+void record_session_add_point(int32_t ecg_samples[8], int32_t raw_ir[8])
 {
     if (current_session_ecg_ppg_counter < LOG_BUFFER_LENGTH) 
     {
@@ -495,7 +494,7 @@ void data_thread(void)
         if (settings_log_data_enabled)
         {
             //printk("Adding values to the log buffer enabled");
-            //record_session_add_point(ecg_bioz_sensor_sample.ecg_samples, ppg_sensor_sample.ppg_ir_samples);
+            record_session_add_point(ecg_bioz_sensor_sample.ecg_samples, ppg_sensor_sample.ppg_ir_samples);
         }
 
         /***** Send to USB if enabled *****/

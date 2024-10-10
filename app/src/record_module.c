@@ -20,6 +20,7 @@ LOG_MODULE_REGISTER(record_module);
 extern struct fs_mount_t *mp;
 
 #define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
+extern struct healthypi_session_log_header_t healthypi_session_log_header_data;
 
 static int lsdir(const char *path)
 {
@@ -119,4 +120,43 @@ void record_wipe_all(void)
     }
 
     fs_closedir(&dir);
+}
+
+void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
+{
+    printf("Write to file... %d\n", healthypi_session_log_header_data.session_id);
+
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+
+    char session_name[50] = "/SD:/";
+    char session_id_str[20];
+    char sensor_data[50];
+
+    
+    sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
+    strcat(session_name, session_id_str);
+    strcat(session_name, ".csv");
+
+    printk("session_name %s\n",session_name);
+
+    int rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", session_name, rc);
+    }
+
+    for (int i = 0; i < ecg_ppg_counter; i++)
+    {
+        //printk("ecg_sample %d",current_session_log_points[i].ecg_sample);
+        //printk("raw_ir %d\n",current_session_log_points[i].raw_ir);
+        sprintf(sensor_data,"%d %d\n",current_session_log_points[i].ecg_sample,current_session_log_points[i].raw_ir);
+        rc = fs_write(&file, sensor_data, strlen(sensor_data));
+    }
+
+
+    rc = fs_close(&file);
+    rc = fs_sync(&file);
+
+    printk("Log buffer data written to log file %d\n",healthypi_session_log_header_data.session_id);
 }
