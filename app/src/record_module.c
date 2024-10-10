@@ -13,12 +13,11 @@
 #include "sys_sm_module.h"
 #include "sampling_module.h"
 #include "cmd_module.h"
+#include "fs_module.h"
 
 LOG_MODULE_REGISTER(record_module);
 
 extern struct fs_mount_t *mp;
-extern struct healthypi_session_log_header_t healthypi_session_log_header;
-
 
 #define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
 
@@ -72,119 +71,6 @@ static int lsdir(const char *path)
 }
 
 
-
-void create_record()
-{
-    struct fs_file_t file;
-    struct fs_dir_t dir;
-    
-    char fname[]="/lfs/log/test_file";
-    fs_dir_t_init(&dir);
-    fs_file_t_init(&file);  
-    int rc;
-
-
-    rc = fs_opendir(&dir, mp->mnt_point);
-    printk("%s opendir: %d\n", mp->mnt_point, rc);
-
-    if (rc < 0) {
-        printk("Failed to open directory");
-    }
-
-    while (rc >= 0) {
-        struct fs_dirent ent = { 0 };
-
-        rc = fs_readdir(&dir, &ent);
-        if (rc < 0) {
-            printk("Failed to read directory entries");
-            break;
-        }
-        if (ent.name[0] == 0) {
-            printk("End of files\n");
-            break;
-        }
-        printk("  %c %u %s\n",
-            (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
-            ent.size,
-            ent.name);
-    }
-
-    rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d\\n", fname, rc);
-        return;
-    }
-
-    uint32_t boot_count[5] = {23,45,67,87,34};
-
-    rc = fs_write(&file, &boot_count, sizeof(boot_count));
-    printk("%s write new boot count %u: %d\n", fname,*boot_count, rc);
-
-    rc = fs_close(&file);
-
-
-    uint32_t read_boot_count[5];
-
-    rc = fs_open(&file, fname, FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d\\n", fname, rc);
-        return;
-    }
-
-    rc = fs_read(&file, &read_boot_count, sizeof(read_boot_count));
-    printk("%s read count %u: %d\n", fname, *read_boot_count, rc);
-    
-
-    rc = fs_close(&file);
-
-    fs_closedir(&dir);
-
-    for (int i=0;i<sizeof(read_boot_count)/sizeof(uint32_t);i++)
-    {
-        printk("%d\n",read_boot_count[i]);
-    }
-
-
-}
-
-void record_write_to_file(int current_session_log_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
-{
-    struct fs_file_t file;
-    struct fs_statvfs sbuf;
-
-    fs_file_t_init(&file);
-
-    char fname[30] = "/lfs/log/";
-
-    printf("Write to file... %d\n", healthypi_session_log_header.session_id);
-    char session_id_str[20];
-    sprintf(session_id_str, "%d", healthypi_session_log_header.session_id);
-    strcat(fname, session_id_str);
-
-    int rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    for (int i = 0; i < current_session_log_counter; i++)
-    {
-        rc = fs_write(&file, &current_session_log_points[i], 10);
-    }
-
-
-    rc = fs_close(&file);
-    rc = fs_sync(&file);
-
-    rc = fs_statvfs(mp->mnt_point, &sbuf);
-    if (rc < 0)
-    {
-        printk("FAIL: statvfs: %d\n", rc);
-    }
-    printk("Log buffer data written to log file %d\n",healthypi_session_log_header.session_id);
-}
 
 
 

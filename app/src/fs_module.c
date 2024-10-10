@@ -10,8 +10,14 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/settings/settings.h>
 
+#include <zephyr/random/random.h>
+
+
 #include "sys_sm_module.h"
 #include "sampling_module.h"
+#include "fs_module.h"
+#include "cmd_module.h"
+
 
 #if defined(CONFIG_FAT_FILESYSTEM_ELM)
 #include <ff.h>
@@ -21,21 +27,27 @@ LOG_MODULE_REGISTER(fs_module);
 
 K_SEM_DEFINE(sem_fs_module, 0, 1);
 
-const char fname_sessions[30] = "/lfs/sessions";
+struct healthypi_session_log_header_t healthypi_session_log_header_data;
 
 
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
+
+/*FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
 static struct fs_mount_t lfs_storage_mnt = {
     .type = FS_LITTLEFS,
     .fs_data = &storage,
     .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
     .mnt_point = "/lfs",
+};*/
+
+
+static FATFS fat_fs;
+static struct fs_mount_t sd_fs_mnt = {
+    .type = FS_FATFS,
+    .fs_data = &fat_fs,
+    .mnt_point = "/SD:",
 };
-
-struct fs_mount_t *mp = &lfs_storage_mnt;
-
-static struct fs_mount_t sd_fs_mnt;
 struct fs_mount_t *mp_sd = &sd_fs_mnt;
+
 
 static int littlefs_flash_erase(unsigned int id)
 {
@@ -144,6 +156,132 @@ static int lsdir(const char *path)
     return res;
 }
 
+void write_header_to_new_file()
+{
+    struct fs_file_t file;
+    int rc;
+    char session_name[50] = "/SD:/";
+
+    char session_id_str[20];
+    sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
+    strcat(session_name, session_id_str);
+    strcat(session_name, ".csv");
+
+    char session_record_details[200] = "Session started at: ";
+    char session_record_time[2];
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.day);
+    strcat(session_record_details, session_record_time);
+
+    strcat(session_record_details, "/");
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.month);
+    strcat(session_record_details, session_record_time);
+
+    strcat(session_record_details, "/");
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.year);
+    strcat(session_record_details, session_record_time);
+
+    strcat(session_record_details, " ");
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.hour);
+    strcat(session_record_details, session_record_time);
+
+    strcat(session_record_details, ":");
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.minute);
+    strcat(session_record_details, session_record_time);
+
+    strcat(session_record_details, ":");
+
+    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.second);
+    strcat(session_record_details, session_record_time);
+    strcat(session_record_details, "\n");
+
+    char session_vital_header[100] = "ECG,PPG,RESP\n";
+
+    fs_file_t_init(&file);
+
+    rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", session_name, rc);
+    }
+
+    rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    rc = fs_write(&file, session_vital_header, strlen(session_vital_header));
+
+
+    rc = fs_close(&file);
+    rc = fs_sync(&file);
+
+    printf("Header written to file... %d\n", healthypi_session_log_header_data.session_id);
+}
+
+void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
+{
+    //printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
+    uint8_t second, minute, hour, day, month, year;
+    year = m_year;
+    month = m_month;
+    day = m_day;
+    hour = m_hour;
+    minute = m_min;
+    second = m_sec;
+
+    // update structure with new log start time
+    healthypi_session_log_header_data.session_start_time.year = year;
+    healthypi_session_log_header_data.session_start_time.month = month;
+    healthypi_session_log_header_data.session_start_time.day = day;
+    healthypi_session_log_header_data.session_start_time.hour = hour;
+    healthypi_session_log_header_data.session_start_time.minute = minute;
+    healthypi_session_log_header_data.session_start_time.second = second;
+
+    uint8_t rand[2];
+    sys_rand_get(rand, sizeof(rand));
+    healthypi_session_log_header_data.session_id = (rand[0] | (rand[1] << 8));
+    healthypi_session_log_header_data.session_size = 0;
+
+    printk("Header data for log file %d set\n", healthypi_session_log_header_data.session_id);
+}
+
+void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
+{
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+
+    char session_name[50] = "/SD:/";
+    char session_id_str[20];
+    char sensor_data[50];
+
+    printf("Write to file... %d\n", healthypi_session_log_header_data.session_id);
+    
+    sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
+    strcat(session_name, session_id_str);
+    strcat(session_name, '.csv');
+
+    int rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", session_name, rc);
+    }
+
+    for (int i = 0; i < ecg_ppg_counter; i++)
+    {
+        sprintf(sensor_data,"%d %d",current_session_log_points[i].ecg_sample,current_session_log_points[i].raw_ir);
+        rc = fs_write(&file, sensor_data, strlen(sensor_data));
+    }
+
+
+    rc = fs_close(&file);
+    rc = fs_sync(&file);
+
+    printk("Log buffer data written to log file %d\n",healthypi_session_log_header_data.session_id);
+}
+
+
+
 #ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
 
 static int mount_sd_fs()
@@ -151,11 +289,6 @@ static int mount_sd_fs()
     int rc;
     struct fs_statvfs sbuf;
     struct fs_dir_t dir;
-
-    static FATFS fat_fs;
-    sd_fs_mnt.type = FS_FATFS;
-    sd_fs_mnt.fs_data = &fat_fs;
-    sd_fs_mnt.mnt_point = "/SD:";
 
     rc = fs_mount(&sd_fs_mnt);
     k_sleep(K_MSEC(50));
@@ -228,3 +361,5 @@ void fs_module_init(void)
     mount_sd_fs();
 #endif
 }
+
+

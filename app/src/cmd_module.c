@@ -5,7 +5,6 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
-#include <zephyr/random/random.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,7 +15,6 @@
 #include "ble_module.h"
 #include "data_module.h"
 #include "hw_module.h"
-#include "cmd_module.h"
 #include "sampling_module.h"
 
 // #include "tdcs3.h"
@@ -34,7 +32,6 @@ K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 16, 1);
 
 // static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
-struct healthypi_session_log_header_t healthypi_session_log_header;
 
 int cmd_pkt_len;
 int cmd_pkt_pos_counter, cmd_pkt_data_counter;
@@ -44,12 +41,14 @@ volatile bool cmd_module_ble_connected = false;
 
 extern struct k_msgq q_sample;
 extern int global_dev_status;
-extern struct fs_mount_t *mp;
+extern struct fs_mount_t *mp_sd;
 bool settings_log_data_enabled = false;
 int current_log_counter;
 
 int8_t data_pkt[272];
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
+
+//struct healthypi_session_log_header_t healthypi_session_log_header;
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -131,34 +130,6 @@ void update_session_size_in_header(uint16_t file_size, char *m_file_path)
     printk("second %d\n",s_header.session_start_time.second);*/
 }
 
-void write_header_to_new_file()
-{
-    struct fs_file_t file;
-    struct fs_statvfs sbuf;
-    struct hpi_sensor_data_t sensor_sample;
-
-    int rc = fs_mkdir("/lfs/log");
-
-    char fname[50] = "/lfs/log/";
-
-    char session_id_str[20];
-    sprintf(session_id_str, "%d", healthypi_session_log_header.session_id);
-    strcat(fname, session_id_str);
-
-    fs_file_t_init(&file);
-
-    rc = fs_open(&file, fname, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_write(&file, &healthypi_session_log_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printf("Header written to file... %d\n", healthypi_session_log_header.session_id);
-}
 
 struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
 {
@@ -407,35 +378,6 @@ void fetch_file_data(uint16_t session_id)
     transfer_send_file(session_id);
 }
 
-void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
-{
-
-    printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
-    // store new log start time temporily
-    uint8_t second, minute, hour, day, month, year;
-    year = m_year;
-    month = m_month;
-    day = m_day;
-    hour = m_hour;
-    minute = m_min;
-    second = m_sec;
-
-    // update structure with new log start time
-    healthypi_session_log_header.session_start_time.year = year;
-    healthypi_session_log_header.session_start_time.month = month;
-    healthypi_session_log_header.session_start_time.day = day;
-    healthypi_session_log_header.session_start_time.hour = hour;
-    healthypi_session_log_header.session_start_time.minute = minute;
-    healthypi_session_log_header.session_start_time.second = second;
-
-    uint8_t rand[2];
-    sys_rand_get(rand, sizeof(rand));
-    healthypi_session_log_header.session_id = (rand[0] | (rand[1] << 8));
-    healthypi_session_log_header.session_size = 0;
-
-    printk("Header data for log file %d set\n", healthypi_session_log_header.session_id);
-}
-
 void ces_parse_packet(char rxch)
 {
     // printk("%0x\n", rxch);
@@ -586,12 +528,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         fetch_file_data(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
-    case CMD_LOGGING_END:
-        printk("Command to end logging\n");
-        settings_log_data_enabled = false;
-        // record_init_next_session_log();
-        break;
-
     case CMD_LOG_WIPE_ALL:
         printk("Command to delete all files\n");
         delete_all_log_files();
@@ -602,14 +538,23 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         delete_log_file(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
+    case CMD_LOGGING_END:
+        printk("Command to end logging\n");
+        settings_log_data_enabled = false;
+        // record_init_next_session_log();
+        break;
+
     case CMD_LOGGING_START:
+        //bool header_set_flag = false;
         printk("Command to start logging\n");
 
         set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+        
+        //if (header_set_flag)
+        //{
+        struct fs_statvfs sbuf;
+        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
 
-        /*struct fs_statvfs sbuf;
-
-        rc = fs_statvfs(mp->mnt_point, &sbuf);
         if (rc < 0)
         {
             printk("FAILED to return stats");
@@ -617,7 +562,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
         printk("free: %lu, available : %f\n",sbuf.f_bfree,(0.25 * sbuf.f_blocks));
 
-        //if memory available is greater than 25%
         if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
         {
             settings_log_data_enabled = true;
@@ -629,7 +573,12 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             //if memory available is less than 25%
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }*/
+        }
+
+
+        //} 
+        
+
         break;
 
     default:
