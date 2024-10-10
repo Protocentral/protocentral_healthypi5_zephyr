@@ -150,7 +150,8 @@ void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t 
     {
         //printk("ecg_sample %d",current_session_log_points[i].ecg_sample);
         //printk("raw_ir %d\n",current_session_log_points[i].raw_ir);
-        sprintf(sensor_data,"%d, %d\n",current_session_log_points[i].ecg_sample,current_session_log_points[i].raw_ir);
+        //sprintf(sensor_data,"%d, %d\n",current_session_log_points[i].ecg_sample,current_session_log_points[i].raw_ir);
+        sprintf(sensor_data,"%d\n",current_session_log_points[i].ecg_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
     }
 

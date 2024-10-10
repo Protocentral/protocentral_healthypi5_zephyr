@@ -299,7 +299,7 @@ void record_session_add_point(int32_t ecg_samples[8], int32_t raw_ir[8])
         for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
         {
             log_buffer[current_session_ecg_ppg_counter].ecg_sample = ecg_samples[i];
-            log_buffer[current_session_ecg_ppg_counter].raw_ir = raw_ir[i];
+            //log_buffer[current_session_ecg_ppg_counter].raw_ir = raw_ir[i];
             current_session_ecg_ppg_counter++;
         }
     }
@@ -327,7 +327,7 @@ void record_session_add_point(int32_t ecg_samples[8], int32_t raw_ir[8])
             for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
             {
                 log_buffer[current_session_ecg_ppg_counter].ecg_sample = ecg_samples[i];
-                log_buffer[current_session_ecg_ppg_counter].raw_ir = raw_ir[i];
+                //log_buffer[current_session_ecg_ppg_counter].raw_ir = raw_ir[i];
                 current_session_ecg_ppg_counter++;
             }
         }
