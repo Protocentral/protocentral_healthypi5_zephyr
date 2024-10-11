@@ -100,7 +100,7 @@ struct healthypi_session_log_header_t
 };
 
 struct hpi_sensor_logging_data_t {
-    int16_t ecg_sample;
+    int32_t log_ecg_sample;
     //int16_t raw_ir;
 };
 

@@ -124,21 +124,21 @@ void record_wipe_all(void)
 
 void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
 {
-    printf("Write to file... %d\n", healthypi_session_log_header_data.session_id);
+    //printf("Write to file... %d\n", healthypi_session_log_header_data.session_id);
 
     struct fs_file_t file;
     fs_file_t_init(&file);
 
     char session_name[50] = "/SD:/";
     char session_id_str[20];
-    char sensor_data[50];
+    char sensor_data[32];
 
     
     sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
     strcat(session_name, session_id_str);
     strcat(session_name, ".csv");
 
-    printk("session_name %s\n",session_name);
+    //printk("session_name %s\n",session_name);
 
     int rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
     if (rc < 0)
@@ -148,16 +148,13 @@ void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t 
 
     for (int i = 0; i < ecg_ppg_counter; i++)
     {
-        //printk("ecg_sample %d",current_session_log_points[i].ecg_sample);
-        //printk("raw_ir %d\n",current_session_log_points[i].raw_ir);
-        //sprintf(sensor_data,"%d, %d\n",current_session_log_points[i].ecg_sample,current_session_log_points[i].raw_ir);
-        sprintf(sensor_data,"%d\n",current_session_log_points[i].ecg_sample);
+        snprintf(sensor_data, sizeof(sensor_data), "%d\n", current_session_log_points[i].log_ecg_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
     }
 
 
     rc = fs_close(&file);
-    rc = fs_sync(&file);
+    //rc = fs_sync(&file);
 
-    printk("Log buffer data written to log file %d\n",healthypi_session_log_header_data.session_id);
+    //printk("Log buffer data written to log file %d\n",healthypi_session_log_header_data.session_id);
 }
