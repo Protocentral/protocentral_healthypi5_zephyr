@@ -272,7 +272,7 @@ uint16_t log_get_count(void)
 
     fs_dir_t_init(&dirp);
 
-    const char *path = "/lfs/log";
+    const char *path = "/SD:";
 
     /* Verify fs_opendir() */
     res = fs_opendir(&dirp, path);
@@ -607,7 +607,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
-        // fs_mkdir("/lfs/log");
         log_get_count();
         break;
 
@@ -643,8 +642,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
         set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
         
-        //if (header_set_flag)
-        //{
         struct fs_statvfs sbuf;
         int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
 
@@ -666,11 +663,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             //if memory available is less than 25%
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }
-
-
-        //} 
-        
+        }        
 
         break;
 
