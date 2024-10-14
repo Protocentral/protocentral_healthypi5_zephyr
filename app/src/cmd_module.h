@@ -14,9 +14,9 @@
 #define CMD_LOGGING_START 0x55 //tested
 #define CMD_LOG_GET_COUNT 0x54  //tested
 #define CMD_FETCH_LOG_FILE_DATA 0x51 //
-#define CMD_LOG_FILE_HEADER 0x50
-#define CMG_LOG_FILE_DELETE 0x52 //tested
-#define CMD_LOG_WIPE_ALL 0x53 //tested
+#define CMD_LOG_SESSION_HEADERS 0x50
+#define CMG_SESSION_DELETE 0x52 //tested
+#define CMD_SESSION_WIPE_ALL 0x53 //tested
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
@@ -91,7 +91,7 @@ struct healthypi_time_t
     uint8_t second;
 };
 
-struct healthypi_session_log_header_t
+struct healthypi_session_header_t
 {
     uint16_t session_id;
     uint16_t session_size;

@@ -20,7 +20,7 @@ LOG_MODULE_REGISTER(record_module);
 extern struct fs_mount_t *mp;
 
 #define FILE_TRANSFER_BLE_PACKET_SIZE    	64 // (16*7)
-extern struct healthypi_session_log_header_t healthypi_session_log_header_data;
+extern struct healthypi_session_header_t healthypi_session_header_data;
 
 static int lsdir(const char *path)
 {
@@ -75,7 +75,7 @@ static int lsdir(const char *path)
 
 
 
-void record_wipe_all(void)
+/*void record_wipe_all(void)
 {
     int err;
     struct fs_dir_t dir;
@@ -101,17 +101,11 @@ void record_wipe_all(void)
             break;
         }
 
-        /* Check for end of directory listing */
+        // Check for end of directory listing 
         if (entry.name[0] == '\0')
         {
             break;
         }
-
-        // printk("%s%s %d\n", entry.name,
-        //	      (entry.type == FS_DIR_ENTRY_DIR) ? "/" : "",entry.size);
-
-        // if (strstr(entry.name, "") != NULL)
-        //{
         strcpy(file_name, "/lfs/log/");
         strcat(file_name, entry.name);
 
@@ -120,11 +114,11 @@ void record_wipe_all(void)
     }
 
     fs_closedir(&dir);
-}
+}*/
 
-void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
+void write_sensor_data_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
 {
-    //printf("Write to file... %d\n", healthypi_session_log_header_data.session_id);
+    //printf("Write to file... %d\n", healthypi_session_header_data.session_id);
 
     struct fs_file_t file;
     fs_file_t_init(&file);
@@ -134,7 +128,7 @@ void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t 
     char sensor_data[32];
 
     
-    sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
+    sprintf(session_id_str, "%d", healthypi_session_header_data.session_id);
     strcat(session_name, session_id_str);
     strcat(session_name, ".csv");
 
@@ -156,5 +150,5 @@ void record_write_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t 
     rc = fs_close(&file);
     //rc = fs_sync(&file);
 
-    //printk("Log buffer data written to log file %d\n",healthypi_session_log_header_data.session_id);
+    //printk("Log buffer data written to log file %d\n",healthypi_session_header_data.session_id);
 }

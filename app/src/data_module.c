@@ -78,13 +78,13 @@ static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
 extern struct fs_mount_t *mp_sd;
-extern struct healthypi_session_log_header_t healthypi_session_log_header_data;
+extern struct healthypi_session_header_t healthypi_session_header_data;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
-uint16_t current_session_ecg_ppg_counter = 0;
+uint16_t current_session_ecg_counter = 0;
 uint16_t current_session_bioz_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
@@ -251,14 +251,14 @@ void send_data_text_1(int32_t in_sample)
 
 
 // Start a new session log
-void record_init_next_session_log(bool write_to_file)
+void flush_current_session_logs(bool write_to_file)
 {
     // if data is pending in the log Buffer
 
-    if ((current_session_ecg_ppg_counter > 0) && (write_to_file))
+    if ((current_session_ecg_counter > 0) && (write_to_file))
     {
-        printk("Log Buffer pending at %d \n", k_uptime_get_32());
-        record_write_to_file(current_session_ecg_ppg_counter, log_buffer);
+        //printk("Log Buffer pending at %d \n", k_uptime_get_32());
+        write_sensor_data_to_file(current_session_ecg_counter, log_buffer);
     }
 
     //current_session_log_id = 0;
@@ -267,30 +267,30 @@ void record_init_next_session_log(bool write_to_file)
         log_buffer[i].log_ecg_sample = 0;
     }
 
-    current_session_ecg_ppg_counter = 0;
-    healthypi_session_log_header_data.session_id = 0;
-    healthypi_session_log_header_data.session_start_time.day = 0;
-    healthypi_session_log_header_data.session_start_time.hour = 0;
-    healthypi_session_log_header_data.session_start_time.minute = 0;
-    healthypi_session_log_header_data.session_start_time.month = 0;
-    healthypi_session_log_header_data.session_start_time.second = 0;
-    healthypi_session_log_header_data.session_start_time.year = 0;
+    current_session_ecg_counter = 0;
+    healthypi_session_header_data.session_id = 0;
+    healthypi_session_header_data.session_start_time.day = 0;
+    healthypi_session_header_data.session_start_time.hour = 0;
+    healthypi_session_header_data.session_start_time.minute = 0;
+    healthypi_session_header_data.session_start_time.month = 0;
+    healthypi_session_header_data.session_start_time.second = 0;
+    healthypi_session_header_data.session_start_time.year = 0;
 
-    healthypi_session_log_header_data.session_id = 0;
-    healthypi_session_log_header_data.session_size = 0;
+    healthypi_session_header_data.session_id = 0;
+    healthypi_session_header_data.session_size = 0;
 }
 
 // Add a log point to the current session log
 void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
 {
-    if (current_session_ecg_ppg_counter < LOG_BUFFER_LENGTH)
+    if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
         for (int i = 0; i < ecg_len; i++)
         {
             
-            log_buffer[current_session_ecg_ppg_counter].log_ecg_sample = ecg_samples[i];
+            log_buffer[current_session_ecg_counter].log_ecg_sample = ecg_samples[i];
 
-            current_session_ecg_ppg_counter++;
+            current_session_ecg_counter++;
         }
     }
     else
@@ -312,13 +312,13 @@ void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
         }
         else
         {
-            record_write_to_file(current_session_ecg_ppg_counter, log_buffer);
-            current_session_ecg_ppg_counter = 0;
+            write_sensor_data_to_file(current_session_ecg_counter, log_buffer);
+            current_session_ecg_counter = 0;
             for (int i = 0; i < ecg_len; i++)
             {
 
-                log_buffer[current_session_ecg_ppg_counter].log_ecg_sample = ecg_samples[i];
-                current_session_ecg_ppg_counter++;
+                log_buffer[current_session_ecg_counter].log_ecg_sample = ecg_samples[i];
+                current_session_ecg_counter++;
             }
         }
     }

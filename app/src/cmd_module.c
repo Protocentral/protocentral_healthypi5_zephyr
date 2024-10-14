@@ -44,9 +44,8 @@ volatile bool cmd_module_ble_connected = false;
 extern struct k_msgq q_sample;
 extern int global_dev_status;
 extern struct fs_mount_t *mp_sd;
-struct healthypi_session_log_header_t healthypi_session_log_header_data;
+struct healthypi_session_header_t healthypi_session_header_data;
 bool settings_log_data_enabled = false;
-int current_log_counter;
 
 int8_t data_pkt[272];
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
@@ -64,46 +63,46 @@ K_FIFO_DEFINE(cmd_data_fifo);
 
 struct wiser_cmd_data_fifo_obj_t cmd_data_obj;
 
-void write_header_to_new_file()
+void write_header_to_new_session()
 {
     struct fs_file_t file;
     int rc;
     char session_name[50] = "/SD:/";
 
     char session_id_str[20];
-    sprintf(session_id_str, "%d", healthypi_session_log_header_data.session_id);
+    sprintf(session_id_str, "%d", healthypi_session_header_data.session_id);
     strcat(session_name, session_id_str);
     strcat(session_name, ".csv");
 
     char session_record_details[200] = "Session started at: ";
     char session_record_time[2];
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.day);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.day);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, "/");
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.month);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.month);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, "/");
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.year);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.year);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, " ");
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.hour);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.hour);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, ":");
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.minute);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.minute);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, ":");
 
-    sprintf(session_record_time, "%d", healthypi_session_log_header_data.session_start_time.second);
+    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.second);
     strcat(session_record_details, session_record_time);
     strcat(session_record_details, "\n");
 
@@ -124,11 +123,11 @@ void write_header_to_new_file()
     rc = fs_close(&file);
     rc = fs_sync(&file);
 
-    printf("Header written to file... %d\n", healthypi_session_log_header_data.session_id);
+    printf("Header written to file... %d\n", healthypi_session_header_data.session_id);
 }
 
 
-void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
+void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
     //printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
     uint8_t second, minute, hour, day, month, year;
@@ -139,116 +138,47 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     minute = m_min;
     second = m_sec;
 
-    record_init_next_session_log(true);
+    flush_current_session_logs(true);
 
-    // update structure with new log start time
-    healthypi_session_log_header_data.session_start_time.year = year;
-    healthypi_session_log_header_data.session_start_time.month = month;
-    healthypi_session_log_header_data.session_start_time.day = day;
-    healthypi_session_log_header_data.session_start_time.hour = hour;
-    healthypi_session_log_header_data.session_start_time.minute = minute;
-    healthypi_session_log_header_data.session_start_time.second = second;
+    // update structure with new session start time
+    healthypi_session_header_data.session_start_time.year = year;
+    healthypi_session_header_data.session_start_time.month = month;
+    healthypi_session_header_data.session_start_time.day = day;
+    healthypi_session_header_data.session_start_time.hour = hour;
+    healthypi_session_header_data.session_start_time.minute = minute;
+    healthypi_session_header_data.session_start_time.second = second;
 
     uint8_t rand[2];
     sys_rand_get(rand, sizeof(rand));
-    healthypi_session_log_header_data.session_id = (rand[0] | (rand[1] << 8));
-    healthypi_session_log_header_data.session_size = 0;
+    healthypi_session_header_data.session_id = (rand[0] | (rand[1] << 8));
+    healthypi_session_header_data.session_size = 0;
 
-    printk("Header data for log file %d set\n", healthypi_session_log_header_data.session_id);
+    printk("Header data for session %d set\n", healthypi_session_header_data.session_id);
 }
 
-
-void update_session_size_in_header(uint16_t file_size, char *m_file_path)
+char* get_session_header(uint16_t session_id)
 {
-    struct fs_file_t file;
+    printk("Getting header for session %u\n", session_id);
 
-    struct healthypi_session_log_header_t k_header;
+    struct healthypi_session_header_t m_header;
 
-    char fname[50] = "/lfs/log/";
-
-    printk("re writing to header");
-
-    fs_file_t_init(&file);
-
-    int rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-
-    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&k_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printk("old header\n");
-    k_header.session_size = file_size;
-
-    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-
-    rc = fs_write(&file, &k_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    rc = fs_sync(&file);
-    printk("Header updated with file size... %d\n", k_header.session_id);
-
-    struct healthypi_session_log_header_t s_header;
-
-    rc = fs_open(&file, m_file_path, FS_O_CREATE | FS_O_RDWR);
-    if (rc < 0)
-    {
-        printk("FAIL: open %s: %d", fname, rc);
-    }
-
-    rc = fs_seek(&file, 0, FS_SEEK_SET);
-
-    rc = fs_read(&file, (struct healthypi_session_log_header_t *)&s_header, sizeof(struct healthypi_session_log_header_t));
-
-    rc = fs_close(&file);
-
-    printk("new updated header\n");
-    /*printk("file size %d\n",s_header.session_size);
-    printk("file name %d\n",s_header.session_id);
-    printk("year %d\n",s_header.session_start_time.year);
-    printk("month %d\n",s_header.session_start_time.month);
-    printk("day %d\n",s_header.session_start_time.day);
-    printk("hour %d\n",s_header.session_start_time.hour);
-    printk("minute %d\n",s_header.session_start_time.minute);
-    printk("second %d\n",s_header.session_start_time.second);*/
-}
-
-
-struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
-{
-    printk("Getting header for file %u\n", file_id);
-
-    struct healthypi_session_log_header_t m_header;
-
-    // printk("Header size: %d\n", sizeof(struct healthypi_session_log_header_t));
-
-    char m_file_name[30];
-    snprintf(m_file_name, sizeof(m_file_name), "/lfs/log/%u", file_id);
+    char m_session_name[32];
+    snprintf(m_session_name, sizeof(m_session_name), "/SD:/%u.csv", session_id);
 
     struct fs_file_t m_file;
     fs_file_t_init(&m_file);
 
     int rc = 0;
-    rc = fs_open(&m_file, m_file_name, FS_O_READ);
+    rc = fs_open(&m_file, m_session_name, FS_O_READ);
 
     if (rc != 0)
     {
         printk("Error opening file %d\n", rc);
     }
 
-    rc = fs_read(&m_file, (struct healthypi_session_log_header_t *)&m_header, sizeof(struct healthypi_session_log_header_t));
+    char header_data[37];
+
+    rc = fs_read(&m_file, header_data, sizeof(header_data));
     if (rc < 0)
     {
         printk("Error reading file %d\n", rc);
@@ -260,17 +190,18 @@ struct healthypi_session_log_header_t log_get_file_header(uint16_t file_id)
         printk("Error closing file %d\n", rc);
         // return;
     }
+    printk("%s\n",header_data);
 
-    return m_header;
+    return header_data;
 }
 
-uint16_t log_get_count(void)
+uint16_t get_session_count(void)
 {
     int res;
     struct fs_dir_t dirp;
     static struct fs_dirent entry;
 
-    uint16_t log_count = 0;
+    uint16_t session_count = 0;
 
     fs_dir_t_init(&dirp);
 
@@ -301,32 +232,29 @@ uint16_t log_get_count(void)
 
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
-            log_count++;
+            session_count++;
         }
     }
 
     /* Verify fs_closedir() */
     fs_closedir(&dirp);
 
-    printk("Total log count: %d\n", log_count);
+    printk("Total session count: %d\n", session_count);
 
-    cmdif_send_file_count(log_count);
+    cmdif_send_session_count(session_count);
 
-    return log_count;
+    return session_count;
 }
 
-int log_get_all_file_header(void)
+int get_all_session_headers(void)
 {
     int res;
     struct fs_dir_t dirp;
     static struct fs_dirent entry;
-
-    uint16_t log_count = 0;
-    uint16_t buf_log_index = 0;
-
+    
     fs_dir_t_init(&dirp);
 
-    const char *path = "/lfs/log";
+    const char *path = "/SD:/";
 
     /* Verify fs_opendir() */
     res = fs_opendir(&dirp, path);
@@ -354,11 +282,41 @@ int log_get_all_file_header(void)
 
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
+
+            char session_header[80];
+            char *saveptr;
             uint16_t session_id = atoi(entry.name);
-            struct healthypi_session_log_header_t m_header = log_get_file_header(session_id);
-            memcpy(&buf_log, &m_header, sizeof(struct healthypi_session_log_header_t));
-            cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_log_header_t));
-            printk("Header of file id %d sent\n", session_id);
+            uint16_t session_size = entry.size;
+
+            //snprintf(session_header, sizeof(session_header), "%d %d %d %d %d %d %d %d", session_id,session_size,);
+            char session_data_time = get_session_header(session_id);
+
+            /*TODO 
+            strtok_r(session_data_time, " ", &saveptr);  // "Session"
+            strtok_r(NULL, " ", &saveptr); // "started"
+            strtok_r(NULL, " ", &saveptr); // "at:"
+            
+            // Get the date part (14/10/24)
+            char *day = strtok_r(NULL, "/", &saveptr);
+
+            printf("Date: %s\n", day);*/
+
+            struct healthypi_session_header_t testing;
+            testing.session_id = session_id;
+            testing.session_size = session_size;
+            testing.session_start_time.day = 14;
+            testing.session_start_time.hour = 11;
+            testing.session_start_time.minute = 13;
+            testing.session_start_time.month = 10;
+            testing.session_start_time.second = 6;
+            testing.session_start_time.year = 24;
+
+            printk("Session name %d session size %d\n",session_id,session_size);
+
+        
+            memcpy(&buf_log, &testing, sizeof(struct healthypi_session_header_t));
+            cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_header_t));
+            printk("Header of session id %d sent\n", session_id);
         }
     }
     fs_closedir(&dirp);
@@ -366,16 +324,16 @@ int log_get_all_file_header(void)
     return res;
 }
 
-uint32_t transfer_get_file_length(char *m_file_name)
+uint32_t get_actual_session_length(char *m_file_name)
 {
     int res;
     struct fs_dir_t dirp;
     static struct fs_dirent entry;
-    uint32_t file_len = 0;
+    uint32_t session_len = 0;
 
     fs_dir_t_init(&dirp);
 
-    const char *path = "/lfs/log";
+    const char *path = "/SD:/";
 
     res = fs_opendir(&dirp, path);
     if (res)
@@ -399,49 +357,48 @@ uint32_t transfer_get_file_length(char *m_file_name)
         if (strncmp(m_file_name, entry.name, sizeof(m_file_name)) == 0)
         {
             // printk(" file name %s : size %d\n",entry.name,entry.size);
-            file_len = entry.size;
+            session_len = entry.size;
         }
     }
     fs_closedir(&dirp);
-    return file_len;
+    return session_len-49;
 }
 
-void transfer_send_file(uint16_t file_id)
+void transfer_session_data(uint16_t session_id)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
-    uint8_t file_read_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
 
-    char m_file_name[30];
-    char m_file_path[30];
+    char m_session_name[30];
+    char m_session_path[30];
 
-    sprintf(m_file_name, "%d", file_id);
-    uint32_t file_len = transfer_get_file_length(m_file_name);
+    sprintf(m_session_name, "%d.csv", session_id);
+    uint32_t session_len = get_actual_session_length(m_session_name);
 
-    uint16_t number_writes = file_len / FILE_TRANSFER_BLE_PACKET_SIZE;
+    uint16_t number_writes = session_len / FILE_TRANSFER_BLE_PACKET_SIZE;
 
     uint32_t i = 0;
     struct fs_file_t m_file;
     int rc = 0;
 
-    if (file_len % FILE_TRANSFER_BLE_PACKET_SIZE != 0)
+    if (session_len % FILE_TRANSFER_BLE_PACKET_SIZE != 0)
     {
         number_writes++; // Last write will be smaller than 64 bytes
     }
 
-    printk("File name: %s Size:%d NW: %d \n", m_file_name, file_len, number_writes);
-    snprintf(m_file_path, sizeof(m_file_path), "/lfs/log/%d", file_id);
-
-    update_session_size_in_header(number_writes, m_file_path);
+    printk("session id: %s Size: %d NW: %d \n", m_session_name, session_len, number_writes);
+    snprintf(m_session_path, sizeof(m_session_path), "/SD:/%d.csv", session_id);
 
     fs_file_t_init(&m_file);
 
-    rc = fs_open(&m_file, m_file_path, FS_O_READ);
+    rc = fs_open(&m_file, m_session_path, FS_O_READ);
 
     if (rc != 0)
     {
         printk("Error opening file %d\n", rc);
         return;
     }
+
+    fs_seek(&m_file,49,FS_SEEK_SET);
 
     for (i = 0; i < number_writes; i++)
     {
@@ -452,7 +409,11 @@ void transfer_send_file(uint16_t file_id)
             return;
         }
 
-        cmdif_send_ble_file_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
+        /*for (int i=0;i<FILE_TRANSFER_BLE_PACKET_SIZE;i++)
+        {
+            printk("%d\n",m_buffer[i]);
+        }*/
+        cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
         k_sleep(K_MSEC(50));
         // printk("\n");
     }
@@ -464,13 +425,13 @@ void transfer_send_file(uint16_t file_id)
         return;
     }
 
-    printk("File sent\n");
+    printk("sess sent\n");
 }
 
-void fetch_file_data(uint16_t session_id)
+void fetch_session_data(uint16_t session_id)
 {
-    printk("Getting Log id %u data\n", session_id);
-    transfer_send_file(session_id);
+    printk("Getting session id %u data\n", session_id);
+    transfer_session_data(session_id);
 }
 
 void ces_parse_packet(char rxch)
@@ -531,58 +492,64 @@ void ces_parse_packet(char rxch)
     }
 }
 
-void delete_all_log_files(void)
+void delete_all_session_files(void)
 {
-    int err;
+    int res;
     struct fs_dir_t dir;
 
-    char file_name[100] = "";
+    char session_name[100] = "";
 
     fs_dir_t_init(&dir);
 
-    err = fs_opendir(&dir, "/lfs/log");
-    if (err)
+    res = fs_opendir(&dir, "/SD:/");
+    if (res)
     {
-        printk("Unable to open (err %d)", err);
+        printk("Unable to open (err %d)", res);
     }
 
     while (1)
     {
         struct fs_dirent entry;
 
-        err = fs_readdir(&dir, &entry);
-        if (err)
+        res = fs_readdir(&dir, &entry);
+        if (res)
         {
             printk("Unable to read directory");
             break;
         }
 
-        /* Check for end of directory listing */
-        if (entry.name[0] == '\0')
+        /* entry.name[0] == 0 means end-of-dir */
+        if (res || entry.name[0] == 0)
         {
+            if (res < 0)
+            {
+                printk("Error reading dir [%d]\n", res);
+            }
             break;
         }
 
-        strcpy(file_name, "/lfs/log/");
-        strcat(file_name, entry.name);
-
-        printk("Deleting %s\n", file_name);
-        fs_unlink(file_name);
+        if (entry.type != FS_DIR_ENTRY_DIR)
+        {
+            strcpy(session_name, "/SD:/");
+            strcat(session_name, entry.name);
+            printk("Deleting %s\n", session_name);
+            fs_unlink(session_name);
+        }   
     }
 
     fs_closedir(&dir);
 
-    printk("All files deleted\n");
+    printk("All sessions deleted\n");
 }
 
-void delete_log_file(uint16_t session_id)
+void delete_session_file(uint16_t session_id)
 {
-    char log_file_name[30];
+    char session_name[30];
 
-    snprintf(log_file_name, sizeof(log_file_name), "/lfs/log/%d", session_id);
+    snprintf(session_name, sizeof(session_name), "/SD:/%d.csv", session_id);
 
-    fs_unlink(log_file_name);
-    printk("File %d deleted %s\n", log_file_name);
+    fs_unlink(session_name);
+    printk("File %d deleted %s\n", session_name);
 }
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
@@ -609,27 +576,27 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
-        log_get_count();
+        get_session_count();
         break;
 
-    case CMD_LOG_FILE_HEADER:
-        printk("Sending log file headers\n");
-        log_get_all_file_header();
+    case CMD_LOG_SESSION_HEADERS:
+        printk("Sending all session headers\n");
+        get_all_session_headers();
         break;
 
     case CMD_FETCH_LOG_FILE_DATA:
         printk("Command to fetch file data\n");
-        fetch_file_data(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
+        fetch_session_data(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
-    case CMD_LOG_WIPE_ALL:
+    case CMD_SESSION_WIPE_ALL:
         printk("Command to delete all files\n");
-        delete_all_log_files();
+        delete_all_session_files();
         break;
 
-    case CMG_LOG_FILE_DELETE:
+    case CMG_SESSION_DELETE:
         printk("Command to delete file\n");
-        delete_log_file(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
+        delete_session_file(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
     case CMD_LOGGING_END:
@@ -641,7 +608,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         //bool header_set_flag = false;
         printk("Command to start logging\n");
 
-        set_current_session_log_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+        set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
         
         struct fs_statvfs sbuf;
         int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
@@ -657,7 +624,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         {
             settings_log_data_enabled = true;
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
-            write_header_to_new_file();
+            write_header_to_new_session();
 
         }
         else
@@ -699,7 +666,7 @@ void cmdif_send_memory_status(uint8_t m_cmd)
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_file_count(uint8_t m_cmd)
+void cmdif_send_session_count(uint8_t m_cmd)
 {
     // printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
@@ -712,7 +679,7 @@ void cmdif_send_file_count(uint8_t m_cmd)
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len)
+void cmdif_send_ble_session_data(int8_t *m_data, uint8_t m_data_len)
 {
     // printk("Sending BLE Data: %d\n", m_data_len);
 
