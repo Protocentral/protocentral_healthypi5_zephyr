@@ -139,6 +139,8 @@ void set_current_session_log_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, ui
     minute = m_min;
     second = m_sec;
 
+    record_init_next_session_log(true);
+
     // update structure with new log start time
     healthypi_session_log_header_data.session_start_time.year = year;
     healthypi_session_log_header_data.session_start_time.month = month;
@@ -633,7 +635,6 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     case CMD_LOGGING_END:
         printk("Command to end logging\n");
         settings_log_data_enabled = false;
-        // record_init_next_session_log();
         break;
 
     case CMD_LOGGING_START:

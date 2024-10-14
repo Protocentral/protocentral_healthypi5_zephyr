@@ -78,6 +78,7 @@ static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
 extern struct fs_mount_t *mp_sd;
+extern struct healthypi_session_log_header_t healthypi_session_log_header_data;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -248,47 +249,36 @@ void send_data_text_1(int32_t in_sample)
     send_usb_cdc(data, strlen(data));
 }
 
-/*
+
 // Start a new session log
 void record_init_next_session_log(bool write_to_file)
 {
     // if data is pending in the log Buffer
 
-    if ((current_session_log_counter > 0) && (write_to_file))
+    if ((current_session_ecg_ppg_counter > 0) && (write_to_file))
     {
         printk("Log Buffer pending at %d \n", k_uptime_get_32());
-        record_write_to_file(current_session_log_counter, log_buffer);
+        record_write_to_file(current_session_ecg_ppg_counter, log_buffer);
     }
 
-    current_session_log_id = 0;
+    //current_session_log_id = 0;
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
     {
-        // log_buffer[i].ecg_sample = 0;
-        // log_buffer[i].bioz_samples = 0;
-        // log_buffer[i] .raw_red = 0;
-        log_buffer[i].ecg_sample = 0;
-        log_buffer[i].bioz_sample = 0;
-        log_buffer[i].raw_ir = 0;
+        log_buffer[i].log_ecg_sample = 0;
     }
 
-    current_session_log_counter = 0;
-    healthypi_session_log_header.session_id = 0;
-    healthypi_session_log_header.session_start_time.day = 0;
-    healthypi_session_log_header.session_start_time.hour = 0;
-    healthypi_session_log_header.session_start_time.minute = 0;
-    healthypi_session_log_header.session_start_time.month = 0;
-    healthypi_session_log_header.session_start_time.second = 0;
-    healthypi_session_log_header.session_start_time.year = 0;
+    current_session_ecg_ppg_counter = 0;
+    healthypi_session_log_header_data.session_id = 0;
+    healthypi_session_log_header_data.session_start_time.day = 0;
+    healthypi_session_log_header_data.session_start_time.hour = 0;
+    healthypi_session_log_header_data.session_start_time.minute = 0;
+    healthypi_session_log_header_data.session_start_time.month = 0;
+    healthypi_session_log_header_data.session_start_time.second = 0;
+    healthypi_session_log_header_data.session_start_time.year = 0;
 
-    healthypi_session_log_header.session_id = 0;
-    healthypi_session_log_header.session_size = 0;
+    healthypi_session_log_header_data.session_id = 0;
+    healthypi_session_log_header_data.session_size = 0;
 }
-
-char *log_get_current_session_id_str(void)
-{
-    sprintf(session_id_str, "%d", current_session_log_id);
-    return session_id_str;
-}*/
 
 // Add a log point to the current session log
 void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
