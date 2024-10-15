@@ -156,13 +156,11 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     printk("Header data for session %d set\n", healthypi_session_header_data.session_id);
 }
 
-char* get_session_header(uint16_t session_id)
+void get_session_header(uint16_t session_id, struct healthypi_session_header_t *session_header_data)
 {
-    printk("Getting header for session %u\n", session_id);
-
     struct healthypi_session_header_t m_header;
 
-    char m_session_name[32];
+    char m_session_name[100];
     snprintf(m_session_name, sizeof(m_session_name), "/SD:/%u.csv", session_id);
 
     struct fs_file_t m_file;
@@ -176,9 +174,9 @@ char* get_session_header(uint16_t session_id)
         printk("Error opening file %d\n", rc);
     }
 
-    char header_data[37];
+    char header_data[36];
 
-    rc = fs_read(&m_file, header_data, sizeof(header_data));
+    rc = fs_read(&m_file, header_data, 36);
     if (rc < 0)
     {
         printk("Error reading file %d\n", rc);
@@ -190,9 +188,22 @@ char* get_session_header(uint16_t session_id)
         printk("Error closing file %d\n", rc);
         // return;
     }
-    printk("%s\n",header_data);
 
-    return header_data;
+    char *saveptr;
+    strtok_r(header_data, " ", &saveptr);  // "Session"
+    strtok_r(NULL, " ", &saveptr); // "started"
+    strtok_r(NULL, " ", &saveptr); // "at:"
+    
+    // Get the date part (14/10/24)
+    session_header_data->session_start_time.day = (uint8_t)atoi(strtok_r(NULL, "/", &saveptr));
+    session_header_data->session_start_time.month = (uint8_t)atoi(strtok_r(NULL, "/", &saveptr));
+    session_header_data->session_start_time.year = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));  // Space after year
+
+    // Get the time part (11:15:20)
+    session_header_data->session_start_time.hour = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
+    session_header_data->session_start_time.minute = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
+    session_header_data->session_start_time.second = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));
+    //return header_data;
 }
 
 uint16_t get_session_count(void)
@@ -284,37 +295,17 @@ int get_all_session_headers(void)
         {
 
             char session_header[80];
-            char *saveptr;
+            struct healthypi_session_header_t session_header_data;
             uint16_t session_id = atoi(entry.name);
             uint16_t session_size = entry.size;
-
-            //snprintf(session_header, sizeof(session_header), "%d %d %d %d %d %d %d %d", session_id,session_size,);
-            char session_data_time = get_session_header(session_id);
-
-            /*TODO 
-            strtok_r(session_data_time, " ", &saveptr);  // "Session"
-            strtok_r(NULL, " ", &saveptr); // "started"
-            strtok_r(NULL, " ", &saveptr); // "at:"
+            int day, month, year, hour, minute, second;
             
-            // Get the date part (14/10/24)
-            char *day = strtok_r(NULL, "/", &saveptr);
+            get_session_header(session_id, &session_header_data);
 
-            printf("Date: %s\n", day);*/
+            session_header_data.session_id = session_id;
+            session_header_data.session_size = session_size;
 
-            struct healthypi_session_header_t testing;
-            testing.session_id = session_id;
-            testing.session_size = session_size;
-            testing.session_start_time.day = 14;
-            testing.session_start_time.hour = 11;
-            testing.session_start_time.minute = 13;
-            testing.session_start_time.month = 10;
-            testing.session_start_time.second = 6;
-            testing.session_start_time.year = 24;
-
-            printk("Session name %d session size %d\n",session_id,session_size);
-
-        
-            memcpy(&buf_log, &testing, sizeof(struct healthypi_session_header_t));
+            memcpy(&buf_log, &session_header_data, sizeof(struct healthypi_session_header_t));
             cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_header_t));
             printk("Header of session id %d sent\n", session_id);
         }
@@ -364,7 +355,7 @@ uint32_t get_actual_session_length(char *m_file_name)
     return session_len-49;
 }
 
-void transfer_session_data(uint16_t session_id)
+void fetch_session_data(uint16_t session_id)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
 
@@ -426,12 +417,6 @@ void transfer_session_data(uint16_t session_id)
     }
 
     printk("sess sent\n");
-}
-
-void fetch_session_data(uint16_t session_id)
-{
-    printk("Getting session id %u data\n", session_id);
-    transfer_session_data(session_id);
 }
 
 void ces_parse_packet(char rxch)
