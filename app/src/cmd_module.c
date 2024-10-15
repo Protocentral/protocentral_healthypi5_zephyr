@@ -145,22 +145,22 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOG_GET_COUNT:
         printk("Comamnd to send log count\n");
-        get_session_count();
+        hpi_get_session_count();
         break;
 
     case CMD_LOG_SESSION_HEADERS:
         printk("Sending all session headers\n");
-        get_all_session_headers();
+        hpi_get_session_index();
         break;
 
     case CMD_FETCH_LOG_FILE_DATA:
         printk("Command to fetch file data\n");
-        fetch_session_data(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
+        hpi_session_fetch(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
         break;
 
     case CMD_SESSION_WIPE_ALL:
         printk("Command to delete all files\n");
-        delete_all_session_files();
+        hpi_datalog_delete_all();
         break;
 
     case CMG_SESSION_DELETE:

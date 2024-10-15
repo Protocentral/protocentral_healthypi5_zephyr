@@ -34,8 +34,17 @@ void write_header_to_new_session()
     strcat(session_name, session_id_str);
     strcat(session_name, ".csv");
 
-    char session_record_details[200] = "Session started at: ";
-    char session_record_time[2];
+    char session_record_details[200];
+
+    sprintf(session_record_details, "Session started at: %d/%d/%d %d:%d:%d\n",
+            healthypi_session_header_data.session_start_time.day,
+            healthypi_session_header_data.session_start_time.month,
+            healthypi_session_header_data.session_start_time.year,
+            healthypi_session_header_data.session_start_time.hour,
+            healthypi_session_header_data.session_start_time.minute,
+            healthypi_session_header_data.session_start_time.second);
+
+    /*char session_record_time[2];
 
     sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.day);
     strcat(session_record_details, session_record_time);
@@ -64,7 +73,7 @@ void write_header_to_new_session()
 
     sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.second);
     strcat(session_record_details, session_record_time);
-    strcat(session_record_details, "\n");
+    strcat(session_record_details, "\n");*/
 
     char session_vital_header[100] = "ECG,PPG,RESP\n";
 
@@ -79,7 +88,6 @@ void write_header_to_new_session()
     rc = fs_write(&file, session_record_details, strlen(session_record_details));
     rc = fs_write(&file, session_vital_header, strlen(session_vital_header));
 
-
     rc = fs_close(&file);
     rc = fs_sync(&file);
 
@@ -88,7 +96,7 @@ void write_header_to_new_session()
 
 void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
 {
-    //printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
+    // printk("m_sec %d m_min %d, m_hour %d m_day %d m_month %d m_year %d\n", m_sec, m_min, m_hour, m_day, m_month, m_year);
     uint8_t second, minute, hour, day, month, year;
     year = m_year;
     month = m_month;
@@ -149,23 +157,23 @@ void get_session_header(uint16_t session_id, struct healthypi_session_header_t *
     }
 
     char *saveptr;
-    strtok_r(header_data, " ", &saveptr);  // "Session"
-    strtok_r(NULL, " ", &saveptr); // "started"
-    strtok_r(NULL, " ", &saveptr); // "at:"
-    
+    strtok_r(header_data, " ", &saveptr); // "Session"
+    strtok_r(NULL, " ", &saveptr);        // "started"
+    strtok_r(NULL, " ", &saveptr);        // "at:"
+
     // Get the date part (14/10/24)
     session_header_data->session_start_time.day = (uint8_t)atoi(strtok_r(NULL, "/", &saveptr));
     session_header_data->session_start_time.month = (uint8_t)atoi(strtok_r(NULL, "/", &saveptr));
-    session_header_data->session_start_time.year = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));  // Space after year
+    session_header_data->session_start_time.year = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr)); // Space after year
 
     // Get the time part (11:15:20)
     session_header_data->session_start_time.hour = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
     session_header_data->session_start_time.minute = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
     session_header_data->session_start_time.second = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));
-    //return header_data;
+    // return header_data;
 }
 
-uint16_t get_session_count(void)
+uint16_t hpi_get_session_count(void)
 {
     int res;
     struct fs_dir_t dirp;
@@ -216,12 +224,12 @@ uint16_t get_session_count(void)
     return session_count;
 }
 
-int get_all_session_headers(void)
+int hpi_get_session_index(void)
 {
     int res;
     struct fs_dir_t dirp;
     static struct fs_dirent entry;
-    
+
     fs_dir_t_init(&dirp);
 
     const char *path = "/SD:/";
@@ -258,7 +266,7 @@ int get_all_session_headers(void)
             uint16_t session_id = atoi(entry.name);
             uint16_t session_size = entry.size;
             int day, month, year, hour, minute, second;
-            
+
             get_session_header(session_id, &session_header_data);
 
             session_header_data.session_id = session_id;
@@ -311,10 +319,10 @@ uint32_t get_actual_session_length(char *m_file_name)
         }
     }
     fs_closedir(&dirp);
-    return session_len-49;
+    return session_len - 49;
 }
 
-void fetch_session_data(uint16_t session_id)
+void hpi_session_fetch(uint16_t session_id)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
 
@@ -348,7 +356,7 @@ void fetch_session_data(uint16_t session_id)
         return;
     }
 
-    fs_seek(&m_file,49,FS_SEEK_SET);
+    fs_seek(&m_file, 49, FS_SEEK_SET);
 
     for (i = 0; i < number_writes; i++)
     {
@@ -378,7 +386,7 @@ void fetch_session_data(uint16_t session_id)
     printk("sess sent\n");
 }
 
-void delete_all_session_files(void)
+void hpi_datalog_delete_all(void)
 {
     int res;
     struct fs_dir_t dir;
@@ -420,7 +428,7 @@ void delete_all_session_files(void)
             strcat(session_name, entry.name);
             printk("Deleting %s\n", session_name);
             fs_unlink(session_name);
-        }   
+        }
     }
 
     fs_closedir(&dir);
@@ -440,27 +448,27 @@ void hpi_datalog_delete_session(uint16_t session_id)
 
 void hpi_datalog_start_session(void)
 {
-     //set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+    // set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
 
-        struct fs_statvfs sbuf;
-        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
+    struct fs_statvfs sbuf;
+    int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
 
-        if (rc < 0)
-        {
-            printk("FAILED to return stats");
-        }
+    if (rc < 0)
+    {
+        printk("FAILED to return stats");
+    }
 
-        printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
+    printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
 
-        if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
-        {
-            //settings_log_data_enabled = true;
-            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
-            write_header_to_new_session();
-        }
-        else
-        {
-            // if memory available is less than 25%
-            cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
-        }
+    if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
+    {
+        // settings_log_data_enabled = true;
+        cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
+        write_header_to_new_session();
+    }
+    else
+    {
+        // if memory available is less than 25%
+        cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
+    }
 }
