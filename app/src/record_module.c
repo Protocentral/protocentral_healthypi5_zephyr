@@ -71,51 +71,6 @@ static int lsdir(const char *path)
     return res;
 }
 
-
-
-
-
-/*void record_wipe_all(void)
-{
-    int err;
-    struct fs_dir_t dir;
-
-    char file_name[100] = "";
-
-    fs_dir_t_init(&dir);
-
-    err = fs_opendir(&dir, "/lfs/log");
-    if (err)
-    {
-        printk("Unable to open (err %d)", err);
-    }
-
-    while (1)
-    {
-        struct fs_dirent entry;
-
-        err = fs_readdir(&dir, &entry);
-        if (err)
-        {
-            printk("Unable to read directory");
-            break;
-        }
-
-        // Check for end of directory listing 
-        if (entry.name[0] == '\0')
-        {
-            break;
-        }
-        strcpy(file_name, "/lfs/log/");
-        strcat(file_name, entry.name);
-
-        printk("Deleting %s\n", file_name);
-        fs_unlink(file_name);
-    }
-
-    fs_closedir(&dir);
-}*/
-
 void write_sensor_data_to_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
 {
     //printf("Write to file... %d\n", healthypi_session_header_data.session_id);

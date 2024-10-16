@@ -352,7 +352,7 @@ uint32_t get_actual_session_length(char *m_file_name)
         }
     }
     fs_closedir(&dirp);
-    return session_len-49;
+    return session_len-51;
 }
 
 void fetch_session_data(uint16_t session_id)
@@ -362,14 +362,13 @@ void fetch_session_data(uint16_t session_id)
     char m_session_name[30];
     char m_session_path[30];
 
+    struct fs_file_t m_file;
+
     sprintf(m_session_name, "%d.csv", session_id);
     uint32_t session_len = get_actual_session_length(m_session_name);
-
+    
     uint16_t number_writes = session_len / FILE_TRANSFER_BLE_PACKET_SIZE;
 
-    uint32_t i = 0;
-    struct fs_file_t m_file;
-    int rc = 0;
 
     if (session_len % FILE_TRANSFER_BLE_PACKET_SIZE != 0)
     {
@@ -379,9 +378,11 @@ void fetch_session_data(uint16_t session_id)
     printk("session id: %s Size: %d NW: %d \n", m_session_name, session_len, number_writes);
     snprintf(m_session_path, sizeof(m_session_path), "/SD:/%d.csv", session_id);
 
+    char line[256];
+
     fs_file_t_init(&m_file);
 
-    rc = fs_open(&m_file, m_session_path, FS_O_READ);
+    int rc = fs_open(&m_file, m_session_path, FS_O_READ);
 
     if (rc != 0)
     {
@@ -389,9 +390,9 @@ void fetch_session_data(uint16_t session_id)
         return;
     }
 
-    fs_seek(&m_file,49,FS_SEEK_SET);
+    fs_seek(&m_file,51,FS_SEEK_SET);
 
-    for (i = 0; i < number_writes; i++)
+    for (uint32_t i = 0; i < number_writes; i++)
     {
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
         if (rc < 0)
@@ -400,10 +401,6 @@ void fetch_session_data(uint16_t session_id)
             return;
         }
 
-        /*for (int i=0;i<FILE_TRANSFER_BLE_PACKET_SIZE;i++)
-        {
-            printk("%d\n",m_buffer[i]);
-        }*/
         cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
         k_sleep(K_MSEC(50));
         // printk("\n");
@@ -587,6 +584,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     case CMD_LOGGING_END:
         printk("Command to end logging\n");
         settings_log_data_enabled = false;
+        flush_current_session_logs(true);
         break;
 
     case CMD_LOGGING_START:
@@ -615,6 +613,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         else
         {
             //if memory available is less than 25%
+            settings_log_data_enabled = false;
             cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
         }        
 
