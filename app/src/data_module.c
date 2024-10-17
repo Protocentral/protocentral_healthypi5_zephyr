@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 
 #include "spo2_process.h"
 #include "resp_process.h"
+#include "datalog_module.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -78,7 +79,7 @@ static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
 extern struct fs_mount_t *mp_sd;
-extern struct healthypi_session_header_t healthypi_session_header_data;
+extern struct hpi_log_session_header_t hpi_log_session_header;
 static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -258,7 +259,7 @@ void flush_current_session_logs(bool write_to_file)
     if ((current_session_ecg_counter > 0) && (write_to_file))
     {
         //printk("Log Buffer pending at %d \n", k_uptime_get_32());
-        write_sensor_data_to_file(current_session_ecg_counter, log_buffer);
+        hpi_log_session_write_file(current_session_ecg_counter, log_buffer);
     }
 
     //current_session_log_id = 0;
@@ -268,16 +269,16 @@ void flush_current_session_logs(bool write_to_file)
     }
 
     current_session_ecg_counter = 0;
-    healthypi_session_header_data.session_id = 0;
-    healthypi_session_header_data.session_start_time.day = 0;
-    healthypi_session_header_data.session_start_time.hour = 0;
-    healthypi_session_header_data.session_start_time.minute = 0;
-    healthypi_session_header_data.session_start_time.month = 0;
-    healthypi_session_header_data.session_start_time.second = 0;
-    healthypi_session_header_data.session_start_time.year = 0;
+    hpi_log_session_header.session_id = 0;
+    hpi_log_session_header.session_start_time.day = 0;
+    hpi_log_session_header.session_start_time.hour = 0;
+    hpi_log_session_header.session_start_time.minute = 0;
+    hpi_log_session_header.session_start_time.month = 0;
+    hpi_log_session_header.session_start_time.second = 0;
+    hpi_log_session_header.session_start_time.year = 0;
 
-    healthypi_session_header_data.session_id = 0;
-    healthypi_session_header_data.session_size = 0;
+    hpi_log_session_header.session_id = 0;
+    hpi_log_session_header.session_size = 0;
 }
 
 // Add a log point to the current session log
@@ -312,7 +313,7 @@ void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
         }
         else
         {
-            write_sensor_data_to_file(current_session_ecg_counter, log_buffer);
+            hpi_log_session_write_file(current_session_ecg_counter, log_buffer);
             current_session_ecg_counter = 0;
             for (int i = 0; i < ecg_len; i++)
             {

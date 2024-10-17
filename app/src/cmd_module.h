@@ -91,13 +91,7 @@ struct healthypi_time_t
     uint8_t second;
 };
 
-struct healthypi_session_header_t
-{
-    uint16_t session_id;
-    uint16_t session_size;
-    struct healthypi_time_t session_start_time;
 
-};
 
 struct hpi_sensor_logging_data_t {
     int32_t log_ecg_sample;

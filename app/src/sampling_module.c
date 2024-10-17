@@ -7,7 +7,6 @@
 #include "afe4400.h"
 
 #include "sampling_module.h"
-#include "sys_sm_module.h"
 
 // #include "display_screens.h"
 LOG_MODULE_REGISTER(sampling_module, CONFIG_SENSOR_LOG_LEVEL);

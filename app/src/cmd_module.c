@@ -12,7 +12,6 @@
 #include "fs_module.h"
 #include "cmd_module.h"
 
-#include "record_module.h"
 #include "ble_module.h"
 #include "data_module.h"
 #include "hw_module.h"

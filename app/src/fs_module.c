@@ -10,7 +10,6 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/settings/settings.h>
 
-#include "sys_sm_module.h"
 #include "sampling_module.h"
 #include "fs_module.h"
 #include "cmd_module.h"

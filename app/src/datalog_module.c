@@ -12,16 +12,17 @@
 #include "fs_module.h"
 #include "cmd_module.h"
 
-#include "record_module.h"
 #include "ble_module.h"
 #include "data_module.h"
 #include "hw_module.h"
 #include "sampling_module.h"
 
+#include "datalog_module.h"
+
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
 extern struct fs_mount_t *mp_sd;
-struct healthypi_session_header_t healthypi_session_header_data;
+struct hpi_log_session_header_t hpi_log_session_header;
 
 void write_header_to_new_session()
 {
@@ -30,48 +31,48 @@ void write_header_to_new_session()
     char session_name[50] = "/SD:/";
 
     char session_id_str[20];
-    sprintf(session_id_str, "%d", healthypi_session_header_data.session_id);
+    sprintf(session_id_str, "%d", hpi_log_session_header.session_id);
     strcat(session_name, session_id_str);
     strcat(session_name, ".csv");
 
     char session_record_details[200];
 
     sprintf(session_record_details, "Session started at: %d/%d/%d %d:%d:%d\n",
-            healthypi_session_header_data.session_start_time.day,
-            healthypi_session_header_data.session_start_time.month,
-            healthypi_session_header_data.session_start_time.year,
-            healthypi_session_header_data.session_start_time.hour,
-            healthypi_session_header_data.session_start_time.minute,
-            healthypi_session_header_data.session_start_time.second);
+            hpi_log_session_header.session_start_time.day,
+            hpi_log_session_header.session_start_time.month,
+            hpi_log_session_header.session_start_time.year,
+            hpi_log_session_header.session_start_time.hour,
+            hpi_log_session_header.session_start_time.minute,
+            hpi_log_session_header.session_start_time.second);
 
     /*char session_record_time[2];
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.day);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.day);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, "/");
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.month);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.month);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, "/");
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.year);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.year);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, " ");
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.hour);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.hour);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, ":");
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.minute);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.minute);
     strcat(session_record_details, session_record_time);
 
     strcat(session_record_details, ":");
 
-    sprintf(session_record_time, "%d", healthypi_session_header_data.session_start_time.second);
+    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.second);
     strcat(session_record_details, session_record_time);
     strcat(session_record_details, "\n");*/
 
@@ -91,7 +92,7 @@ void write_header_to_new_session()
     rc = fs_close(&file);
     rc = fs_sync(&file);
 
-    printf("Header written to file... %d\n", healthypi_session_header_data.session_id);
+    printf("Header written to file... %d\n", hpi_log_session_header.session_id);
 }
 
 void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
@@ -108,24 +109,24 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     flush_current_session_logs(true);
 
     // update structure with new session start time
-    healthypi_session_header_data.session_start_time.year = year;
-    healthypi_session_header_data.session_start_time.month = month;
-    healthypi_session_header_data.session_start_time.day = day;
-    healthypi_session_header_data.session_start_time.hour = hour;
-    healthypi_session_header_data.session_start_time.minute = minute;
-    healthypi_session_header_data.session_start_time.second = second;
+    hpi_log_session_header.session_start_time.year = year;
+    hpi_log_session_header.session_start_time.month = month;
+    hpi_log_session_header.session_start_time.day = day;
+    hpi_log_session_header.session_start_time.hour = hour;
+    hpi_log_session_header.session_start_time.minute = minute;
+    hpi_log_session_header.session_start_time.second = second;
 
     uint8_t rand[2];
     sys_rand_get(rand, sizeof(rand));
-    healthypi_session_header_data.session_id = (rand[0] | (rand[1] << 8));
-    healthypi_session_header_data.session_size = 0;
+    hpi_log_session_header.session_id = (rand[0] | (rand[1] << 8));
+    hpi_log_session_header.session_size = 0;
 
-    printk("Header data for session %d set\n", healthypi_session_header_data.session_id);
+    printk("Header data for session %d set\n", hpi_log_session_header.session_id);
 }
 
-void get_session_header(uint16_t session_id, struct healthypi_session_header_t *session_header_data)
+void get_session_header(uint16_t session_id, struct hpi_log_session_header_t *session_header_data)
 {
-    struct healthypi_session_header_t m_header;
+    struct hpi_log_session_header_t m_header;
 
     char m_session_name[100];
     snprintf(m_session_name, sizeof(m_session_name), "/SD:/%u.csv", session_id);
@@ -262,7 +263,7 @@ int hpi_get_session_index(void)
         {
 
             char session_header[80];
-            struct healthypi_session_header_t session_header_data;
+            struct hpi_log_session_header_t session_header_data;
             uint16_t session_id = atoi(entry.name);
             uint16_t session_size = entry.size;
             int day, month, year, hour, minute, second;
@@ -272,8 +273,8 @@ int hpi_get_session_index(void)
             session_header_data.session_id = session_id;
             session_header_data.session_size = session_size;
 
-            memcpy(&buf_log, &session_header_data, sizeof(struct healthypi_session_header_t));
-            cmdif_send_ble_data_idx(buf_log, sizeof(struct healthypi_session_header_t));
+            memcpy(&buf_log, &session_header_data, sizeof(struct hpi_log_session_header_t));
+            cmdif_send_ble_data_idx(buf_log, sizeof(struct hpi_log_session_header_t));
             printk("Header of session id %d sent\n", session_id);
         }
     }
@@ -282,7 +283,7 @@ int hpi_get_session_index(void)
     return res;
 }
 
-uint32_t get_actual_session_length(char *m_file_name)
+uint32_t hpi_log_session_get_length(char *m_file_name)
 {
     int res;
     struct fs_dir_t dirp;
@@ -330,7 +331,7 @@ void hpi_session_fetch(uint16_t session_id)
     char m_session_path[30];
 
     sprintf(m_session_name, "%d.csv", session_id);
-    uint32_t session_len = get_actual_session_length(m_session_name);
+    uint32_t session_len = hpi_log_session_get_length(m_session_name);
 
     uint16_t number_writes = session_len / FILE_TRANSFER_BLE_PACKET_SIZE;
 
@@ -471,4 +472,41 @@ void hpi_datalog_start_session(void)
         // if memory available is less than 25%
         cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
     }
+}
+
+void hpi_log_session_write_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
+{
+    //printf("Write to file... %d\n", hpi_log_session_header.session_id);
+
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+
+    char session_name[50] = "/SD:/";
+    char session_id_str[20];
+    char sensor_data[32];
+
+    
+    sprintf(session_id_str, "%d", hpi_log_session_header.session_id);
+    strcat(session_name, session_id_str);
+    strcat(session_name, ".csv");
+
+    //printk("session_name %s\n",session_name);
+
+    int rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", session_name, rc);
+    }
+
+    for (int i = 0; i < ecg_ppg_counter; i++)
+    {
+        snprintf(sensor_data, sizeof(sensor_data), "%d\n", current_session_log_points[i].log_ecg_sample);
+        rc = fs_write(&file, sensor_data, strlen(sensor_data));
+    }
+
+
+    rc = fs_close(&file);
+    //rc = fs_sync(&file);
+
+    //printk("Log buffer data written to log file %d\n",hpi_log_session_header.session_id);
 }

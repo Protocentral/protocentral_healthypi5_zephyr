@@ -8,7 +8,6 @@
 
 #include <zephyr/logging/log.h>
 
-#include "sys_sm_module.h"
 #include "fs_module.h"
 
 #include <app_version.h>
