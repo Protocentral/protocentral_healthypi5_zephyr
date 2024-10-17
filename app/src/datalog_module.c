@@ -22,7 +22,10 @@
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
 extern struct fs_mount_t *mp_sd;
+extern uint16_t current_session_ecg_counter;
+extern struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_log_session_header_t hpi_log_session_header;
+extern bool settings_log_data_enabled;
 
 void write_header_to_new_session()
 {
@@ -44,37 +47,6 @@ void write_header_to_new_session()
             hpi_log_session_header.session_start_time.hour,
             hpi_log_session_header.session_start_time.minute,
             hpi_log_session_header.session_start_time.second);
-
-    /*char session_record_time[2];
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.day);
-    strcat(session_record_details, session_record_time);
-
-    strcat(session_record_details, "/");
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.month);
-    strcat(session_record_details, session_record_time);
-
-    strcat(session_record_details, "/");
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.year);
-    strcat(session_record_details, session_record_time);
-
-    strcat(session_record_details, " ");
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.hour);
-    strcat(session_record_details, session_record_time);
-
-    strcat(session_record_details, ":");
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.minute);
-    strcat(session_record_details, session_record_time);
-
-    strcat(session_record_details, ":");
-
-    sprintf(session_record_time, "%d", hpi_log_session_header.session_start_time.second);
-    strcat(session_record_details, session_record_time);
-    strcat(session_record_details, "\n");*/
 
     char session_vital_header[100] = "ECG,PPG,RESP\n";
 
@@ -171,7 +143,6 @@ void get_session_header(uint16_t session_id, struct hpi_log_session_header_t *se
     session_header_data->session_start_time.hour = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
     session_header_data->session_start_time.minute = (uint8_t)atoi(strtok_r(NULL, ":", &saveptr));
     session_header_data->session_start_time.second = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));
-    // return header_data;
 }
 
 uint16_t hpi_get_session_count(void)
@@ -427,8 +398,9 @@ void hpi_datalog_delete_all(void)
         {
             strcpy(session_name, "/SD:/");
             strcat(session_name, entry.name);
-            printk("Deleting %s\n", session_name);
             fs_unlink(session_name);
+            printk("Deleting %s\n", session_name);
+
         }
     }
 
@@ -447,9 +419,9 @@ void hpi_datalog_delete_session(uint16_t session_id)
     printk("File %d deleted %s\n", session_name);
 }
 
-void hpi_datalog_start_session(void)
+void hpi_datalog_start_session(uint8_t *in_pkt_buf)
 {
-    // set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
+    set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
 
     struct fs_statvfs sbuf;
     int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
@@ -463,7 +435,7 @@ void hpi_datalog_start_session(void)
 
     if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
     {
-        // settings_log_data_enabled = true;
+        settings_log_data_enabled = true;
         cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
         write_header_to_new_session();
     }
@@ -474,7 +446,7 @@ void hpi_datalog_start_session(void)
     }
 }
 
-void hpi_log_session_write_file(int ecg_ppg_counter, struct hpi_sensor_logging_data_t *current_session_log_points)
+void hpi_log_session_write_file()
 {
     //printf("Write to file... %d\n", hpi_log_session_header.session_id);
 
@@ -498,9 +470,9 @@ void hpi_log_session_write_file(int ecg_ppg_counter, struct hpi_sensor_logging_d
         printk("FAIL: open %s: %d", session_name, rc);
     }
 
-    for (int i = 0; i < ecg_ppg_counter; i++)
+    for (int i = 0; i < current_session_ecg_counter; i++)
     {
-        snprintf(sensor_data, sizeof(sensor_data), "%d\n", current_session_log_points[i].log_ecg_sample);
+        snprintf(sensor_data, sizeof(sensor_data), "%d\n", log_buffer[i].log_ecg_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
     }
 

@@ -80,22 +80,8 @@ struct hpi_cmd_data_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
-
-struct healthypi_time_t
-{
-    uint8_t year;
-    uint8_t month;
-    uint8_t day;
-    uint8_t hour;
-    uint8_t minute;
-    uint8_t second;
-};
-
-
-
 struct hpi_sensor_logging_data_t {
     int32_t log_ecg_sample;
-    //int16_t raw_ir;
 };
 
 struct healthypi_session_t {

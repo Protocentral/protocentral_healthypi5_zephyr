@@ -31,7 +31,7 @@ static struct fs_mount_t sd_fs_mnt = {
 struct fs_mount_t *mp_sd = &sd_fs_mnt;
 
 
-static int littlefs_flash_erase(unsigned int id)
+/*static int littlefs_flash_erase(unsigned int id)
 {
     const struct flash_area *pfa;
     int rc;
@@ -48,7 +48,7 @@ static int littlefs_flash_erase(unsigned int id)
            id, (unsigned int)pfa->fa_off, pfa->fa_dev->name,
            (unsigned int)pfa->fa_size);
 
-    /* Optional wipe flash contents */
+    // Optional wipe flash contents
     if (IS_ENABLED(CONFIG_APP_WIPE_STORAGE))
     {
         rc = flash_area_erase(pfa, 0, pfa->fa_size);
@@ -57,7 +57,7 @@ static int littlefs_flash_erase(unsigned int id)
 
     flash_area_close(pfa);
     return rc;
-}
+}*/
 
 static int littlefs_mount(struct fs_mount_t *mp)
 {
@@ -95,7 +95,7 @@ static int lsdir(const char *path)
 
     fs_dir_t_init(&dirp);
 
-    /* Verify fs_opendir() */
+    // Verify fs_opendir() 
     res = fs_opendir(&dirp, path);
     if (res)
     {
@@ -106,10 +106,10 @@ static int lsdir(const char *path)
     LOG_PRINTK("\nListing dir %s ...\n", path);
     for (;;)
     {
-        /* Verify fs_readdir() */
+        // Verify fs_readdir() 
         res = fs_readdir(&dirp, &entry);
 
-        /* entry.name[0] == 0 means end-of-dir */
+        // entry.name[0] == 0 means end-of-dir
         if (res || entry.name[0] == 0)
         {
             if (res < 0)
@@ -132,7 +132,7 @@ static int lsdir(const char *path)
 
     printk("\n");
 
-    /* Verify fs_closedir() */
+    // Verify fs_closedir() 
     fs_closedir(&dirp);
 
     return res;
@@ -164,7 +164,7 @@ static int mount_sd_fs()
     if (rc < 0)
     {
         printk("FAIL: statvfs: %d\n", rc);
-        return;
+        return rc;
     }
 
     printk("%s: bsize = %lu ; frsize = %lu ;"

@@ -43,9 +43,7 @@ volatile bool cmd_module_ble_connected = false;
 
 extern struct k_msgq q_sample;
 extern int global_dev_status;
-
 bool settings_log_data_enabled = false;
-
 int8_t data_pkt[272];
 
 
@@ -169,14 +167,15 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOGGING_END:
         printk("Command to end logging\n");
-        //settings_log_data_enabled = false;
         // AKW: Replace with a function to stop logging
+        settings_log_data_enabled = false;
+        flush_current_session_logs(true);
         break;
 
     case CMD_LOGGING_START:
         // bool header_set_flag = false;
         printk("Command to start logging\n");
-        hpi_datalog_start_session();
+        hpi_datalog_start_session(in_pkt_buf);
         break;
 
     default:

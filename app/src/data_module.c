@@ -9,6 +9,7 @@
 #include "max30001.h"
 
 #include "data_module.h"
+#include "datalog_module.h"
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "sampling_module.h"
@@ -36,11 +37,6 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #define DATA_LEN 22
 
 #define SAMPLING_FREQ 104 // in Hz.
-
-#define LOG_SAMPLE_RATE_SPS 125
-#define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
-#define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
-
 #define TEMP_CALC_BUFFER_LENGTH 125
 #define RESP_CALC_BUFFER_LENGTH 125
 
@@ -258,8 +254,7 @@ void flush_current_session_logs(bool write_to_file)
 
     if ((current_session_ecg_counter > 0) && (write_to_file))
     {
-        //printk("Log Buffer pending at %d \n", k_uptime_get_32());
-        hpi_log_session_write_file(current_session_ecg_counter, log_buffer);
+        hpi_log_session_write_file();
     }
 
     //current_session_log_id = 0;
@@ -286,12 +281,10 @@ void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
 {
     if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
+        //printk("Writing dataa to the file\n");
         for (int i = 0; i < ecg_len; i++)
         {
-            
-            log_buffer[current_session_ecg_counter].log_ecg_sample = ecg_samples[i];
-
-            current_session_ecg_counter++;
+            log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
     }
     else
@@ -313,13 +306,11 @@ void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
         }
         else
         {
-            hpi_log_session_write_file(current_session_ecg_counter, log_buffer);
+            hpi_log_session_write_file();
             current_session_ecg_counter = 0;
             for (int i = 0; i < ecg_len; i++)
             {
-
-                log_buffer[current_session_ecg_counter].log_ecg_sample = ecg_samples[i];
-                current_session_ecg_counter++;
+                log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
             }
         }
     }
