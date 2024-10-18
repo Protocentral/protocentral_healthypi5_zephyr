@@ -291,7 +291,7 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
         }
     }
     fs_closedir(&dirp);
-    return session_len - 49;
+    return session_len;
 }
 
 void hpi_session_fetch(uint16_t session_id)
@@ -328,7 +328,7 @@ void hpi_session_fetch(uint16_t session_id)
         return;
     }
 
-    fs_seek(&m_file, 49, FS_SEEK_SET);
+    //fs_seek(&m_file, 49, FS_SEEK_SET);
 
     for (i = 0; i < number_writes; i++)
     {
@@ -472,7 +472,7 @@ void hpi_log_session_write_file()
 
     for (int i = 0; i < current_session_ecg_counter; i++)
     {
-        snprintf(sensor_data, sizeof(sensor_data), "%d\n", log_buffer[i].log_ecg_sample);
+        snprintf(sensor_data, sizeof(sensor_data), "%d,%d\n", log_buffer[i].log_ecg_sample,log_buffer[i].log_ppg_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
     }
 

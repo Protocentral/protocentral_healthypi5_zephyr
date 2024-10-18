@@ -43,6 +43,8 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #define SAMPLE_BUFF_WATERMARK 4
 
 K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
+//struct k_sem log_sem;
+//k_sem_init(&log_sem, 0, LOG_BUFFER_LENGTH);
 
 enum hpi5_data_format
 {
@@ -83,6 +85,7 @@ struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_ecg_counter = 0;
 uint16_t current_session_bioz_counter = 0;
+uint16_t current_session_ppg_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
@@ -261,9 +264,11 @@ void flush_current_session_logs(bool write_to_file)
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
     {
         log_buffer[i].log_ecg_sample = 0;
+        log_buffer[i].log_ppg_sample = 0;
     }
 
     current_session_ecg_counter = 0;
+    current_session_ppg_counter = 0;
     hpi_log_session_header.session_id = 0;
     hpi_log_session_header.session_start_time.day = 0;
     hpi_log_session_header.session_start_time.hour = 0;
@@ -276,14 +281,34 @@ void flush_current_session_logs(bool write_to_file)
     hpi_log_session_header.session_size = 0;
 }
 
+void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
+{
+    if (current_session_ppg_counter < LOG_BUFFER_LENGTH)
+    {
+        for (int i = 0; i < ppg_len; i++)
+        {
+            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
+        }
+    }
+    else
+    {
+        current_session_ppg_counter = 0;
+        for (int i = 0; i < ppg_len; i++)
+        {
+            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
+        }
+    }
+}
+
 // Add a log point to the current session log
-void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
+void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len)
 {
     if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
         //printk("Writing dataa to the file\n");
         for (int i = 0; i < ecg_len; i++)
         {
+            //k_sem_give(&log_sem);
             log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
     }
@@ -297,8 +322,6 @@ void record_session_add_point(int32_t *ecg_samples,uint8_t ecg_len)
         {
             printk("FAILED to return stats");
         }
-
-        //printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
 
         if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
         {
@@ -412,7 +435,7 @@ void data_thread(void)
 
             if (settings_log_data_enabled)
             {
-                record_session_add_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
+                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
             }
 //#endif
 
@@ -434,6 +457,7 @@ void data_thread(void)
                 ble_ppg_notify(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
             }
 //#endif
+            
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
@@ -441,6 +465,12 @@ void data_thread(void)
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
 #endif
+
+            if (settings_log_data_enabled)
+            {
+                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, ppg_sensor_sample.ppg_num_samples);
+            }
+
             if (spo2_time_count < FreqS)
             {
                 irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
