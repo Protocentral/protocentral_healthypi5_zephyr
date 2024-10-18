@@ -328,8 +328,6 @@ void hpi_session_fetch(uint16_t session_id)
         return;
     }
 
-    //fs_seek(&m_file, 49, FS_SEEK_SET);
-
     for (i = 0; i < number_writes; i++)
     {
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
@@ -338,11 +336,7 @@ void hpi_session_fetch(uint16_t session_id)
             printk("Error reading file %d\n", rc);
             return;
         }
-
-        /*for (int i=0;i<FILE_TRANSFER_BLE_PACKET_SIZE;i++)
-        {
-            printk("%d\n",m_buffer[i]);
-        }*/
+        
         cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
         k_sleep(K_MSEC(50));
         // printk("\n");
@@ -472,7 +466,7 @@ void hpi_log_session_write_file()
 
     for (int i = 0; i < current_session_ecg_counter; i++)
     {
-        snprintf(sensor_data, sizeof(sensor_data), "%d,%d\n", log_buffer[i].log_ecg_sample,log_buffer[i].log_ppg_sample);
+        snprintf(sensor_data, sizeof(sensor_data), "%d,%d,%d\n", log_buffer[i].log_ecg_sample,log_buffer[i].log_ppg_sample,log_buffer[i].log_bioz_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
     }
 

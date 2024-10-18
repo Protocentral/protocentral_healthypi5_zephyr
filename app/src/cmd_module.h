@@ -83,6 +83,7 @@ struct hpi_cmd_data_obj_t
 struct hpi_sensor_logging_data_t {
     int32_t log_ecg_sample;
     int16_t log_ppg_sample;
+    int32_t log_bioz_sample;
 };
 
 struct healthypi_session_t {

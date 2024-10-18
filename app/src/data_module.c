@@ -265,10 +265,12 @@ void flush_current_session_logs(bool write_to_file)
     {
         log_buffer[i].log_ecg_sample = 0;
         log_buffer[i].log_ppg_sample = 0;
+        log_buffer[i].log_bioz_sample = 0;
     }
 
     current_session_ecg_counter = 0;
     current_session_ppg_counter = 0;
+    current_session_bioz_counter = 0;
     hpi_log_session_header.session_id = 0;
     hpi_log_session_header.session_start_time.day = 0;
     hpi_log_session_header.session_start_time.hour = 0;
@@ -301,7 +303,7 @@ void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
 }
 
 // Add a log point to the current session log
-void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len)
+void record_session_add_ecg_bioz_point(int32_t *ecg_samples,uint8_t ecg_len,int32_t *bioz_samples,uint8_t bioz_len)
 {
     if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
@@ -310,6 +312,14 @@ void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len)
         {
             //k_sem_give(&log_sem);
             log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
+        }
+
+        for (int k = 0; k < bioz_len; k++)
+        {
+            //k_sem_give(&log_sem);
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = 0;
+
         }
     }
     else
@@ -331,9 +341,17 @@ void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len)
         {
             hpi_log_session_write_file();
             current_session_ecg_counter = 0;
+            current_session_bioz_counter = 0;
             for (int i = 0; i < ecg_len; i++)
             {
                 log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
+            }
+
+            for (int k = 0; k < bioz_len; k++)
+            {
+                log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
+                log_buffer[current_session_bioz_counter++].log_bioz_sample = 45;
+
             }
         }
     }
@@ -435,7 +453,7 @@ void data_thread(void)
 
             if (settings_log_data_enabled)
             {
-                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
+                record_session_add_ecg_bioz_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples,ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
 //#endif
 
