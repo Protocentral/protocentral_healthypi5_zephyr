@@ -13,7 +13,7 @@ struct healthypi_time_t
 struct hpi_log_session_header_t
 {
     uint16_t session_id;
-    uint16_t session_size;
+    uint32_t session_size;
     struct healthypi_time_t session_start_time;
 };
 

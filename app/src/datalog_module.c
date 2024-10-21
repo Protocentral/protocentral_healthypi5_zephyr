@@ -9,15 +9,10 @@
 #include <string.h>
 #include <zephyr/random/random.h>
 
-#include "fs_module.h"
-#include "cmd_module.h"
-
 #include "ble_module.h"
-#include "data_module.h"
-#include "hw_module.h"
-#include "sampling_module.h"
-
 #include "datalog_module.h"
+#include "cmd_module.h"
+#include "data_module.h"
 
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
@@ -98,8 +93,6 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
 
 void get_session_header(uint16_t session_id, struct hpi_log_session_header_t *session_header_data)
 {
-    struct hpi_log_session_header_t m_header;
-
     char m_session_name[100];
     snprintf(m_session_name, sizeof(m_session_name), "/SD:/%u.csv", session_id);
 
@@ -234,19 +227,15 @@ int hpi_get_session_index(void)
         {
 
             char session_header[80];
-            struct hpi_log_session_header_t session_header_data;
-            uint16_t session_id = atoi(entry.name);
-            uint16_t session_size = entry.size;
-            int day, month, year, hour, minute, second;
+            hpi_log_session_header.session_id = atoi(entry.name);
+            hpi_log_session_header.session_size = (uint32_t)entry.size;
+            printk("entry.size %d\n",hpi_log_session_header.session_size);
+            get_session_header(atoi(entry.name), &hpi_log_session_header);
 
-            get_session_header(session_id, &session_header_data);
-
-            session_header_data.session_id = session_id;
-            session_header_data.session_size = session_size;
-
-            memcpy(&buf_log, &session_header_data, sizeof(struct hpi_log_session_header_t));
+           
+            memcpy(&buf_log, &hpi_log_session_header, sizeof(struct hpi_log_session_header_t));
             cmdif_send_ble_data_idx(buf_log, sizeof(struct hpi_log_session_header_t));
-            printk("Header of session id %d sent\n", session_id);
+            printk("Header of session id: %d size %d sent\n", hpi_log_session_header.session_id,hpi_log_session_header.session_size);
         }
     }
     fs_closedir(&dirp);
@@ -286,7 +275,6 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
 
         if (strncmp(m_file_name, entry.name, sizeof(m_file_name)) == 0)
         {
-            // printk(" file name %s : size %d\n",entry.name,entry.size);
             session_len = entry.size;
         }
     }

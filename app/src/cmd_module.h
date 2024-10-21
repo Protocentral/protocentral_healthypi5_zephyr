@@ -86,8 +86,4 @@ struct hpi_sensor_logging_data_t {
     int32_t log_bioz_sample;
 };
 
-struct healthypi_session_t {
-    uint16_t session_id;
-    uint32_t session_size;
-};
 
