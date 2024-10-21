@@ -109,7 +109,7 @@ void get_session_header(uint16_t session_id, struct hpi_log_session_header_t *se
 
     char header_data[36];
 
-    rc = fs_read(&m_file, header_data, 36);
+    rc = fs_read(&m_file, header_data, 37);
     if (rc < 0)
     {
         printk("Error reading file %d\n", rc);
@@ -225,16 +225,13 @@ int hpi_get_session_index(void)
 
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
-
             char session_header[80];
-            hpi_log_session_header.session_id = atoi(entry.name);
+            hpi_log_session_header.session_id =(uint16_t)atoi(entry.name);
             hpi_log_session_header.session_size = (uint32_t)entry.size;
-            printk("entry.size %d\n",hpi_log_session_header.session_size);
-            get_session_header(atoi(entry.name), &hpi_log_session_header);
+            get_session_header(atoi(entry.name), &hpi_log_session_header);  
 
-           
-            memcpy(&buf_log, &hpi_log_session_header, sizeof(struct hpi_log_session_header_t));
-            cmdif_send_ble_data_idx(buf_log, sizeof(struct hpi_log_session_header_t));
+            memcpy(&buf_log, &hpi_log_session_header, 14);
+            cmdif_send_ble_data_idx(buf_log, 14);
             printk("Header of session id: %d size %d sent\n", hpi_log_session_header.session_id,hpi_log_session_header.session_size);
         }
     }
