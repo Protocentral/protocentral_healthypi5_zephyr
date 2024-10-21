@@ -294,10 +294,27 @@ void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
     }
     else
     {
-        current_session_ppg_counter = 0;
-        for (int i = 0; i < ppg_len; i++)
+        //printk("Log Buffer Full at %d \n", k_uptime_get_32());
+        struct fs_statvfs sbuf;
+
+        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
+        if (rc < 0)
         {
-            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
+            printk("FAILED to return stats");
+        }
+
+        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
+        {
+            settings_log_data_enabled = false;
+        }
+        else
+        {
+            hpi_log_session_write_file();
+            current_session_ppg_counter = 0;
+            for (int i = 0; i < ppg_len; i++)
+            {
+                log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
+            }
         }
     }
 }
@@ -324,36 +341,20 @@ void record_session_add_ecg_bioz_point(int32_t *ecg_samples,uint8_t ecg_len,int3
     }
     else
     {
-        //printk("Log Buffer Full at %d \n", k_uptime_get_32());
-        struct fs_statvfs sbuf;
-
-        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
-        if (rc < 0)
+        current_session_ecg_counter = 0;
+        current_session_bioz_counter = 0;
+        for (int i = 0; i < ecg_len; i++)
         {
-            printk("FAILED to return stats");
+            log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
 
-        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
+        for (int k = 0; k < bioz_len; k++)
         {
-            settings_log_data_enabled = false;
-        }
-        else
-        {
-            hpi_log_session_write_file();
-            current_session_ecg_counter = 0;
-            current_session_bioz_counter = 0;
-            for (int i = 0; i < ecg_len; i++)
-            {
-                log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
-            }
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = 45;
 
-            for (int k = 0; k < bioz_len; k++)
-            {
-                log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
-                log_buffer[current_session_bioz_counter++].log_bioz_sample = 45;
-
-            }
         }
+        
     }
 }
 
@@ -486,7 +487,7 @@ void data_thread(void)
 
             if (settings_log_data_enabled)
             {
-                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, ppg_sensor_sample.ppg_num_samples);
+                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, PPG_POINTS_PER_SAMPLE);
             }
 
             if (spo2_time_count < FreqS)

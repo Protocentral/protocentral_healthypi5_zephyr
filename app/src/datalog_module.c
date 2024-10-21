@@ -17,7 +17,7 @@
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
 extern struct fs_mount_t *mp_sd;
-extern uint16_t current_session_ecg_counter;
+extern uint16_t current_session_ppg_counter;
 extern struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_log_session_header_t hpi_log_session_header;
 extern bool settings_log_data_enabled;
@@ -449,7 +449,7 @@ void hpi_log_session_write_file()
         printk("FAIL: open %s: %d", session_name, rc);
     }
 
-    for (int i = 0; i < current_session_ecg_counter; i++)
+    for (int i = 0; i < current_session_ppg_counter; i++)
     {
         snprintf(sensor_data, sizeof(sensor_data), "%d,%d,%d\n", log_buffer[i].log_ecg_sample,log_buffer[i].log_ppg_sample,log_buffer[i].log_bioz_sample);
         rc = fs_write(&file, sensor_data, strlen(sensor_data));
