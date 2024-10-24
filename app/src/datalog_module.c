@@ -120,10 +120,11 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     printk("Header data for session %d set\n", hpi_log_session_header.session_id);
 }
 
-void get_session_header(uint16_t session_id, struct hpi_log_session_header_t *session_header_data)
+void get_session_header(char *session_id, struct hpi_log_session_header_t *session_header_data)
 {
-    char m_session_name[100];
-    snprintf(m_session_name, sizeof(m_session_name), "/SD:/%u.csv", session_id);
+    char m_session_name[100] = "/SD:/";
+    strcat(m_session_name,session_id);
+    //printk("m_session_name %s\n",m_session_name);
 
     struct fs_file_t m_file;
     fs_file_t_init(&m_file);
@@ -255,12 +256,29 @@ int hpi_get_session_index(void)
         if (entry.type != FS_DIR_ENTRY_DIR)
         {
             char session_header[80];
+
+
             hpi_log_session_header.session_id =(uint16_t)atoi(entry.name);
             hpi_log_session_header.session_size = (uint32_t)entry.size;
-            get_session_header(atoi(entry.name), &hpi_log_session_header);  
 
-            memcpy(&buf_log, &hpi_log_session_header, 14);
-            cmdif_send_ble_data_idx(buf_log, 14);
+            //printk("entry.name %s",entry.name);
+            get_session_header(entry.name, &hpi_log_session_header);  
+
+
+            char file_name[50];
+            strcpy(file_name,entry.name);
+            char *saveptr;
+            strtok_r(file_name, "_", &saveptr);
+            char *extension =  strtok_r(NULL, ".", &saveptr);
+            if (strncmp(extension,"ECG",strlen(extension)) == 0)
+                hpi_log_session_header.file_no = 1;
+            else if (strncmp(extension,"PPG",strlen(extension)) == 0)
+                hpi_log_session_header.file_no = 2;
+            else
+                hpi_log_session_header.file_no = 3;
+            
+            memcpy(&buf_log, &hpi_log_session_header, 15);
+            cmdif_send_ble_data_idx(buf_log, 15);
             printk("Header of session id: %d size %d sent\n", hpi_log_session_header.session_id,hpi_log_session_header.session_size);
         }
     }
@@ -299,8 +317,10 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
             break;
         }
 
+        printk("m_file_name %s entry.name %s %d %d\n",m_file_name,entry.name,sizeof(m_file_name),sizeof(entry.name));
         if (strncmp(m_file_name, entry.name, sizeof(m_file_name)) == 0)
         {
+
             session_len = entry.size;
         }
     }
@@ -308,14 +328,34 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
     return session_len;
 }
 
-void hpi_session_fetch(uint16_t session_id)
+void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
 
-    char m_session_name[30];
-    char m_session_path[30];
 
-    sprintf(m_session_name, "%d.csv", session_id);
+    char m_session_id[20];
+    char m_session_name[30];
+    char m_session_path[50] = "/SD:/";
+    char m_session_file_type[4];
+    
+
+    sprintf(m_session_id,"%d",session_id);
+    strcat(m_session_name,m_session_id);
+    strcat(m_session_name,"_");
+    if (file_no == 1)
+        strcat(m_session_name, "ECG");
+    else if (file_no == 2)
+       strcat(m_session_name, "PPG");
+    else
+        strcat(m_session_name, "RESP");
+    strcat(m_session_name,".CSV");
+
+    
+
+    
+    printk("m_session_name %s\n",m_session_name);
+
+
     uint32_t session_len = hpi_log_session_get_length(m_session_name);
 
     uint16_t number_writes = session_len / FILE_TRANSFER_BLE_PACKET_SIZE;
@@ -330,7 +370,7 @@ void hpi_session_fetch(uint16_t session_id)
     }
 
     printk("session id: %s Size: %d NW: %d \n", m_session_name, session_len, number_writes);
-    snprintf(m_session_path, sizeof(m_session_path), "/SD:/%d.csv", session_id);
+    strcat(m_session_path,m_session_name);
 
     fs_file_t_init(&m_file);
 
@@ -352,7 +392,8 @@ void hpi_session_fetch(uint16_t session_id)
         }
         
         cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
-        k_sleep(K_MSEC(50));
+        //printk("number_writes %d length of each write %d\n",i,sizeof(m_buffer));
+        k_sleep(K_MSEC(100));
         // printk("\n");
     }
 
@@ -417,14 +458,25 @@ void hpi_datalog_delete_all(void)
     printk("All sessions deleted\n");
 }
 
-void hpi_datalog_delete_session(uint16_t session_id)
+void hpi_datalog_delete_session(uint16_t session_id,uint8_t file_no)
 {
-    char session_name[30];
+    char session_name[50];
+    char m_session_file_type[5];
 
-    snprintf(session_name, sizeof(session_name), "/SD:/%d.csv", session_id);
+    if (file_no == 1)
+        strcpy(m_session_file_type, "ecg");
+    else if (file_no == 2)
+        strcpy(m_session_file_type, "ppg");
+    else
+        strcpy(m_session_file_type, "resp");
+
+
+    printk("File deleted %s\n", session_name);
+
+    snprintf(session_name, sizeof(session_name), "/SD:/%d_%s.csv", session_id,m_session_file_type);
 
     fs_unlink(session_name);
-    printk("File %d deleted %s\n", session_name);
+    
 }
 
 void hpi_datalog_start_session(uint8_t *in_pkt_buf)

@@ -276,7 +276,6 @@ void flush_current_session_logs(bool write_to_file)
     current_session_ecg_counter = 0;
     current_session_ppg_counter = 0;
     current_session_bioz_counter = 0;
-    hpi_log_session_header.session_id = 0;
     hpi_log_session_header.session_start_time.day = 0;
     hpi_log_session_header.session_start_time.hour = 0;
     hpi_log_session_header.session_start_time.minute = 0;
@@ -284,7 +283,7 @@ void flush_current_session_logs(bool write_to_file)
     hpi_log_session_header.session_start_time.second = 0;
     hpi_log_session_header.session_start_time.year = 0;
 
-    hpi_log_session_header.session_id = 0;
+    strcpy(hpi_log_session_header.session_id,"0");
     hpi_log_session_header.session_size = 0;
 }
 

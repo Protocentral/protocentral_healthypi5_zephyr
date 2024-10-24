@@ -152,7 +152,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_FETCH_LOG_FILE_DATA:
         printk("Command to fetch file data\n");
-        hpi_session_fetch(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
+        hpi_session_fetch(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
         break;
 
     case CMD_SESSION_WIPE_ALL:
@@ -162,7 +162,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMG_SESSION_DELETE:
         printk("Command to delete file\n");
-        hpi_datalog_delete_session(in_pkt_buf[2] | (in_pkt_buf[1] << 8));
+        hpi_datalog_delete_session(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
         break;
 
     case CMD_LOGGING_END:
@@ -191,7 +191,6 @@ void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
 
     for (int i = 0; i < m_data_len; i++)
     {
-        printk("%d\n",m_data[i]);
         cmd_pkt[1 + i] = m_data[i];
     }
 
