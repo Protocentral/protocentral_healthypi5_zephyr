@@ -17,7 +17,9 @@
 uint8_t buf_log[1024]; // 56 bytes / session, 18 sessions / packet
 
 extern struct fs_mount_t *mp_sd;
+extern uint16_t current_session_ecg_counter;
 extern uint16_t current_session_ppg_counter;
+extern uint16_t current_session_bioz_counter;
 extern struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_log_session_header_t hpi_log_session_header;
 extern bool settings_log_data_enabled;
@@ -26,12 +28,22 @@ void write_header_to_new_session()
 {
     struct fs_file_t file;
     int rc;
-    char session_name[50] = "/SD:/";
+    char session_name[200] = "/SD:/";
+    char ppg_session_name[200] = "/SD:/";
+    char resp_session_name[200] = "/SD:/";
+
 
     char session_id_str[20];
     sprintf(session_id_str, "%d", hpi_log_session_header.session_id);
     strcat(session_name, session_id_str);
-    strcat(session_name, ".csv");
+    strcat(session_name, "_ecg.csv");
+
+    strcat(ppg_session_name, session_id_str);
+    strcat(ppg_session_name, "_ppg.csv");
+
+    strcat(resp_session_name, session_id_str);
+    strcat(resp_session_name, "_resp.csv");
+
 
     char session_record_details[200];
 
@@ -43,7 +55,9 @@ void write_header_to_new_session()
             hpi_log_session_header.session_start_time.minute,
             hpi_log_session_header.session_start_time.second);
 
-    char session_vital_header[100] = "ECG,PPG,RESP\n";
+    char session_vital_header[100] = "ECG\n";
+    char ppg_session_vital_header[100] = "PPG\n";
+    char resp_session_vital_header[100] = "RESP\n";
 
     fs_file_t_init(&file);
 
@@ -52,12 +66,27 @@ void write_header_to_new_session()
     {
         printk("FAIL: open %s: %d", session_name, rc);
     }
-
     rc = fs_write(&file, session_record_details, strlen(session_record_details));
     rc = fs_write(&file, session_vital_header, strlen(session_vital_header));
-
     rc = fs_close(&file);
-    rc = fs_sync(&file);
+
+    rc = fs_open(&file, ppg_session_name, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", ppg_session_name, rc);
+    }
+    rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    rc = fs_write(&file, ppg_session_vital_header, strlen(ppg_session_vital_header));
+    rc = fs_close(&file);
+
+    rc = fs_open(&file, resp_session_name, FS_O_CREATE | FS_O_RDWR);
+    if (rc < 0)
+    {
+        printk("FAIL: open %s: %d", resp_session_name, rc);
+    }
+    rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    rc = fs_write(&file, resp_session_vital_header, strlen(resp_session_vital_header));
+    rc = fs_close(&file);
 
     printf("Header written to file... %d\n", hpi_log_session_header.session_id);
 }
@@ -83,9 +112,9 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     hpi_log_session_header.session_start_time.minute = minute;
     hpi_log_session_header.session_start_time.second = second;
 
-    uint8_t rand[2];
+    uint8_t rand[1];
     sys_rand_get(rand, sizeof(rand));
-    hpi_log_session_header.session_id = (rand[0] | (rand[1] << 8));
+    hpi_log_session_header.session_id = (rand[0]);
     hpi_log_session_header.session_size = 0;
 
     printk("Header data for session %d set\n", hpi_log_session_header.session_id);
@@ -425,39 +454,136 @@ void hpi_datalog_start_session(uint8_t *in_pkt_buf)
     }
 }
 
-void hpi_log_session_write_file()
+void hpi_log_session_write_file(int parameter_to_be_written)
 {
-    //printf("Write to file... %d\n", hpi_log_session_header.session_id);
-
-    struct fs_file_t file;
-    fs_file_t_init(&file);
-
-    char session_name[50] = "/SD:/";
-    char session_id_str[20];
-    char sensor_data[32];
-
-    
-    sprintf(session_id_str, "%d", hpi_log_session_header.session_id);
-    strcat(session_name, session_id_str);
-    strcat(session_name, ".csv");
-
-    //printk("session_name %s\n",session_name);
-
-    int rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
-    if (rc < 0)
+    printk("parameter_to_be_written %d\n",parameter_to_be_written);
+    switch (parameter_to_be_written)
     {
-        printk("FAIL: open %s: %d", session_name, rc);
+        case ECG_DATA:
+            struct fs_file_t ecg_file;
+            fs_file_t_init(&ecg_file);
+
+            char ecg_session_name[100] = "/SD:/";
+            char ecg_session_id_str[100];
+            char ecg_sensor_data[32];
+
+            
+            sprintf(ecg_session_id_str, "%d", hpi_log_session_header.session_id);
+            strcat(ecg_session_name, ecg_session_id_str);
+            strcat(ecg_session_name, "_ecg.csv");
+
+            //printk("session_name %s\n",session_name);
+
+            int ecg_rc = fs_open(&ecg_file, ecg_session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+            if (ecg_rc < 0)
+            {
+                printk("FAIL: open %s: %d", ecg_session_name, ecg_rc);
+            }
+
+            for (int i = 0; i < current_session_ecg_counter; i++)
+            {
+                snprintf(ecg_sensor_data, sizeof(ecg_sensor_data), "%d\n", log_buffer[i].log_ecg_sample);
+                ecg_rc = fs_write(&ecg_file, ecg_sensor_data, strlen(ecg_sensor_data));
+            }
+
+
+            ecg_rc = fs_close(&ecg_file);
+
+            struct fs_file_t resp_file;
+            fs_file_t_init(&resp_file);
+
+            char resp_session_name[100] = "/SD:/";
+            char resp_session_id_str[100];
+            char resp_sensor_data[32];
+
+            
+            sprintf(resp_session_id_str, "%d", hpi_log_session_header.session_id);
+            strcat(resp_session_name, resp_session_id_str);
+            strcat(resp_session_name, "_resp.csv");
+
+            //printk("session_name %s\n",session_name);
+
+            int resp_rc = fs_open(&resp_file, resp_session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+            if (resp_rc < 0)
+            {
+                printk("FAIL: open %s: %d", resp_session_name, resp_rc);
+            }
+
+            for (int i = 0; i < current_session_bioz_counter; i++)
+            {
+                snprintf(resp_sensor_data, sizeof(resp_sensor_data), "%d\n", log_buffer[i].log_bioz_sample);
+                resp_rc = fs_write(&resp_file, resp_sensor_data, strlen(resp_sensor_data));
+            }
+
+
+            resp_rc = fs_close(&resp_file);
+
+            break;
+
+        case PPG_DATA:
+            struct fs_file_t ppg_file;
+            fs_file_t_init(&ppg_file);
+
+            char ppg_session_name[100] = "/SD:/";
+            char ppg_session_id_str[100];
+            char ppg_sensor_data[32];
+
+            
+            sprintf(ppg_session_id_str, "%d", hpi_log_session_header.session_id);
+            strcat(ppg_session_name, ppg_session_id_str);
+            strcat(ppg_session_name, "_ppg.csv");
+
+            //printk("session_name %s\n",session_name);
+
+            int ppg_rc = fs_open(&ppg_file, ppg_session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+            if (ppg_rc < 0)
+            {
+                printk("FAIL: open %s: %d", ppg_session_name, ppg_rc);
+            }
+
+            for (int i = 0; i < current_session_ppg_counter; i++)
+            {
+                snprintf(ppg_sensor_data, sizeof(ppg_sensor_data), "%d\n", log_buffer[i].log_ppg_sample);
+                ppg_rc = fs_write(&ppg_file, ppg_sensor_data, strlen(ppg_sensor_data));
+            }
+
+
+            ppg_rc = fs_close(&ppg_file);
+            break;
+
+        case RESP_DATA:
+            /*struct fs_file_t resp_file;
+            fs_file_t_init(&resp_file);
+
+            char resp_session_name[100] = "/SD:/";
+            char resp_session_id_str[100];
+            char resp_sensor_data[32];
+
+            
+            sprintf(resp_session_id_str, "%d", hpi_log_session_header.session_id);
+            strcat(resp_session_name, resp_session_id_str);
+            strcat(resp_session_name, "_resp.csv");
+
+            //printk("session_name %s\n",session_name);
+
+            int resp_rc = fs_open(&resp_file, resp_session_name, FS_O_CREATE | FS_O_RDWR | FS_O_APPEND);
+            if (resp_rc < 0)
+            {
+                printk("FAIL: open %s: %d", resp_session_name, resp_rc);
+            }
+
+            for (int i = 0; i < current_session_bioz_counter; i++)
+            {
+                snprintf(resp_sensor_data, sizeof(resp_sensor_data), "%d\n", log_buffer[i].log_bioz_sample);
+                resp_rc = fs_write(&resp_file, resp_sensor_data, strlen(resp_sensor_data));
+            }
+
+
+            resp_rc = fs_close(&resp_file);*/
+            break;
+
+        default:
+            break;
+
     }
-
-    for (int i = 0; i < current_session_ppg_counter; i++)
-    {
-        snprintf(sensor_data, sizeof(sensor_data), "%d,%d,%d\n", log_buffer[i].log_ecg_sample,log_buffer[i].log_ppg_sample,log_buffer[i].log_bioz_sample);
-        rc = fs_write(&file, sensor_data, strlen(sensor_data));
-    }
-
-
-    rc = fs_close(&file);
-    //rc = fs_sync(&file);
-
-    //printk("Log buffer data written to log file %d\n",hpi_log_session_header.session_id);
 }

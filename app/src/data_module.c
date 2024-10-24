@@ -257,7 +257,12 @@ void flush_current_session_logs(bool write_to_file)
 
     if ((current_session_ecg_counter > 0) && (write_to_file))
     {
-        hpi_log_session_write_file();
+        hpi_log_session_write_file(ECG_DATA);
+    }
+
+    if ((current_session_ppg_counter > 0) && (write_to_file))
+    {
+        hpi_log_session_write_file(PPG_DATA);
     }
 
     //current_session_log_id = 0;
@@ -309,7 +314,7 @@ void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
         }
         else
         {
-            hpi_log_session_write_file();
+            hpi_log_session_write_file(PPG_DATA);
             current_session_ppg_counter = 0;
             for (int i = 0; i < ppg_len; i++)
             {
@@ -319,8 +324,10 @@ void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
     }
 }
 
+
+
 // Add a log point to the current session log
-void record_session_add_ecg_bioz_point(int32_t *ecg_samples,uint8_t ecg_len,int32_t *bioz_samples,uint8_t bioz_len)
+void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len,int32_t *bioz_samples,uint8_t bioz_len)
 {
     if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
@@ -331,30 +338,41 @@ void record_session_add_ecg_bioz_point(int32_t *ecg_samples,uint8_t ecg_len,int3
             log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
 
-        for (int k = 0; k < bioz_len; k++)
+        for (int i = 0; i < bioz_len; i++)
         {
             //k_sem_give(&log_sem);
-            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
-            log_buffer[current_session_bioz_counter++].log_bioz_sample = 0;
-
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[i];
         }
     }
     else
     {
-        current_session_ecg_counter = 0;
-        current_session_bioz_counter = 0;
-        for (int i = 0; i < ecg_len; i++)
+        struct fs_statvfs sbuf;
+
+        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
+        if (rc < 0)
         {
-            log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
+            printk("FAILED to return stats");
         }
 
-        for (int k = 0; k < bioz_len; k++)
+        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
         {
-            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[k];
-            log_buffer[current_session_bioz_counter++].log_bioz_sample = 45;
-
+            settings_log_data_enabled = false;
         }
-        
+        else
+        {
+            hpi_log_session_write_file(ECG_DATA);
+            current_session_ecg_counter = 0;
+            current_session_bioz_counter = 0;
+            for (int i = 0; i < ecg_len; i++)
+            {
+                log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
+            }
+
+            for (int i = 0; i < bioz_len; i++)
+            {
+                log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[i];
+            }
+        }        
     }
 }
 
@@ -436,7 +454,6 @@ void data_thread(void)
 
             for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
             {
-                //printk("BIOZ %d\n",ecg_bioz_sensor_sample.bioz_num_samples);
                 resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
             }
 
@@ -454,7 +471,9 @@ void data_thread(void)
 
             if (settings_log_data_enabled)
             {
-                record_session_add_ecg_bioz_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples,ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples,ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                //record_session_add_bioz_point(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+
             }
 //#endif
 
