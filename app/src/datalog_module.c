@@ -274,8 +274,10 @@ int hpi_get_session_index(void)
                 hpi_log_session_header.file_no = 1;
             else if (strncmp(extension,"PPG",strlen(extension)) == 0)
                 hpi_log_session_header.file_no = 2;
-            else
+            else if (strncmp(extension,"RESP",strlen(extension)) == 0)
                 hpi_log_session_header.file_no = 3;
+            else
+                hpi_log_session_header.file_no = 1;
             
             memcpy(&buf_log, &hpi_log_session_header, 15);
             cmdif_send_ble_data_idx(buf_log, 15);
@@ -318,10 +320,10 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
         }
 
         printk("m_file_name %s entry.name %s %d %d\n",m_file_name,entry.name,sizeof(m_file_name),sizeof(entry.name));
-        if (strncmp(m_file_name, entry.name, sizeof(m_file_name)) == 0)
+        if (strcmp(m_file_name, entry.name) == 0)
         {
-
             session_len = entry.size;
+            break;
         }
     }
     fs_closedir(&dirp);
@@ -332,27 +334,21 @@ void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
 
-
     char m_session_id[20];
     char m_session_name[30];
     char m_session_path[50] = "/SD:/";
     char m_session_file_type[4];
-    
 
-    sprintf(m_session_id,"%d",session_id);
-    strcat(m_session_name,m_session_id);
-    strcat(m_session_name,"_");
     if (file_no == 1)
-        strcat(m_session_name, "ECG");
+        strcpy(m_session_file_type, "ECG");
     else if (file_no == 2)
-       strcat(m_session_name, "PPG");
+        strcpy(m_session_file_type, "PPG");
+    else if (file_no == 3)
+        strcpy(m_session_file_type, "RESP");
     else
-        strcat(m_session_name, "RESP");
-    strcat(m_session_name,".CSV");
+        strcpy(m_session_file_type, "ECG");
 
-    
-
-    
+    snprintf(m_session_name, sizeof(m_session_name), "%d_%s.CSV", session_id,m_session_file_type);
     printk("m_session_name %s\n",m_session_name);
 
 
@@ -392,9 +388,7 @@ void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
         }
         
         cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
-        //printk("number_writes %d length of each write %d\n",i,sizeof(m_buffer));
         k_sleep(K_MSEC(100));
-        // printk("\n");
     }
 
     rc = fs_close(&m_file);
@@ -460,23 +454,48 @@ void hpi_datalog_delete_all(void)
 
 void hpi_datalog_delete_session(uint16_t session_id,uint8_t file_no)
 {
-    char session_name[50];
+    int res;
+    struct fs_dir_t dir;
+    fs_dir_t_init(&dir);
+
+    char session_name[20];
     char m_session_file_type[5];
+    printk("session_id %d file_no %d\n",session_id,file_no);
 
     if (file_no == 1)
-        strcpy(m_session_file_type, "ecg");
+        strcpy(m_session_file_type, "ECG");
     else if (file_no == 2)
-        strcpy(m_session_file_type, "ppg");
+        strcpy(m_session_file_type, "PPG");
     else
-        strcpy(m_session_file_type, "resp");
+        strcpy(m_session_file_type, "RESP");
 
-
-    printk("File deleted %s\n", session_name);
-
-    snprintf(session_name, sizeof(session_name), "/SD:/%d_%s.csv", session_id,m_session_file_type);
-
+    snprintf(session_name, sizeof(session_name), "/SD:/%d_%s.CSV", session_id,m_session_file_type);
     fs_unlink(session_name);
-    
+    /*res = fs_opendir(&dir, "/SD:/");
+    if (res)
+    {
+        printk("Unable to open (err %d)", res);
+    }
+
+    while (1)
+    {
+        struct fs_dirent entry;
+
+        res = fs_readdir(&dir, &entry);
+        if (res)
+        {
+            printk("Unable to read directory");
+            break;
+        }
+
+        if (strcmp(session_name, entry.name) == 0)
+        {
+            fs_unlink(entry.name);
+        }
+    }
+    fs_closedir(&dir);*/
+    printk("%s\n",session_name);
+        
 }
 
 void hpi_datalog_start_session(uint8_t *in_pkt_buf)

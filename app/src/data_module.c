@@ -285,6 +285,8 @@ void flush_current_session_logs(bool write_to_file)
 
     strcpy(hpi_log_session_header.session_id,"0");
     hpi_log_session_header.session_size = 0;
+    hpi_log_session_header.file_no = 0;
+
 }
 
 void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
