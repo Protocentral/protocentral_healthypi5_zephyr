@@ -20,7 +20,7 @@ extern lv_style_t style_h2;
 extern lv_style_t style_info;
 extern lv_style_t style_icon;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 static void anim_x_cb(void *var, int32_t v)
 {

@@ -30,7 +30,7 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 void draw_scr_resp(enum scroll_dir m_scroll_dir)
 {

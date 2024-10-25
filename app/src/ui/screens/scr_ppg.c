@@ -10,7 +10,7 @@
 #include "sampling_module.h"
 #include "data_module.h"
 
-static lv_obj_t *scr_ppg;
+lv_obj_t *scr_ppg;
 
 // GUI Charts
 static lv_obj_t *chart_ppg;
@@ -30,7 +30,7 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 void draw_scr_ppg(enum scroll_dir m_scroll_dir)
 {
@@ -53,7 +53,7 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
 
     curr_screen = SCR_PPG;
-
+    
     hpi_show_screen(scr_ppg, m_scroll_dir);
 }
 

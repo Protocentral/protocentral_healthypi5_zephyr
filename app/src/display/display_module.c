@@ -530,14 +530,14 @@ void display_screens_thread(void)
 
     //draw_scr_ecg(SCROLL_DOWN);
     // draw_scr_resp(SCROLL_DOWN);
-    //draw_scr_ppg(SCROLL_DOWN);
+    draw_scr_ppg(SCROLL_DOWN);
 
-    draw_scr_welcome();
+    //draw_scr_welcome();
 
     int sample_count = 0;
     while (1)
     {
-        /*if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
             if (curr_screen == SCR_ECG)
             {
@@ -593,7 +593,7 @@ void display_screens_thread(void)
     }
 }
 
-#define DISPLAY_SCREENS_THREAD_STACKSIZE 10000
+#define DISPLAY_SCREENS_THREAD_STACKSIZE 8192
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5
 
 K_THREAD_DEFINE(display_screens_thread_id, DISPLAY_SCREENS_THREAD_STACKSIZE, display_screens_thread, NULL, NULL, NULL, DISPLAY_SCREENS_THREAD_PRIORITY, 0, 0);
