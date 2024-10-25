@@ -9,13 +9,10 @@
 #include <zephyr/smf.h>
 #include <app_version.h>
 
-#include "sys_sm_module.h"
 #include "hw_module.h"
-
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
-#include "sys_sm_module.h"
 
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
@@ -52,8 +49,6 @@ lv_style_t style_icon;
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
 static lv_obj_t *label_sym_ble;
-
-int curr_mode = MODE_STANDBY;
 
 extern struct k_sem sem_hw_inited;
 K_SEM_DEFINE(sem_disp_inited, 0, 1);

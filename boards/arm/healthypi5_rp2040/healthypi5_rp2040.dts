@@ -67,9 +67,15 @@
 
 	pwm_leds {
 		compatible = "pwm-leds";
-		status = "disabled";
+		status = "okay";
+
 		pwm_led0: pwm_led_0 {
 			pwms = <&pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+			label = "PWM_LED";
+		};
+
+		bl_led_pwm: pwm_ledbl {
+			pwms = <&pwm 0 PWM_USEC(10) PWM_POLARITY_NORMAL>;
 			label = "PWM_LED";
 		};
 	};
@@ -77,6 +83,7 @@
 	aliases {
 		ledblue = &blue_led;
 		ledgreen = &green_led;
+		bl-led-pwm = &bl_led_pwm;
 
 		keyup = &button_up;
 		keydown = &button_down;
