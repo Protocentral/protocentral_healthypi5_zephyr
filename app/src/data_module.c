@@ -283,7 +283,7 @@ void flush_current_session_logs(bool write_to_file)
     hpi_log_session_header.session_start_time.second = 0;
     hpi_log_session_header.session_start_time.year = 0;
 
-    strcpy(hpi_log_session_header.session_id,"0");
+    hpi_log_session_header.session_id = 0;
     hpi_log_session_header.session_size = 0;
     hpi_log_session_header.file_no = 0;
 
