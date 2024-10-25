@@ -10,34 +10,28 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/settings/settings.h>
 
-#include "sys_sm_module.h"
 #include "sampling_module.h"
+#include "fs_module.h"
+#include "cmd_module.h"
+
 
 #if defined(CONFIG_FAT_FILESYSTEM_ELM)
 #include <ff.h>
 #endif
 
 LOG_MODULE_REGISTER(fs_module);
-
 K_SEM_DEFINE(sem_fs_module, 0, 1);
 
-const char fname_sessions[30] = "/lfs/sessions";
-
-
-FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(storage);
-static struct fs_mount_t lfs_storage_mnt = {
-    .type = FS_LITTLEFS,
-    .fs_data = &storage,
-    .storage_dev = (void *)FIXED_PARTITION_ID(storage_partition),
-    .mnt_point = "/lfs",
+static FATFS fat_fs;
+static struct fs_mount_t sd_fs_mnt = {
+    .type = FS_FATFS,
+    .fs_data = &fat_fs,
+    .mnt_point = "/SD:",
 };
-
-struct fs_mount_t *mp = &lfs_storage_mnt;
-
-static struct fs_mount_t sd_fs_mnt;
 struct fs_mount_t *mp_sd = &sd_fs_mnt;
 
-static int littlefs_flash_erase(unsigned int id)
+
+/*static int littlefs_flash_erase(unsigned int id)
 {
     const struct flash_area *pfa;
     int rc;
@@ -54,7 +48,7 @@ static int littlefs_flash_erase(unsigned int id)
            id, (unsigned int)pfa->fa_off, pfa->fa_dev->name,
            (unsigned int)pfa->fa_size);
 
-    /* Optional wipe flash contents */
+    // Optional wipe flash contents
     if (IS_ENABLED(CONFIG_APP_WIPE_STORAGE))
     {
         rc = flash_area_erase(pfa, 0, pfa->fa_size);
@@ -63,7 +57,7 @@ static int littlefs_flash_erase(unsigned int id)
 
     flash_area_close(pfa);
     return rc;
-}
+}*/
 
 static int littlefs_mount(struct fs_mount_t *mp)
 {
@@ -101,7 +95,7 @@ static int lsdir(const char *path)
 
     fs_dir_t_init(&dirp);
 
-    /* Verify fs_opendir() */
+    // Verify fs_opendir() 
     res = fs_opendir(&dirp, path);
     if (res)
     {
@@ -112,10 +106,10 @@ static int lsdir(const char *path)
     LOG_PRINTK("\nListing dir %s ...\n", path);
     for (;;)
     {
-        /* Verify fs_readdir() */
+        // Verify fs_readdir() 
         res = fs_readdir(&dirp, &entry);
 
-        /* entry.name[0] == 0 means end-of-dir */
+        // entry.name[0] == 0 means end-of-dir
         if (res || entry.name[0] == 0)
         {
             if (res < 0)
@@ -138,11 +132,12 @@ static int lsdir(const char *path)
 
     printk("\n");
 
-    /* Verify fs_closedir() */
+    // Verify fs_closedir() 
     fs_closedir(&dirp);
 
     return res;
 }
+
 
 #ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
 
@@ -151,11 +146,6 @@ static int mount_sd_fs()
     int rc;
     struct fs_statvfs sbuf;
     struct fs_dir_t dir;
-
-    static FATFS fat_fs;
-    sd_fs_mnt.type = FS_FATFS;
-    sd_fs_mnt.fs_data = &fat_fs;
-    sd_fs_mnt.mnt_point = "/SD:";
 
     rc = fs_mount(&sd_fs_mnt);
     k_sleep(K_MSEC(50));
@@ -174,7 +164,7 @@ static int mount_sd_fs()
     if (rc < 0)
     {
         printk("FAIL: statvfs: %d\n", rc);
-        return;
+        return rc;
     }
 
     printk("%s: bsize = %lu ; frsize = %lu ;"
@@ -192,7 +182,7 @@ static int mount_sd_fs()
 
 void fs_module_init(void)
 {
-    int rc;
+    /*int rc;
     struct fs_statvfs sbuf;
 
     printk("Initing FS...\n");
@@ -222,10 +212,11 @@ void fs_module_init(void)
     {
         LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
         // goto out;
-    }
+    }*/
 
 #ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
     mount_sd_fs();
 #endif
 }
+
 

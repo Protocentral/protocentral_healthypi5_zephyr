@@ -131,7 +131,7 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 {
 	const uint8_t *buffer = buf;
 
-	//printk("Received CMD len %d \n", len);
+	printk("Received CMD len %d \n", len);
 
 	for (uint8_t i = 0; i < len; i++)
 	{
@@ -142,7 +142,7 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 
 	struct hpi_cmd_data_obj_t cmd_data_obj;
 	cmd_data_obj.pkt_type = 0x00;
-	cmd_data_obj.data_len = len;
+	cmd_data_obj.data_len = (uint8_t)len;
 	memcpy(cmd_data_obj.data, buffer, len);
 
 	k_msgq_put(&q_cmd_msg, &cmd_data_obj, K_MSEC(100));

@@ -14,9 +14,9 @@
 #define CMD_LOGGING_START 0x55 //tested
 #define CMD_LOG_GET_COUNT 0x54  //tested
 #define CMD_FETCH_LOG_FILE_DATA 0x51 //
-#define CMD_LOG_FILE_HEADER 0x50
-#define CMG_LOG_FILE_DELETE 0x52 //tested
-#define CMD_LOG_WIPE_ALL 0x53 //tested
+#define CMD_LOG_SESSION_HEADERS 0x50
+#define CMG_SESSION_DELETE 0x52 //tested
+#define CMD_SESSION_WIPE_ALL 0x53 //tested
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
@@ -80,32 +80,10 @@ struct hpi_cmd_data_obj_t
     uint8_t data[MAX_MSG_SIZE];
 };
 
-
-struct healthypi_time_t
-{
-    uint8_t year;
-    uint8_t month;
-    uint8_t day;
-    uint8_t hour;
-    uint8_t minute;
-    uint8_t second;
-};
-
-struct healthypi_session_log_header_t
-{
-    uint16_t session_id;
-    uint16_t session_size;
-    struct healthypi_time_t session_start_time;
-
-};
-
 struct hpi_sensor_logging_data_t {
-    int32_t ecg_sample;
-    int32_t bioz_sample;
-    int16_t raw_ir;
+    int32_t log_ecg_sample;
+    int16_t log_ppg_sample;
+    int32_t log_bioz_sample;
 };
 
-struct healthypi_session_t {
-    uint16_t session_id;
-};
 

@@ -11,7 +11,6 @@ int RESP_Prev_Sample = 0;
 int RESP_Current_Sample = 0;
 int RESP_Next_Sample = 0;
 int RESP_Second_Next_Sample = 0;
-
 uint8_t Respiration_Rate = 0;
 
 #define FILTERORDER 161 /* DC Removal Numerator Coeff*/
