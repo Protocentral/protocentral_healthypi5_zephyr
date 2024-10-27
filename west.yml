@@ -19,6 +19,7 @@ manifest:
         # By using name-allowlist we can clone only the modules that are
         # strictly needed by the application.
         name-allowlist:
+          - cmsis-dsp
           - cmsis      # required by the ARM port
           - hal_rpi_pico # required by the RPi Pico port
           - littlefs
@@ -33,8 +34,8 @@ manifest:
           - net-tools
           - picolibc
           
-    - name: max30001
-      repo-path: protocentral_max30001_zephyr_driver
-      remote: protocentral
-      revision: main
-      path: drivers/sensor/max30001
+#    - name: max30001
+#      repo-path: protocentral_max30001_zephyr_driver
+#      remote: protocentral
+#      revision: main
+#      path: drivers/sensor/max30001

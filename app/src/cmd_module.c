@@ -3,21 +3,36 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/sys/reboot.h>
-
-#include "cmd_module.h"
+#include <zephyr/fs/fs.h>
+#include <zephyr/fs/littlefs.h>
+#include <stdio.h>
+#include <string.h>
+#include <zephyr/random/random.h>
 
 #include "fs_module.h"
+#include "cmd_module.h"
+
+#include "ble_module.h"
+#include "data_module.h"
+#include "hw_module.h"
+#include "sampling_module.h"
+
+#include "datalog_module.h"
+
 // #include "tdcs3.h"
 
-//#define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
+// #define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
 #define MAX_MSG_SIZE 32
 
-#define CMDIF_BLE_UART_MAX_PKT_SIZE 128 // Max Packet Size in bytes
+#define FILE_TRANSFER_BLE_PACKET_SIZE 64 // (16*7)
+#define CMDIF_BLE_UART_MAX_PKT_SIZE 128  // Max Packet Size in bytes
 
 K_SEM_DEFINE(sem_ble_connected, 0, 1);
 K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
 
-//static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
+K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 16, 1);
+
+// static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);
 static volatile int ecs_rx_state = 0;
 
 int cmd_pkt_len;
@@ -26,7 +41,11 @@ int cmd_pkt_pkttype;
 uint8_t ces_pkt_data_buffer[1000]; // = new char[1000];
 volatile bool cmd_module_ble_connected = false;
 
+extern struct k_msgq q_sample;
 extern int global_dev_status;
+bool settings_log_data_enabled = false;
+int8_t data_pkt[272];
+
 
 struct wiser_cmd_data_fifo_obj_t
 {
@@ -101,24 +120,62 @@ void ces_parse_packet(char rxch)
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
-
+    int rc;
     uint8_t cmd_cmd_id = in_pkt_buf[0];
 
-    printk("Recd Command: %X\n", cmd_cmd_id);
+    // printk("Recd Command: %X\n", cmd_cmd_id);
 
     switch (cmd_cmd_id)
     {
 
     case HPI_CMD_GET_DEVICE_STATUS:
         printk("Recd Get Device Status Command\n");
-        //cmdif_send_ble_device_status_response();
+        // cmdif_send_ble_device_status_response();
         break;
-    
+
     case HPI_CMD_RESET:
         printk("Recd Reset Command\n");
         printk("Rebooting...\n");
         k_sleep(K_MSEC(1000));
         sys_reboot(SYS_REBOOT_COLD);
+        break;
+
+    case CMD_LOG_GET_COUNT:
+        printk("Comamnd to send log count\n");
+        hpi_get_session_count();
+        break;
+
+    case CMD_LOG_SESSION_HEADERS:
+        printk("Sending all session headers\n");
+        hpi_get_session_index();
+        break;
+
+    case CMD_FETCH_LOG_FILE_DATA:
+        printk("Command to fetch file data\n");
+        hpi_session_fetch(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
+        break;
+
+    case CMD_SESSION_WIPE_ALL:
+        printk("Command to delete all files\n");
+        hpi_datalog_delete_all();
+        break;
+
+    case CMG_SESSION_DELETE:
+        printk("Command to delete file\n");
+        hpi_datalog_delete_session(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
+        break;
+
+    case CMD_LOGGING_END:
+        printk("Command to end logging\n");
+        // AKW: Replace with a function to stop logging
+        settings_log_data_enabled = false;
+        flush_current_session_logs(true);
+        break;
+
+    case CMD_LOGGING_START:
+        // bool header_set_flag = false;
+        printk("Command to start logging\n");
+        hpi_datalog_start_session(in_pkt_buf);
         break;
 
     default:
@@ -127,8 +184,59 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     }
 }
 
+void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len)
+{
+    uint8_t cmd_pkt[1 + m_data_len];
+    cmd_pkt[0] = CES_CMDIF_TYPE_LOG_IDX;
+
+    for (int i = 0; i < m_data_len; i++)
+    {
+        cmd_pkt[1 + i] = m_data[i];
+    }
+
+    healthypi5_service_send_data(cmd_pkt, 1 + m_data_len);
+}
+
+void cmdif_send_memory_status(uint8_t m_cmd)
+{
+    // printk("Sending BLE Status\n");
+    uint8_t cmd_pkt[3];
+
+    cmd_pkt[0] = CES_CMDIF_TYPE_STATUS;
+    cmd_pkt[1] = 0x55;
+    cmd_pkt[2] = m_cmd;
+
+    healthypi5_service_send_data(cmd_pkt, 3);
+}
+
+void cmdif_send_session_count(uint8_t m_cmd)
+{
+    // printk("Sending BLE Status\n");
+    uint8_t cmd_pkt[3];
+
+    cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
+    cmd_pkt[1] = 0x54;
+    cmd_pkt[2] = m_cmd;
+
+    // printk("sending response\n");
+    healthypi5_service_send_data(cmd_pkt, 3);
+}
+
+void cmdif_send_ble_session_data(int8_t *m_data, uint8_t m_data_len)
+{
+    // printk("Sending BLE Data: %d\n", m_data_len);
+
+    data_pkt[0] = CES_CMDIF_TYPE_DATA;
+
+    for (int i = 0; i < m_data_len; i++)
+    {
+        data_pkt[1 + i] = m_data[i];
+    }
+    healthypi5_service_send_data(data_pkt, 1 + m_data_len);
+}
+
 // TODO: implement BLE UART
-void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
+/*void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
 {
     uint8_t dataPacket[50];
 
@@ -153,7 +261,7 @@ void cmdif_send_ble_data(const char *in_data_buf, size_t in_data_len)
     {
         //uart_poll_out(esp_uart_dev, dataPacket[i]);
     }
-}
+}*/
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped)
 {
@@ -177,13 +285,13 @@ void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_
 
     for (int i = 0; i < 16; i++)
     {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
+        // uart_poll_out(esp_uart_dev, cmd_pkt[i]);
     }
 }
 
 void cmdif_send_ble_device_status_response(void)
 {
-    //cmdif_send_ble_status(WISER_CMD_GET_DEVICE_STATUS, global_dev_status);
+    // cmdif_send_ble_status(WISER_CMD_GET_DEVICE_STATUS, global_dev_status);
 }
 
 void cmdif_send_ble_command(uint8_t m_cmd)
@@ -201,7 +309,7 @@ void cmdif_send_ble_command(uint8_t m_cmd)
 
     for (int i = 0; i < 8; i++)
     {
-        //uart_poll_out(esp_uart_dev, cmd_pkt[i]);
+        // uart_poll_out(esp_uart_dev, cmd_pkt[i]);
     }
 }
 
@@ -269,7 +377,7 @@ static void cmd_init(void)
     */
 }
 
-void cmd_thread(void)
+/*void cmd_thread(void)
 {
     printk("CMD Thread Started\n");
 
@@ -347,9 +455,33 @@ void cmd_thread(void)
 
         k_sleep(K_MSEC(1000));
     }
+}*/
+
+void cmd_thread(void)
+{
+    printk("CMD Thread Started\n");
+
+    struct hpi_cmd_data_obj_t rx_cmd_data_obj;
+
+    for (;;)
+    {
+        if (k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_NO_WAIT) == 0)
+        {
+
+            printk("Recd BLE Packet len: %d", rx_cmd_data_obj.data_len);
+            for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
+            {
+                // printk("%02X\t", rx_cmd_data_obj.data[i]);
+            }
+            printk("\n");
+            hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len);
+        }
+
+        k_sleep(K_MSEC(1000));
+    }
 }
 
-#define CMD_THREAD_STACKSIZE 1024
+#define CMD_THREAD_STACKSIZE 2048
 #define CMD_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(cmd_thread_id, CMD_THREAD_STACKSIZE, cmd_thread, NULL, NULL, NULL, CMD_THREAD_PRIORITY, 0, 0);

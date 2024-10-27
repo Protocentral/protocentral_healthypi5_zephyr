@@ -1,28 +1,30 @@
 #pragma once
 
+#define FILE_TRANSFER_BLE_PACKET_SIZE 64
+
 #define CES_CMDIF_PKT_START_1 0x0A
 #define CES_CMDIF_PKT_START_2 0xFA
 #define CES_CMDIF_PKT_STOP_1 0x00
 #define CES_CMDIF_PKT_STOP_2 0x0B
 
-#define CMD_SESSION_START_TES 0x09
-#define CMD_SESSION_START_TDCS 0x10
-#define CMD_SESSION_START_TPCS 0x11
-#define CMD_SESSION_START_TACS 0x12
 
-#define CMD_SESSION_PAUSE 0x13
-#define CMD_SESSION_ABORT 0x14
-#define CMD_SESSION_RESUME 0x15
-
-#define CMD_PROGRAM_SAVE_TDCS 0x20
-#define CMD_PROGRAM_SAVE_TPCS 0x21
-#define CMD_PROGRAM_SAVE_TACS 0x22
+#define CMD_LOGGING_MEMORY_FREE 0x32 //tested
+#define CMD_LOGGING_MEMORY_NOT_AVAILABLE 0x31
+#define CMD_LOGGING_END 0x56 //tested
+#define CMD_LOGGING_START 0x55 //tested
+#define CMD_LOG_GET_COUNT 0x54  //tested
+#define CMD_FETCH_LOG_FILE_DATA 0x51 //
+#define CMD_LOG_SESSION_HEADERS 0x50
+#define CMG_SESSION_DELETE 0x52 //tested
+#define CMD_SESSION_WIPE_ALL 0x53 //tested
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);
 
-void cmdif_send_ble_data(const char *buf, size_t len);
+//void cmdif_send_ble_data(const char *buf, size_t len);
+void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len);
+//void cmdif_send_ble_file_data(uint8_t *m_data, uint32_t number_writes,uint8_t m_data_len);
 
 enum cmdsm_state
 {
@@ -58,6 +60,8 @@ enum cmdif_pkt_type
     CES_CMDIF_TYPE_DATA = 0x02,
     CES_CMDIF_TYPE_STATUS = 0x03,
     CES_CMDIF_TYPE_PROGRESS = 0x04,
+    CES_CMDIF_TYPE_LOG_IDX = 0x05,
+    CES_CMDIF_TYPE_CMD_RSP = 0x06,
 };
 
 enum ble_status
@@ -66,3 +70,20 @@ enum ble_status
     BLE_STATUS_DISCONNECTED,
     BLE_STATUS_CONNECTING,
 };
+
+#define MAX_MSG_SIZE 32
+
+struct hpi_cmd_data_obj_t
+{
+    uint8_t pkt_type;
+    uint8_t data_len;
+    uint8_t data[MAX_MSG_SIZE];
+};
+
+struct hpi_sensor_logging_data_t {
+    int32_t log_ecg_sample;
+    int16_t log_ppg_sample;
+    int32_t log_bioz_sample;
+};
+
+
