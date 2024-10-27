@@ -84,7 +84,7 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ppg_i = ((data_ppg_red[i]) / 1000);
+            int32_t data_ppg_i = ((data_ppg_red[i]));
 
             // printk("PPG: %d\n", data_ppg_i);
 
