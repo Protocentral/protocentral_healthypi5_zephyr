@@ -1,7 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/dac.h>
-#include <zephyr/logging/log.h>
+
 #include <zephyr/device.h>
 #include <zephyr/drivers/display.h>
 #include <lvgl.h>
@@ -13,6 +13,9 @@
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(display_module, CONFIG_SENSOR_LOG_LEVEL);
 
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
@@ -297,8 +300,6 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
 
-
-
     // RR Number label
     label_rr = lv_label_create(parent);
     lv_label_set_text(label_rr, "---");
@@ -497,12 +498,16 @@ void hpi_disp_update_batt_level(int batt_level)
 
 void display_screens_thread(void)
 {
+    struct hpi_computed_data_t computed_data;
+    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
+    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
+
     k_sem_take(&sem_hw_inited, K_FOREVER);
 
     display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
     if (!device_is_ready(display_dev))
     {
-        // LOG_ERR("Device not ready, aborting test");
+        LOG_ERR("Display not available. Stopping display thread");
         return;
     }
     // Init all styles globally
@@ -518,21 +523,12 @@ void display_screens_thread(void)
     display_blanking_off(display_dev);
 
     printk("Display screens inited");
-    // k_sem_give(&sem_disp_inited);
-    //  draw_scr_menu("A\nB\n");
-    // struct hpi_sensor_data_t sensor_sample;
-    struct hpi_computed_data_t computed_data;
-    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
-    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
-    // draw_scr_chart_single(HPI_SENSOR_DATA_PPG);
-    // draw_chart_single_scr(HPI_SENSOR_DATA_ECG, scr_chart_single_ecg);
-
-    //draw_scr_ecg(SCROLL_DOWN);
-    // draw_scr_resp(SCROLL_DOWN);
+    // draw_scr_ecg(SCROLL_DOWN);
+    //  draw_scr_resp(SCROLL_DOWN);
     draw_scr_ppg(SCROLL_DOWN);
 
-    //draw_scr_welcome();
+    // draw_scr_welcome();
 
     int sample_count = 0;
     while (1)
@@ -570,23 +566,6 @@ void display_screens_thread(void)
         {
             sample_count++;
         }
-
-        /*if (k_msgq_get(&q_computed_val, &computed_data, K_NO_WAIT) == 0)
-        {
-            printk("Got computed data");
-            printk("SpO2: %d", computed_data.spo2);
-            printk("HR: %d", computed_data.hr);
-            printk("RR: %d\n", computed_data.rr);
-
-            // hpi_scr_home_update_hr(computed_data.hr);
-            hpi_scr_home_update_spo2(computed_data.spo2);
-            hpi_scr_home_update_rr(computed_data.rr);
-        }
-
-        if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
-        {
-            down_key_event_handler();
-        }*/
 
         lv_task_handler();
         k_sleep(K_MSEC(4));
