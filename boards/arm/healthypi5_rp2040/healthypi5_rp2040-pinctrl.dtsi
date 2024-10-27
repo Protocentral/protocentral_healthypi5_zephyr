@@ -56,14 +56,12 @@
 
 	};
 
-	/*pwm_ch1b_default: pwm_ch1b_default {
+	pwm_ch0a_default: pwm_ch0a_default {
 		group1 {
-			pinmux = <PWM_1B_P19>; // Blue LED - GPIO 19
+			pinmux = <PWM_0A_P16>; // LCD Backlight
 		};
-	};*/
+	};
 
-	
-	
 	clocks_default: clocks_default {
 	};
 };

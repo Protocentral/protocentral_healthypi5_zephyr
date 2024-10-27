@@ -5,14 +5,12 @@
 #include <stdio.h>
 #include <app_version.h>
 
-#include "sys_sm_module.h"
 #include "hw_module.h"
-
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
 
-static lv_obj_t *scr_ppg;
+lv_obj_t *scr_ppg;
 
 // GUI Charts
 static lv_obj_t *chart_ppg;
@@ -32,7 +30,7 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 void draw_scr_ppg(enum scroll_dir m_scroll_dir)
 {
@@ -52,10 +50,10 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     lv_chart_set_div_line_count(chart_ppg, 0, 0);
     lv_chart_set_update_mode(chart_ppg, LV_CHART_UPDATE_MODE_CIRCULAR);
 
-    ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
 
     curr_screen = SCR_PPG;
-
+    
     hpi_show_screen(scr_ppg, m_scroll_dir);
 }
 
@@ -86,7 +84,7 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ppg_i = ((data_ppg_red[i]) / 1000);
+            int32_t data_ppg_i = ((data_ppg_red[i]));
 
             // printk("PPG: %d\n", data_ppg_i);
 

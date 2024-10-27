@@ -5,9 +5,7 @@
 #include <stdio.h>
 #include <app_version.h>
 
-#include "sys_sm_module.h"
 #include "hw_module.h"
-
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
@@ -32,7 +30,7 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 void draw_scr_resp(enum scroll_dir m_scroll_dir)
 {

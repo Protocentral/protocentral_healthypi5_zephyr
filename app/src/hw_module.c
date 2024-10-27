@@ -5,6 +5,7 @@
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/led.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/pwm.h>
 
 #include <stdio.h>
 #include <zephyr/drivers/sensor.h>
@@ -68,6 +69,7 @@ const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
 const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 const struct device *fg_dev;
+static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm));
 
 uint8_t global_batt_level = 0;
 
@@ -323,6 +325,20 @@ void hw_thread(void)
     k_sem_give(&sem_hw_inited);
 
     usb_init();
+
+    if (!pwm_is_ready_dt(&bl_led_pwm))
+    {
+        printk("Error: PWM device %s is not ready\n",
+               bl_led_pwm.dev->name);
+        // return 0;
+    }
+
+    int ret = pwm_set_pulse_dt(&bl_led_pwm, 3000);
+    if (ret)
+    {
+        printk("Error %d: failed to set pulse width\n", ret);
+        // return 0;
+    }
 
     for (;;)
     {

@@ -5,14 +5,12 @@
 #include <stdio.h>
 #include <app_version.h>
 
-#include "sys_sm_module.h"
 #include "hw_module.h"
-
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
 
-static lv_obj_t *scr_ecg;
+lv_obj_t *scr_ecg;
 
 // GUI Charts
 static lv_obj_t *chart_ecg;
@@ -32,7 +30,7 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern int curr_screen;
+extern uint8_t curr_screen;
 
 #define DISP_WINDOW_SIZE_ECG 390
 
