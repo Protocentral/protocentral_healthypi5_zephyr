@@ -332,8 +332,7 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
 
 void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 {
-    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
-
+    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
     char m_session_id[20];
     char m_session_name[30];
     char m_session_path[50] = "/SD:/";
@@ -380,6 +379,8 @@ void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 
     for (i = 0; i < number_writes; i++)
     {
+        memset(m_buffer,0,64);
+
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
         if (rc < 0)
         {

@@ -20,7 +20,7 @@
 #endif
 
 LOG_MODULE_REGISTER(fs_module);
-K_SEM_DEFINE(sem_fs_module, 0, 1);
+bool sd_card_present = false;
 
 static FATFS fat_fs;
 static struct fs_mount_t sd_fs_mnt = {
@@ -29,6 +29,7 @@ static struct fs_mount_t sd_fs_mnt = {
     .mnt_point = "/SD:",
 };
 struct fs_mount_t *mp_sd = &sd_fs_mnt;
+
 
 
 /*static int littlefs_flash_erase(unsigned int id)
@@ -153,29 +154,43 @@ static int mount_sd_fs()
     if(rc==0)
     {
         printk("\nSuccessfully Mounted FS %s\n", sd_fs_mnt.mnt_point);
+        sd_card_present = true;
     }
     else
     {
         printk("\nFailed to mount FS %s\n", sd_fs_mnt.mnt_point);
+        sd_card_present = false;
         return rc;
     }
 
-    rc = fs_statvfs(sd_fs_mnt.mnt_point, &sbuf);
-    if (rc < 0)
+
+    if (sd_card_present)
     {
-        printk("FAIL: statvfs: %d\n", rc);
+        rc = fs_statvfs(sd_fs_mnt.mnt_point, &sbuf);
+        if (rc < 0)
+        {
+            printk("FAIL: statvfs: %d\n", rc);
+            return rc;
+        }
+
+        printk("%s: bsize = %lu ; frsize = %lu ;"
+            " blocks = %lu ; bfree = %lu\n",
+            mp_sd->mnt_point,
+            sbuf.f_bsize, sbuf.f_frsize,
+            sbuf.f_blocks, sbuf.f_bfree);
+
+        rc = lsdir("/SD:");
+
         return rc;
+
+    }
+    else
+    {
+        printk("unable to access SD card\n");
     }
 
-    printk("%s: bsize = %lu ; frsize = %lu ;"
-           " blocks = %lu ; bfree = %lu\n",
-           mp_sd->mnt_point,
-           sbuf.f_bsize, sbuf.f_frsize,
-           sbuf.f_blocks, sbuf.f_bfree);
 
-    rc = lsdir("/SD:");
-
-    return rc;
+    
 }
 
 #endif

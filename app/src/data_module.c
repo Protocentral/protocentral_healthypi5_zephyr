@@ -65,7 +65,7 @@ const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 #define HPI_OV3_DATA_RED_LEN 8
 #define HPI_OV3_DATA_IR_LEN 8
 
-const uint8_t hpi_ov3_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
+const uint8_t hpi_ov3_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, HPI_OV3_DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 
 uint8_t hpi_ov3_data[HPI_OV3_DATA_LEN];
@@ -76,9 +76,10 @@ static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
+extern bool sd_card_present;
 extern struct fs_mount_t *mp_sd;
 extern struct hpi_log_session_header_t hpi_log_session_header;
-static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
+static int settings_data_format = DATA_FMT_HPI5_OV3; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -126,29 +127,40 @@ void send_data_ov3_format(int16_t ecg_samples[8], int16_t bioz_samples[4], int16
 {
     for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
     {
-        hpi_ov3_data[i * 2] = (uint8_t)ecg_samples[i];
-        hpi_ov3_data[i * 2 + 1] = (uint8_t)(ecg_samples[i] >> 8);
+        hpi_ov3_data[i * 2] = (uint8_t)ecg_samples[i]; 
+        hpi_ov3_data[i * 2 + 1] = (uint8_t)(ecg_samples[i] >> 8); 
     }
 
     for (int i = 0; i < HPI_OV3_DATA_BIOZ_LEN; i++)
     {
         hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + i * 2] = (uint8_t)bioz_samples[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + i * 2 + 1] = (uint8_t)(bioz_samples[i] >> 8);
+        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + i * 2 + 1] = (uint8_t)(bioz_samples[i] >> 8); 
     }
 
-    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2] = (uint8_t)_bioZSkipSample;
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2] = (uint8_t)_bioZSkipSample; 
 
     for (int i = 0; i < HPI_OV3_DATA_RED_LEN; i++)
     {
         hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + i * 2] = (uint8_t)raw_red[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + i * 2 + 1] = (uint8_t)(raw_red[i] >> 8);
+        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + i * 2 + 1] = (uint8_t)(raw_red[i] >> 8); 
     }
 
     for (int i = 0; i < HPI_OV3_DATA_IR_LEN; i++)
     {
         hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + i * 2] = (uint8_t)raw_ir[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + i * 2 + 1] = (uint8_t)(raw_ir[i] >> 8);
+        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + i * 2 + 1] = (uint8_t)(raw_ir[i] >> 8); 
     }
+
+
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + HPI_OV3_DATA_IR_LEN * 2] = (uint8_t)temp;
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + HPI_OV3_DATA_IR_LEN * 2 + 1] = (uint8_t)(temp >> 8);
+
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + HPI_OV3_DATA_IR_LEN * 2 + 2 + 1] = (uint8_t)(spo2);
+
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + HPI_OV3_DATA_IR_LEN * 2 + 2 + 1 + 1] = (uint8_t)(hr);
+
+    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + HPI_OV3_DATA_IR_LEN * 2 + 2 + 1 + 1 + 1] = (uint8_t)(rr);
+
 
     if (settings_send_usb_enabled)
     {
@@ -470,7 +482,7 @@ void data_thread(void)
                 ble_hrs_notify(ecg_bioz_sensor_sample.hr);
             }
 
-            if (settings_log_data_enabled)
+            if (settings_log_data_enabled && sd_card_present)
             {
                 record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples,ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
                 //record_session_add_bioz_point(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
@@ -505,7 +517,7 @@ void data_thread(void)
             }
 #endif
 
-            if (settings_log_data_enabled)
+            if (settings_log_data_enabled && sd_card_present)
             {
                 record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, PPG_POINTS_PER_SAMPLE);
             }
@@ -561,8 +573,8 @@ void data_thread(void)
             }
             else if (settings_data_format == DATA_FMT_HPI5_OV3)
             {
-                send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
-                                     ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
+                send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ppg_sensor_sample.ppg_ir_samples,
+                                     ppg_sensor_sample.ppg_red_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
             }
             // #endif
 
