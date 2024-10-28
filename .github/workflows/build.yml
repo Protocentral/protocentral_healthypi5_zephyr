@@ -23,37 +23,27 @@ jobs:
           west init -l .
           west update -o=--depth=1 -n
 
-      - name: Build base firmware
+      - name: Build Basic firmware
         working-directory: healthypi5_zephyr
         run: |
           rm -rf *.uf2
-          west build -p auto -b healthypi5_rp2040 app
-          mv build/zephyr/zephyr.uf2 healthypi5_base.uf2
+          west build -p always -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf -DEXTRA_CONF_FILE=overlay-logger-sd.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_sd.overlay 
+          mv build/zephyr/zephyr.uf2 healthypi5_basic.uf2
 
-      - name: Build display firmware
+      - name: Build display firmware for ST7796
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-display.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_display.overlay
-          mv build/zephyr/zephyr.uf2 healthypi5_display.uf2
+          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf -DEXTRA_CONF_FILE=overlay-display-st7796.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_display_st7796.overlay
+          mv build/zephyr/zephyr.uf2 healthypi5_display_st7796.uf2
 
-      - name: Build BLE firmware
+      - name: Build display firmware for ILI9488
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE=overlay-bt.conf
-          mv build/zephyr/zephyr.uf2 healthypi5_ble.uf2
-      
-      - name: Build BLE firmware with MCUBoot
-        working-directory: healthypi5_zephyr
-        run: |
-          west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app --sysbuild "-DEXTRA_CONF_FILE=overlay-boot.conf;overlay-bt.conf" "-DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_mcuboot.overlay"
-          hexmerge.py -o build/merged_boot.hex --no-start-addr build/mcuboot/zephyr/zephyr.hex build/app/zephyr/zephyr.signed.hex
-          hex2bin.py build/merged_boot.hex build/merged_boot.bin
-          ../zephyr/scripts/build/uf2conv.py build/merged_boot.bin --convert -f 0xe48bff56 -b 0x10000000 -o build/merged_boot.uf2
-          mv build/merged_boot.uf2 healthypi5_ble_boot.uf2
-      
+          west build -p auto -b healthypi5_rp2040 app  -DEXTRA_CONF_FILE=overlay-display-ili9488.conf -DEXTRA_DTC_OVERLAY_FILE=healthypi5_rp2040_display_ili9488.overlay
+          mv build/zephyr/zephyr.uf2 healthypi5_display_ili9488.uf2
+
       - name: Upload release assets
         uses: ncipollo/release-action@v1
         with:
