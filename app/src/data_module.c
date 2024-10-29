@@ -59,7 +59,7 @@ char DataPacket[DATA_LEN];
 const uint8_t DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 
-#define HPI_OV3_DATA_LEN 16
+#define HPI_OV3_DATA_LEN 24
 #define HPI_OV3_DATA_ECG_LEN 8
 #define HPI_OV3_DATA_BIOZ_LEN 4
 #define HPI_OV3_DATA_RED_LEN 8
@@ -86,6 +86,7 @@ struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_ecg_counter = 0;
 uint16_t serial_ecg_counter = 0;
+uint16_t serial_bioz_counter = 0;
 uint16_t current_session_bioz_counter = 0;
 uint16_t current_session_ppg_counter = 0;
 uint16_t current_session_log_id = 0;
@@ -127,7 +128,7 @@ float firCoeffs[NUM_TAPS] = {0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.
 arm_fir_instance_f32 sFIR;
 float firState[NUM_TAPS + BLOCK_SIZE - 1];
 
-void send_data_ov3_format(int16_t ecg_samples[8])
+void send_data_ov3_format(int16_t ecg_samples[8],int16_t bioz_samples[4])
 {
     uint8_t pkt_pos_counter = 0;
     for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
@@ -136,13 +137,13 @@ void send_data_ov3_format(int16_t ecg_samples[8])
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ecg_samples[i] >> 8);
     }
 
-    /*for (int i = 0; i < HPI_OV3_DATA_BIOZ_LEN; i++)
+    for (int i = 0; i < HPI_OV3_DATA_BIOZ_LEN; i++)
     {
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)bioz_samples[i];
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(bioz_samples[i] >> 8);
     }
 
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)_bioZSkipSample;
+    /*hpi_ov3_data[pkt_pos_counter++] = (uint8_t)_bioZSkipSample;
 
     for (int i = 0; i < HPI_OV3_DATA_RED_LEN; i++)
     {
@@ -358,22 +359,34 @@ void record_session_add_ecg_point(int32_t *ecg_samples, uint8_t ecg_len, int32_t
     }
 }
 
-void buffer_data_for_serial(int32_t *data_in,int len, int16_t *data_buffer)
+void buffer_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz_data_in, int bioz_len, int16_t *ecg_data_buffer, int16_t *bioz_data_buffer)
 {
     if (serial_ecg_counter < HPI_OV3_DATA_ECG_LEN)
     {
-        for(int i=0; i< len; i++)
+        for(int i=0; i< ecg_len; i++)
         {
-            data_buffer[serial_ecg_counter++] = (int16_t) data_in[i] >> 16;
+            ecg_data_buffer[serial_ecg_counter++] = (int16_t) ecg_data_in[i] >> 8;
         }
+
+        for(int i=0; i< bioz_len; i++)
+        {
+            bioz_data_buffer[serial_bioz_counter++] = (int16_t) bioz_data_in[i] >> 8;
+        } 
     }
     else
     {
-       send_data_ov3_format(data_buffer);
+       send_data_ov3_format(ecg_data_buffer,bioz_data_buffer);
        serial_ecg_counter = 0;
-       for(int i=0; i< len; i++)
+       serial_bioz_counter = 0;
+
+       for(int i=0; i< ecg_len; i++)
         {
-            data_buffer[serial_ecg_counter++] = (int16_t) data_in[i] >> 8;
+            ecg_data_buffer[serial_ecg_counter++] = (int16_t) ecg_data_in[i] >> 8;
+        }
+
+        for(int i=0; i< bioz_len; i++)
+        {
+            bioz_data_buffer[serial_bioz_counter++] = (int16_t) bioz_data_in[i] >> 8;
         }
 
     }
@@ -473,7 +486,7 @@ void data_thread(void)
 
             if (settings_send_usb_enabled)
             {
-                buffer_data_for_serial(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_serial_streaming);
+                buffer_data_for_serial(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_serial_streaming, resp_serial_streaming);
             }
 
             if (settings_log_data_enabled && sd_card_present)
