@@ -528,7 +528,6 @@ void hpi_datalog_start_session(uint8_t *in_pkt_buf)
 
 void hpi_log_session_write_file(int parameter_to_be_written)
 {
-    printk("parameter_to_be_written %d\n",parameter_to_be_written);
     switch (parameter_to_be_written)
     {
         case ECG_DATA:
@@ -556,6 +555,7 @@ void hpi_log_session_write_file(int parameter_to_be_written)
             {
                 snprintf(ecg_sensor_data, sizeof(ecg_sensor_data), "%d\n", log_buffer[i].log_ecg_sample);
                 ecg_rc = fs_write(&ecg_file, ecg_sensor_data, strlen(ecg_sensor_data));
+                printk("ecg_rc %d\n",ecg_rc);
             }
 
 
