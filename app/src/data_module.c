@@ -401,6 +401,7 @@ void buffer_ppg_data_for_serial(int16_t *ppg_data_in, int ppg_len)
     {
         send_data_ov3_format();
         serial_ppg_counter = 0;
+        //memset(ppg_serial_streaming,0,sizeof(ppg_serial_streaming));
         for(int i=0; i< ppg_len; i++)
         {
             ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
@@ -430,6 +431,8 @@ void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len,int32_t *bioz_
        //send_data_ov3_format();
        serial_ecg_counter = 0;
        serial_bioz_counter = 0;
+       //memset(ecg_serial_streaming,0,sizeof(ecg_serial_streaming));
+       memset(resp_serial_streaming,0,sizeof(resp_serial_streaming));
         for(int i=0; i< bioz_len; i++)
         {
             resp_serial_streaming[serial_bioz_counter++] = (int16_t) bioz_data_in[i] >> 8;
