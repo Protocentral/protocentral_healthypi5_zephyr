@@ -43,8 +43,6 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #define SAMPLE_BUFF_WATERMARK 4
 
 K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
-// struct k_sem log_sem;
-// k_sem_init(&log_sem, 0, LOG_BUFFER_LENGTH);
 
 enum hpi5_data_format
 {
@@ -542,13 +540,11 @@ void data_thread(void)
             if (settings_send_usb_enabled)
             {
                 buffer_ecg_data_for_serial(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-                //buffer_bioz_data_for_serial(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
 
             if (settings_log_data_enabled && sd_card_present)
             {
                 record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-                // record_session_add_bioz_point(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
             // #endif
 
