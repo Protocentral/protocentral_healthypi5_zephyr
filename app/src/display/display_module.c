@@ -568,7 +568,7 @@ void display_screens_thread(void)
         }
 
         lv_task_handler();
-        k_sleep(K_MSEC(4));
+        k_sleep(K_MSEC(1));
     }
 }
 
