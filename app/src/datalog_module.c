@@ -23,6 +23,7 @@ extern uint16_t current_session_bioz_counter;
 extern struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_log_session_header_t hpi_log_session_header;
 extern bool settings_log_data_enabled;
+extern bool sd_card_present;
 
 void write_header_to_new_session()
 {
@@ -64,31 +65,56 @@ void write_header_to_new_session()
     rc = fs_open(&file, session_name, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
     {
-        printk("FAIL: open %s: %d", session_name, rc);
+        printk("FAIL: open %s_ecg.csv: %d", session_name, rc);
     }
     rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    if (rc < 0)
+    {
+        printk("File %s_ecg.csv Header write Fail %d\n",session_name, rc);
+    }
     rc = fs_write(&file, session_vital_header, strlen(session_vital_header));
+    if (rc < 0)
+    {
+        printk("File %s_ecg.csv vital header write Fail %d\n",session_name, rc);
+    }
     rc = fs_close(&file);
 
     rc = fs_open(&file, ppg_session_name, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
     {
-        printk("FAIL: open %s: %d", ppg_session_name, rc);
+        printk("FAIL: open %s_ppg.csv: %d", ppg_session_name, rc);
     }
     rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    if (rc < 0)
+    {
+        printk("File %s_ppg.csv Header write Fail %d\n",session_name, rc);
+    }
+
     rc = fs_write(&file, ppg_session_vital_header, strlen(ppg_session_vital_header));
+    if (rc < 0)
+    {
+        printk("File %s_ppg.csv vital header write Fail %d\n",session_name, rc);
+    }
     rc = fs_close(&file);
 
     rc = fs_open(&file, resp_session_name, FS_O_CREATE | FS_O_RDWR);
     if (rc < 0)
     {
-        printk("FAIL: open %s: %d", resp_session_name, rc);
+        printk("FAIL: open %s_resp.csv: %d", resp_session_name, rc);
     }
     rc = fs_write(&file, session_record_details, strlen(session_record_details));
+    if (rc < 0)
+    {
+        printk("File %s_resp.csv Header write Fail %d\n",session_name, rc);
+    }
     rc = fs_write(&file, resp_session_vital_header, strlen(resp_session_vital_header));
+    if (rc < 0)
+    {
+        printk("File %s_resp.csv vital header write Fail %d\n",session_name, rc);
+    }
     rc = fs_close(&file);
 
-    printf("Header written to file... %d\n", hpi_log_session_header.session_id);
+    printk("Header written to file... %d\n", hpi_log_session_header.session_id);
 }
 
 void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_t m_day, uint8_t m_month, uint8_t m_year)
@@ -102,22 +128,30 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     minute = m_min;
     second = m_sec;
 
-    flush_current_session_logs(true);
+    if (sd_card_present)
+    {
 
-    // update structure with new session start time
-    hpi_log_session_header.session_start_time.year = year;
-    hpi_log_session_header.session_start_time.month = month;
-    hpi_log_session_header.session_start_time.day = day;
-    hpi_log_session_header.session_start_time.hour = hour;
-    hpi_log_session_header.session_start_time.minute = minute;
-    hpi_log_session_header.session_start_time.second = second;
+        flush_current_session_logs(true);
 
-    uint8_t rand[1];
-    sys_rand_get(rand, sizeof(rand));
-    hpi_log_session_header.session_id = (rand[0]);
-    hpi_log_session_header.session_size = 0;
+        // update structure with new session start time
+        hpi_log_session_header.session_start_time.year = year;
+        hpi_log_session_header.session_start_time.month = month;
+        hpi_log_session_header.session_start_time.day = day;
+        hpi_log_session_header.session_start_time.hour = hour;
+        hpi_log_session_header.session_start_time.minute = minute;
+        hpi_log_session_header.session_start_time.second = second;
 
-    printk("Header data for session %d set\n", hpi_log_session_header.session_id);
+        uint8_t rand[1];
+        sys_rand_get(rand, sizeof(rand));
+        hpi_log_session_header.session_id = (rand[0]);
+        hpi_log_session_header.session_size = 0;
+
+        printk("Header data for session %d set\n", hpi_log_session_header.session_id);
+    }
+    else
+    {
+        printk(" No SD card mounted\n");
+    }
 }
 
 void get_session_header(char *session_id, struct hpi_log_session_header_t *session_header_data)
@@ -168,7 +202,7 @@ void get_session_header(char *session_id, struct hpi_log_session_header_t *sessi
     session_header_data->session_start_time.second = (uint8_t)atoi(strtok_r(NULL, " ", &saveptr));
 }
 
-uint16_t hpi_get_session_count(void)
+void hpi_get_session_count(void)
 {
     int res;
     struct fs_dir_t dirp;
@@ -176,117 +210,129 @@ uint16_t hpi_get_session_count(void)
 
     uint16_t session_count = 0;
 
-    fs_dir_t_init(&dirp);
-
-    const char *path = "/SD:";
-
-    /* Verify fs_opendir() */
-    res = fs_opendir(&dirp, path);
-    if (res)
+    if (sd_card_present)
     {
-        printk("Error opening dir %s [%d]\n", path, res);
-        return res;
-    }
 
-    for (;;)
-    {
-        /* Verify fs_readdir() */
-        res = fs_readdir(&dirp, &entry);
+        fs_dir_t_init(&dirp);
 
-        /* entry.name[0] == 0 means end-of-dir */
-        if (res || entry.name[0] == 0)
+        const char *path = "/SD:";
+
+        /* Verify fs_opendir() */
+        res = fs_opendir(&dirp, path);
+        if (res)
         {
-            if (res < 0)
+            printk("Error opening dir %s [%d]\n", path, res);
+            return res;
+        }
+
+        for (;;)
+        {
+            /* Verify fs_readdir() */
+            res = fs_readdir(&dirp, &entry);
+
+            /* entry.name[0] == 0 means end-of-dir */
+            if (res || entry.name[0] == 0)
             {
-                printk("Error reading dir [%d]\n", res);
+                if (res < 0)
+                {
+                    printk("Error reading dir [%d]\n", res);
+                }
+                break;
             }
-            break;
+
+            if (entry.type != FS_DIR_ENTRY_DIR)
+            {
+                session_count++;
+            }
         }
 
-        if (entry.type != FS_DIR_ENTRY_DIR)
-        {
-            session_count++;
-        }
+        /* Verify fs_closedir() */
+        fs_closedir(&dirp);
+
+        printk("Total session count: %d\n", session_count);
+
+        cmdif_send_session_count(session_count,84);
     }
-
-    /* Verify fs_closedir() */
-    fs_closedir(&dirp);
-
-    printk("Total session count: %d\n", session_count);
-
-    cmdif_send_session_count(session_count);
-
-    return session_count;
+    else
+    {
+        cmdif_send_session_count(0,87);
+    }
 }
 
-int hpi_get_session_index(void)
+void hpi_get_session_index(void)
 {
     int res;
     struct fs_dir_t dirp;
     static struct fs_dirent entry;
 
-    fs_dir_t_init(&dirp);
-
-    const char *path = "/SD:/";
-
-    /* Verify fs_opendir() */
-    res = fs_opendir(&dirp, path);
-    if (res)
+    if (sd_card_present)
     {
-        printk("Error opening dir %s [%d]\n", path, res);
-        return res;
-    }
 
-    for (;;)
-    {
-        /* Verify fs_readdir() */
-        res = fs_readdir(&dirp, &entry);
+        fs_dir_t_init(&dirp);
 
-        /* entry.name[0] == 0 means end-of-dir */
-        if (res || entry.name[0] == 0)
+        const char *path = "/SD:/";
+
+        /* Verify fs_opendir() */
+        res = fs_opendir(&dirp, path);
+        if (res)
         {
-            if (res < 0)
+            printk("Error opening dir %s [%d]\n", path, res);
+            return res;
+        }
+
+        for (;;)
+        {
+            /* Verify fs_readdir() */
+            res = fs_readdir(&dirp, &entry);
+
+            /* entry.name[0] == 0 means end-of-dir */
+            if (res || entry.name[0] == 0)
             {
-                printk("Error reading dir [%d]\n", res);
+                if (res < 0)
+                {
+                    printk("Error reading dir [%d]\n", res);
+                }
+
+                break;
             }
 
-            break;
+            if (entry.type != FS_DIR_ENTRY_DIR)
+            {
+                char session_header[80];
+
+
+                hpi_log_session_header.session_id =(uint16_t)atoi(entry.name);
+                hpi_log_session_header.session_size = (uint32_t)entry.size;
+
+                //printk("entry.name %s",entry.name);
+                get_session_header(entry.name, &hpi_log_session_header);  
+
+
+                char file_name[50];
+                strcpy(file_name,entry.name);
+                char *saveptr;
+                strtok_r(file_name, "_", &saveptr);
+                char *extension =  strtok_r(NULL, ".", &saveptr);
+                if (strncmp(extension,"ECG",strlen(extension)) == 0)
+                    hpi_log_session_header.file_no = 1;
+                else if (strncmp(extension,"PPG",strlen(extension)) == 0)
+                    hpi_log_session_header.file_no = 2;
+                else if (strncmp(extension,"RESP",strlen(extension)) == 0)
+                    hpi_log_session_header.file_no = 3;
+                else
+                    hpi_log_session_header.file_no = 1;
+                
+                memcpy(&buf_log, &hpi_log_session_header, 15);
+                cmdif_send_ble_data_idx(buf_log, 15);
+                printk("Header of session id: %d size %d sent\n", hpi_log_session_header.session_id,hpi_log_session_header.session_size);
+            }
         }
-
-        if (entry.type != FS_DIR_ENTRY_DIR)
-        {
-            char session_header[80];
-
-
-            hpi_log_session_header.session_id =(uint16_t)atoi(entry.name);
-            hpi_log_session_header.session_size = (uint32_t)entry.size;
-
-            //printk("entry.name %s",entry.name);
-            get_session_header(entry.name, &hpi_log_session_header);  
-
-
-            char file_name[50];
-            strcpy(file_name,entry.name);
-            char *saveptr;
-            strtok_r(file_name, "_", &saveptr);
-            char *extension =  strtok_r(NULL, ".", &saveptr);
-            if (strncmp(extension,"ECG",strlen(extension)) == 0)
-                hpi_log_session_header.file_no = 1;
-            else if (strncmp(extension,"PPG",strlen(extension)) == 0)
-                hpi_log_session_header.file_no = 2;
-            else if (strncmp(extension,"RESP",strlen(extension)) == 0)
-                hpi_log_session_header.file_no = 3;
-            else
-                hpi_log_session_header.file_no = 1;
-            
-            memcpy(&buf_log, &hpi_log_session_header, 15);
-            cmdif_send_ble_data_idx(buf_log, 15);
-            printk("Header of session id: %d size %d sent\n", hpi_log_session_header.session_id,hpi_log_session_header.session_size);
-        }
+        fs_closedir(&dirp);
     }
-    fs_closedir(&dirp);
-
-    return res;
+    else
+    {
+        printk("No SD card mounted\n");
+    }
 }
 
 uint32_t hpi_log_session_get_length(char *m_file_name)
@@ -332,8 +378,7 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
 
 void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 {
-    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE] = {0};
-
+    int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
     char m_session_id[20];
     char m_session_name[30];
     char m_session_path[50] = "/SD:/";
@@ -380,15 +425,18 @@ void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 
     for (i = 0; i < number_writes; i++)
     {
+        memset(m_buffer,0,64);
+
         rc = fs_read(&m_file, m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE);
         if (rc < 0)
         {
             printk("Error reading file %d\n", rc);
             return;
         }
+        printk("Writing %d\n write",i);
         
         cmdif_send_ble_session_data(m_buffer, FILE_TRANSFER_BLE_PACKET_SIZE); // FILE_TRANSFER_BLE_PACKET_SIZE);
-        k_sleep(K_MSEC(100));
+        k_sleep(K_MSEC(50));
     }
 
     rc = fs_close(&m_file);
@@ -501,33 +549,39 @@ void hpi_datalog_delete_session(uint16_t session_id,uint8_t file_no)
 void hpi_datalog_start_session(uint8_t *in_pkt_buf)
 {
     set_current_session_id(in_pkt_buf[1], in_pkt_buf[2], in_pkt_buf[3], in_pkt_buf[4], in_pkt_buf[5], in_pkt_buf[6]);
-
-    struct fs_statvfs sbuf;
-    int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
-
-    if (rc < 0)
+    if (sd_card_present)
     {
-        printk("FAILED to return stats");
-    }
+        struct fs_statvfs sbuf;
+        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
 
-    printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
+        if (rc < 0)
+        {
+            printk("FAILED to return stats");
+        }
 
-    if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
-    {
-        settings_log_data_enabled = true;
-        cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
-        write_header_to_new_session();
+        printk("free: %lu, available : %f\n", sbuf.f_bfree, (0.25 * sbuf.f_blocks));
+
+        if (sbuf.f_bfree >= (0.25 * sbuf.f_blocks))
+        {
+            settings_log_data_enabled = true;
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_FREE);
+            write_header_to_new_session();
+        }
+        else
+        {
+            // if memory available is less than 25%
+            cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
+        }
     }
     else
     {
-        // if memory available is less than 25%
-        cmdif_send_memory_status(CMD_LOGGING_MEMORY_NOT_AVAILABLE);
+        settings_log_data_enabled = false; //if the flag enabled during previous session
+        cmdif_send_memory_status(CMD_SD_CARD_NOT_PRESENT);
     }
 }
 
 void hpi_log_session_write_file(int parameter_to_be_written)
 {
-    printk("parameter_to_be_written %d\n",parameter_to_be_written);
     switch (parameter_to_be_written)
     {
         case ECG_DATA:
@@ -555,6 +609,7 @@ void hpi_log_session_write_file(int parameter_to_be_written)
             {
                 snprintf(ecg_sensor_data, sizeof(ecg_sensor_data), "%d\n", log_buffer[i].log_ecg_sample);
                 ecg_rc = fs_write(&ecg_file, ecg_sensor_data, strlen(ecg_sensor_data));
+                //printk("ecg_rc %d\n",ecg_rc);
             }
 
 

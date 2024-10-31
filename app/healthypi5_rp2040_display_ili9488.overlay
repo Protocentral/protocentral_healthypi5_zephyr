@@ -16,7 +16,7 @@
 		ili9488: ili9488@0 {
 			compatible = "ilitek,ili9488";
 			reg = <0>;
-			mipi-max-frequency = <16000000>;
+			mipi-max-frequency = <32000000>;
 			rotation = <90>;
 			width = <480>;
 			height = <320>;

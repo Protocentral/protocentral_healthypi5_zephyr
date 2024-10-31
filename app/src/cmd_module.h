@@ -17,6 +17,9 @@
 #define CMD_LOG_SESSION_HEADERS 0x50
 #define CMG_SESSION_DELETE 0x52 //tested
 #define CMD_SESSION_WIPE_ALL 0x53 //tested
+#define CMD_SD_CARD_PRESENT 0x59
+#define CMD_SD_CARD_NOT_PRESENT 0x58
+#define CMD_FETCH_SD_CARD_STATUS 0x57
 
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);

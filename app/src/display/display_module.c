@@ -67,7 +67,7 @@ K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
 
 extern struct k_msgq q_computed_val;
 
-uint8_t curr_screen = SCR_HOME;
+uint8_t curr_screen = SCR_ECG;
 
 lv_obj_t *scr_chart_single;
 
@@ -229,6 +229,40 @@ void hpi_scr_home_update_rr(int rr)
     lv_label_set_text(label_rr, buf);
 }
 
+void hpi_disp_change_event(enum hpi_scr_event evt)
+{
+    if (evt == HPI_SCR_EVENT_DOWN)
+    {
+        printf("DOWN at %d\n", curr_screen);
+
+        if ((curr_screen + 1) == SCR_LIST_END)
+        {
+            printk("End of list\n");
+            return;
+        }
+        else
+        {
+            printk("Loading screen %d\n", curr_screen + 1);
+            hpi_load_screen(curr_screen + 1, SCROLL_LEFT);
+        }
+    }
+    else if (evt == HPI_SCR_EVENT_UP)
+    {
+        printf("UP at %d\n", curr_screen);
+
+        if ((curr_screen - 1) == SCR_LIST_START)
+        {
+            printk("Start of list\n");
+            return;
+        }
+        else
+        {
+            printk("Loading screen %d\n", curr_screen - 1);
+            hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
+        }
+    }
+}
+
 void draw_scr_home_footer(lv_obj_t *parent)
 {
     /*static lv_style_t style;
@@ -351,19 +385,16 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 {
     switch (m_screen)
     {
-    case SCR_HOME:
+    case SCR_ECG:
         draw_scr_ecg(SCROLL_DOWN);
         break;
     case SCR_RESP:
         draw_scr_resp(SCROLL_DOWN);
         break;
-    /*case HPI_DISP_SCR_ECG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_PPG, scr_chart_single_ppg);
+    case SCR_PPG:
+        draw_scr_ppg(SCROLL_DOWN);
         break;
-    case HPI_DISP_SCR_PPG:
-        draw_chart_single_scr(HPI_SENSOR_DATA_RESP, scr_chart_single_resp);
-        break;
-    */
+
     default:
         break;
     }
@@ -524,11 +555,12 @@ void display_screens_thread(void)
 
     printk("Display screens inited");
 
-    // draw_scr_ecg(SCROLL_DOWN);
+    //draw_scr_ecg(SCROLL_DOWN);
     //  draw_scr_resp(SCROLL_DOWN);
-    draw_scr_ppg(SCROLL_DOWN);
+    //draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
+    hpi_load_screen(SCR_ECG, SCROLL_DOWN);
 
     int sample_count = 0;
     while (1)
@@ -568,7 +600,7 @@ void display_screens_thread(void)
         }
 
         lv_task_handler();
-        k_sleep(K_MSEC(4));
+        k_sleep(K_MSEC(1));
     }
 }
 

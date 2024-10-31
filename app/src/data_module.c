@@ -43,8 +43,6 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #define SAMPLE_BUFF_WATERMARK 4
 
 K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
-//struct k_sem log_sem;
-//k_sem_init(&log_sem, 0, LOG_BUFFER_LENGTH);
 
 enum hpi5_data_format
 {
@@ -59,13 +57,13 @@ char DataPacket[DATA_LEN];
 const uint8_t DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 
-#define HPI_OV3_DATA_LEN 62
+#define HPI_OV3_DATA_LEN 40
 #define HPI_OV3_DATA_ECG_LEN 8
 #define HPI_OV3_DATA_BIOZ_LEN 4
 #define HPI_OV3_DATA_RED_LEN 8
 #define HPI_OV3_DATA_IR_LEN 8
 
-const uint8_t hpi_ov3_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
+const uint8_t hpi_ov3_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, HPI_OV3_DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 
 uint8_t hpi_ov3_data[HPI_OV3_DATA_LEN];
@@ -76,14 +74,18 @@ static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
+extern bool sd_card_present;
 extern struct fs_mount_t *mp_sd;
 extern struct hpi_log_session_header_t hpi_log_session_header;
-static int settings_data_format = DATA_FMT_OPENVIEW; // DATA_FMT_PLAIN_TEXT;
+static int settings_data_format = DATA_FMT_HPI5_OV3; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
 
 uint16_t current_session_ecg_counter = 0;
+uint16_t serial_ecg_counter = 0;
+uint16_t serial_bioz_counter = 0;
+uint16_t serial_ppg_counter = 0;
 uint16_t current_session_bioz_counter = 0;
 uint16_t current_session_ppg_counter = 0;
 uint16_t current_session_log_id = 0;
@@ -94,12 +96,15 @@ int16_t resWaveBuff, respFilterout;
 long timeElapsed = 0;
 
 int32_t ecg_sample_buffer[64];
+int16_t ecg_serial_streaming[8];
 int sample_buffer_count = 0;
 
 int16_t ppg_sample_buffer[64];
+int16_t ppg_serial_streaming[8];
 int ppg_sample_buffer_count = 0;
 
 int32_t resp_sample_buffer[64];
+int16_t resp_serial_streaming[4];
 int resp_sample_buffer_count = 0;
 
 // Externs
@@ -122,38 +127,52 @@ float firCoeffs[NUM_TAPS] = {0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.
 arm_fir_instance_f32 sFIR;
 float firState[NUM_TAPS + BLOCK_SIZE - 1];
 
-void send_data_ov3_format(int16_t ecg_samples[8], int16_t bioz_samples[4], int16_t raw_ir[8], int16_t raw_red[8], int16_t temp, uint8_t hr, uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
+void send_data_ov3_format()
 {
+    uint8_t pkt_pos_counter = 0;
     for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
     {
-        hpi_ov3_data[i * 2] = (uint8_t)ecg_samples[i];
-        hpi_ov3_data[i * 2 + 1] = (uint8_t)(ecg_samples[i] >> 8);
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)ecg_serial_streaming[i];
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ecg_serial_streaming[i] >> 8);
     }
 
     for (int i = 0; i < HPI_OV3_DATA_BIOZ_LEN; i++)
     {
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + i * 2] = (uint8_t)bioz_samples[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + i * 2 + 1] = (uint8_t)(bioz_samples[i] >> 8);
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)resp_serial_streaming[i];
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(resp_serial_streaming[i] >> 8);
     }
 
-    hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2] = (uint8_t)_bioZSkipSample;
+    /*for (int i=0;i<HPI_OV3_DATA_LEN;i++)
+    {
+        printk("Packet %d value %d\n",i,hpi_ov3_data[i]);
+    }*/
+
+    // hpi_ov3_data[pkt_pos_counter++] = (uint8_t)1;
 
     for (int i = 0; i < HPI_OV3_DATA_RED_LEN; i++)
     {
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + i * 2] = (uint8_t)raw_red[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + i * 2 + 1] = (uint8_t)(raw_red[i] >> 8);
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)ppg_serial_streaming[i];
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ppg_serial_streaming[i] >> 8);
     }
 
-    for (int i = 0; i < HPI_OV3_DATA_IR_LEN; i++)
+    /*for (int i = 0; i < HPI_OV3_DATA_IR_LEN; i++)
     {
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + i * 2] = (uint8_t)raw_ir[i];
-        hpi_ov3_data[HPI_OV3_DATA_ECG_LEN * 2 + HPI_OV3_DATA_BIOZ_LEN * 2 + 1 + HPI_OV3_DATA_RED_LEN * 2 + i * 2 + 1] = (uint8_t)(raw_ir[i] >> 8);
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)raw_ir[i];
+        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(raw_ir[i] >> 8);
     }
+
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)temp;
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(temp >> 8);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(spo2);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(hr);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(rr);*/
+
+    // LOG_INF("Sending Data %d", pkt_pos_counter);
 
     if (settings_send_usb_enabled)
     {
         send_usb_cdc(hpi_ov3_packet_header, 5);
-        send_usb_cdc(hpi_ov3_data, HPI_OV3_DATA_LEN);
+        send_usb_cdc(hpi_ov3_data, pkt_pos_counter);
         send_usb_cdc(hpi_ov3_packet_footer, 2);
     }
 
@@ -249,7 +268,6 @@ void send_data_text_1(int32_t in_sample)
     send_usb_cdc(data, strlen(data));
 }
 
-
 // Start a new session log
 void flush_current_session_logs(bool write_to_file)
 {
@@ -265,7 +283,7 @@ void flush_current_session_logs(bool write_to_file)
         hpi_log_session_write_file(PPG_DATA);
     }
 
-    //current_session_log_id = 0;
+    // current_session_log_id = 0;
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
     {
         log_buffer[i].log_ecg_sample = 0;
@@ -286,10 +304,9 @@ void flush_current_session_logs(bool write_to_file)
     hpi_log_session_header.session_id = 0;
     hpi_log_session_header.session_size = 0;
     hpi_log_session_header.file_no = 0;
-
 }
 
-void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
+void record_session_add_ppg_point(int16_t *ppg_samples, uint8_t ppg_len)
 {
     if (current_session_ppg_counter < LOG_BUFFER_LENGTH)
     {
@@ -300,80 +317,124 @@ void record_session_add_ppg_point(int16_t *ppg_samples,uint8_t ppg_len)
     }
     else
     {
-        //printk("Log Buffer Full at %d \n", k_uptime_get_32());
-        struct fs_statvfs sbuf;
-
-        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
-        if (rc < 0)
+        hpi_log_session_write_file(PPG_DATA);
+        current_session_ppg_counter = 0;
+        for (int i = 0; i < ppg_len; i++)
         {
-            printk("FAILED to return stats");
-        }
-
-        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
-        {
-            settings_log_data_enabled = false;
-        }
-        else
-        {
-            hpi_log_session_write_file(PPG_DATA);
-            current_session_ppg_counter = 0;
-            for (int i = 0; i < ppg_len; i++)
-            {
-                log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
-            }
+            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
         }
     }
 }
 
-
-
 // Add a log point to the current session log
-void record_session_add_ecg_point(int32_t *ecg_samples,uint8_t ecg_len,int32_t *bioz_samples,uint8_t bioz_len)
+void record_session_add_ecg_point(int32_t *ecg_samples, uint8_t ecg_len, int32_t *bioz_samples, uint8_t bioz_len)
 {
     if (current_session_ecg_counter < LOG_BUFFER_LENGTH)
     {
-        //printk("Writing dataa to the file\n");
+        // printk("Writing dataa to the file\n");
         for (int i = 0; i < ecg_len; i++)
         {
-            //k_sem_give(&log_sem);
+            // k_sem_give(&log_sem);
             log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
 
         for (int i = 0; i < bioz_len; i++)
         {
-            //k_sem_give(&log_sem);
+            // k_sem_give(&log_sem);
             log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[i];
         }
     }
     else
     {
-        struct fs_statvfs sbuf;
 
-        int rc = fs_statvfs(mp_sd->mnt_point, &sbuf);
-        if (rc < 0)
+        hpi_log_session_write_file(ECG_DATA);
+        current_session_ecg_counter = 0;
+        current_session_bioz_counter = 0;
+        for (int i = 0; i < ecg_len; i++)
         {
-            printk("FAILED to return stats");
+            log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
         }
 
-        if (sbuf.f_bfree < (0.25 * sbuf.f_blocks))
+        for (int i = 0; i < bioz_len; i++)
         {
-            settings_log_data_enabled = false;
+            log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[i];
         }
-        else
-        {
-            hpi_log_session_write_file(ECG_DATA);
-            current_session_ecg_counter = 0;
-            current_session_bioz_counter = 0;
-            for (int i = 0; i < ecg_len; i++)
-            {
-                log_buffer[current_session_ecg_counter++].log_ecg_sample = ecg_samples[i];
-            }
+    }
+}
 
-            for (int i = 0; i < bioz_len; i++)
-            {
-                log_buffer[current_session_bioz_counter++].log_bioz_sample = bioz_samples[i];
-            }
-        }        
+void buffer_bioz_data_for_serial(int32_t *bioz_data_in, int bioz_len)
+{
+    if (serial_bioz_counter < HPI_OV3_DATA_BIOZ_LEN)
+    {
+        for (int i = 0; i < bioz_len; i++)
+        {
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)0;
+            // resp_serial_streaming[serial_bioz_counter++] = (int16_t) 50;
+        }
+    }
+    else
+    {
+        serial_bioz_counter = 0;
+        for (int i = 0; i < bioz_len; i++)
+        {
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)bioz_data_in[i] >> 8;
+            // resp_serial_streaming[serial_bioz_counter++] = (int16_t) 50;
+        }
+    }
+}
+
+void buffer_ppg_data_for_serial(int16_t *ppg_data_in, int ppg_len)
+{
+    if (serial_ppg_counter < HPI_OV3_DATA_IR_LEN)
+    {
+        for (int i = 0; i < ppg_len; i++)
+        {
+            ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
+        }
+    }
+    else
+    {
+        send_data_ov3_format();
+        serial_ppg_counter = 0;
+        // memset(ppg_serial_streaming,0,sizeof(ppg_serial_streaming));
+        for (int i = 0; i < ppg_len; i++)
+        {
+            ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
+        }
+    }
+}
+
+void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz_data_in, int bioz_len)
+{
+    if (serial_ecg_counter < HPI_OV3_DATA_ECG_LEN)
+    {
+        for (int i = 0; i < ecg_len; i++)
+        {
+            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)ecg_data_in[i] >> 8;
+        }
+
+        for (int i = 0; i < bioz_len; i++)
+        {
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)bioz_data_in[i] >> 8;
+        }
+    }
+    else
+    {
+        // send_data_ov3_format();
+        serial_ecg_counter = 0;
+        serial_bioz_counter = 0;
+        // memset(ecg_serial_streaming,0,sizeof(ecg_serial_streaming));
+        memset(resp_serial_streaming, 0, sizeof(resp_serial_streaming));
+        for (int i = 0; i < bioz_len; i++)
+        {
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)bioz_data_in[i] >> 8;
+            // resp_serial_streaming[serial_bioz_counter++] = (int16_t) 50;
+        }
+
+        for (int i = 0; i < ecg_len; i++)
+        {
+            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)ecg_data_in[i] >> 8;
+        }
     }
 }
 
@@ -387,7 +448,7 @@ void data_thread(void)
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
-    //record_init_session_log();
+    // record_init_session_log();
 
     int m_temp_sample_counter = 0;
 
@@ -419,7 +480,7 @@ void data_thread(void)
     {
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_FOREVER) == 0)
         {
-            //printk("PPG %d\n",ppg_sensor_sample.ppg_num_samples);
+            // printk("PPG %d\n",ppg_sensor_sample.ppg_num_samples);
             for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
             {
                 irBuffer[init_buffer_count] = ppg_sensor_sample.ppg_ir_samples[i];
@@ -431,7 +492,6 @@ void data_thread(void)
 
     for (;;)
     {
-        k_sleep(K_MSEC(1));
 
         // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
@@ -461,7 +521,7 @@ void data_thread(void)
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
             resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
-//#ifdef CONFIG_BT
+            // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
                 ble_resp_rate_notify(globalRespirationRate);
@@ -470,13 +530,16 @@ void data_thread(void)
                 ble_hrs_notify(ecg_bioz_sensor_sample.hr);
             }
 
-            if (settings_log_data_enabled)
+            if (settings_send_usb_enabled)
             {
-                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples,ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-                //record_session_add_bioz_point(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-
+                buffer_ecg_data_for_serial(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
-//#endif
+
+            if (settings_log_data_enabled && sd_card_present)
+            {
+                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+            }
+            // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
@@ -490,13 +553,18 @@ void data_thread(void)
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
 
-//#ifdef CONFIG_BT
+            if (settings_send_usb_enabled)
+            {
+                buffer_ppg_data_for_serial(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
+                // buffer_bioz_data_for_serial(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+            }
+
+            // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
                 ble_ppg_notify(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
             }
-//#endif
-            
+            // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
@@ -505,11 +573,12 @@ void data_thread(void)
             }
 #endif
 
-            if (settings_log_data_enabled)
+            if (settings_log_data_enabled && sd_card_present)
             {
                 record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, PPG_POINTS_PER_SAMPLE);
             }
 
+            // Buffer the PPG data for SPO2 calculation
             if (spo2_time_count < FreqS)
             {
                 irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
@@ -518,6 +587,7 @@ void data_thread(void)
                 spo2_time_count++;
             }
             else
+            // Buffer is full, calculate SPO2
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
@@ -527,9 +597,9 @@ void data_thread(void)
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_spo2(m_spo2);
 #endif
-//#ifdef CONFIG_BT
+                    // #ifdef CONFIG_BT
                     ble_spo2_notify(m_spo2);
-//#endif
+                    // #endif
                 }
 
                 if (validHeartRate)
@@ -547,27 +617,7 @@ void data_thread(void)
             }
         }
 
-        /***** Send to USB if enabled *****/
-        if (settings_send_usb_enabled)
-        {
-            if (settings_data_format == DATA_FMT_OPENVIEW)
-            {
-                //sendData(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red, sensor_sample.raw_ir,
-                //         (double)(sensor_sample.temp / 10.00), computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-            }
-            else if (settings_data_format == DATA_FMT_PLAIN_TEXT)
-            {
-                send_data_text(sensor_sample.ecg_sample, sensor_sample.bioz_samples, sensor_sample.raw_red);
-            }
-            else if (settings_data_format == DATA_FMT_HPI5_OV3)
-            {
-                send_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.ecg_samples,
-                                     ecg_bioz_sensor_sample.ecg_samples, sensor_sample.temp, computed_data.hr, computed_data.rr, computed_data.spo2, sensor_sample._bioZSkipSample);
-            }
-            // #endif
-
-            /****** Send to log queue if enabled ******/
-        }
+        k_sleep(K_MSEC(1));
     }
 }
 

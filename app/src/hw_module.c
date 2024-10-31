@@ -21,9 +21,9 @@
 #include "hw_module.h"
 #include "fs_module.h"
 
-#ifdef CONFIG_DISPLAY
+// #ifdef CONFIG_DISPLAY
 #include "display_module.h"
-#endif
+// #endif
 
 #include "ble_module.h"
 
@@ -72,7 +72,7 @@ const struct device *fg_dev;
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm));
-#endif 
+#endif
 
 uint8_t global_batt_level = 0;
 
@@ -254,24 +254,23 @@ static void gpio_keys_cb_handler(struct input_event *evt)
 {
     printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",
            evt->dev->name, evt->code, evt->value);
+
+    enum hpi_scr_event curr_event;
     if (evt->value == 1)
     {
         switch (evt->code)
         {
         case INPUT_KEY_ENTER:
-            // m_key_pressed = GPIO_KEYPAD_KEY_OK;
             LOG_INF("OK Key Pressed");
-            k_sem_give(&sem_ok_key_pressed);
+            hpi_disp_change_event(HPI_SCR_EVENT_OK);
             break;
         case INPUT_KEY_UP:
-            // m_key_pressed = GPIO_KEYPAD_KEY_UP;
             LOG_INF("UP Key Pressed");
-            k_sem_give(&sem_up_key_pressed);
+            hpi_disp_change_event(HPI_SCR_EVENT_UP);
             break;
         case INPUT_KEY_DOWN:
-            // m_key_pressed = GPIO_KEYPAD_KEY_DOWN;
             LOG_INF("DOWN Key Pressed");
-            k_sem_give(&sem_down_key_pressed);
+            hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
             break;
         default:
             break;

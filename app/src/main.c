@@ -5,8 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/reboot.h>
+#include <zephyr/fatal.h>
 
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 
 #include "fs_module.h"
 
@@ -20,7 +23,17 @@ LOG_MODULE_REGISTER(healthypi5, LOG_LEVEL);
 
 int main(void)
 {
-	printk("\nHealthyPi 5 RP2040 started !! FW version: %d.%d.%d \n\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
+	LOG_INF("\nHealthyPi 5 RP2040 started !! FW version: %d.%d.%d \n\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
 
 	return 0;
+}
+
+void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf)
+{
+    LOG_PANIC();
+
+    LOG_ERR("Fatal error: %u. Rebooting...", reason);
+    sys_reboot(SYS_REBOOT_COLD);
+
+    CODE_UNREACHABLE;
 }

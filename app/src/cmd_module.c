@@ -43,6 +43,7 @@ volatile bool cmd_module_ble_connected = false;
 
 extern struct k_msgq q_sample;
 extern int global_dev_status;
+extern bool sd_card_present;
 bool settings_log_data_enabled = false;
 int8_t data_pkt[272];
 
@@ -145,6 +146,13 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         hpi_get_session_count();
         break;
 
+    case CMD_FETCH_SD_CARD_STATUS:
+        if (sd_card_present)
+            cmdif_send_memory_status(CMD_SD_CARD_PRESENT);
+        else
+            cmdif_send_memory_status(CMD_SD_CARD_NOT_PRESENT);
+        break;
+
     case CMD_LOG_SESSION_HEADERS:
         printk("Sending all session headers\n");
         hpi_get_session_index();
@@ -209,13 +217,13 @@ void cmdif_send_memory_status(uint8_t m_cmd)
     healthypi5_service_send_data(cmd_pkt, 3);
 }
 
-void cmdif_send_session_count(uint8_t m_cmd)
+void cmdif_send_session_count(uint8_t m_cmd,uint8_t indication)
 {
     // printk("Sending BLE Status\n");
     uint8_t cmd_pkt[3];
 
     cmd_pkt[0] = CES_CMDIF_TYPE_CMD_RSP;
-    cmd_pkt[1] = 0x54;
+    cmd_pkt[1] = indication;
     cmd_pkt[2] = m_cmd;
 
     // printk("sending response\n");
