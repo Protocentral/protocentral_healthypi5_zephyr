@@ -157,7 +157,7 @@ void ppg_sample_trigger_thread(void)
 
     for (;;)
     {
-        sensor_read(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
+        sensor_read_async_mempool(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
         sensor_processing_with_callback(&afe4400_read_rtio_ctx, sensor_ppg_process_cb);
 
         k_sleep(K_MSEC(PPG_SAMPLING_INTERVAL_MS));
@@ -170,7 +170,7 @@ void ecg_bioz_sample_trigger_thread(void)
 
     for (;;)
     {
-        sensor_read(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
+        sensor_read_async_mempool(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
         sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_bioz_processing_cb);
 
         k_sleep(K_MSEC(ECG_SAMPLING_INTERVAL_MS));

@@ -1,4 +1,4 @@
-identifier: healthypi5_rp2040
+identifier: healthypi5
 name: HealthyPi 5 RP2040
 type: mcu
 arch: arm
@@ -19,3 +19,6 @@ supported:
   - pwm
   - flash
   - dma
+  - counter
+  - clock
+  - usbd

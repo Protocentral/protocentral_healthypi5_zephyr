@@ -1,13 +1,7 @@
 # Copyright (c) 2021 Yonatan Schachter
 # SPDX-License-Identifier: Apache-2.0
 
-if BOARD_HEALTHYPI5_RP2040
-
-config BOARD
-	default "healthypi5_rp2040"
-
-config RP2_FLASH_W25Q080
-	default y
+if BOARD_HEALTHYPI5
 
 if I2C_DW
 
@@ -16,4 +10,7 @@ config I2C_DW_CLOCK_SPEED
 
 endif #I2C_DW
 
-endif # BOARD_HEALTHYPI5_RP2040
+config USB_SELF_POWERED
+	default n
+
+endif # BOARD_HEALTHYPI5
