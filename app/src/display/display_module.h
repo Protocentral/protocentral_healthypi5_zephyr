@@ -10,11 +10,18 @@ enum scroll_dir
     SCROLL_RIGHT,
 };
 
+enum hpi_scr_event
+{
+    HPI_SCR_EVENT_UP,
+    HPI_SCR_EVENT_DOWN,
+    HPI_SCR_EVENT_OK,
+};
+
 enum hpi_disp_screens
 {
     SCR_LIST_START,
 
-    SCR_HOME,
+    //SCR_HOME,
     SCR_ECG,
     SCR_PPG,
     SCR_RESP,
@@ -43,6 +50,7 @@ void hpi_scr_home_update_temp(int temp);
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
 void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_dir);
 void hpi_disp_update_batt_level(int batt_level);
+void hpi_disp_change_event(enum hpi_scr_event);
 
 void draw_scr_chart_single(uint8_t m_data_type);
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj);

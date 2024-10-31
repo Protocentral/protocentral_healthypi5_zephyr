@@ -109,9 +109,26 @@ static void sensor_ppg_process_cb(int result, uint8_t *buf, uint32_t buf_len, vo
 
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
+    /*uint32_t un_ir_mean;
+
+        // calculates DC mean and subtract DC from ir
+    un_ir_mean = 0;
+    for (k = 0; k < n_ir_buffer_length; k++)
+        un_ir_mean += pun_ir_buffer[k];
+    un_ir_mean = un_ir_mean / n_ir_buffer_length;
+    
+    // remove DC and invert signal so that we can use peak detector as valley detector
+    for (k = 0; k < n_ir_buffer_length; k++)
+        an_x[k] = -1 * (pun_ir_buffer[k] - un_ir_mean);
+    */
+
+
     if (edata->num_samples > 0)
     {
         ppg_sensor_sample.ppg_num_samples = edata->num_samples;
+
+        // Add DC removal code here
+        
 
         for (int i = 0; i < edata->num_samples; i++)
         {

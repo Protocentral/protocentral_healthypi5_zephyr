@@ -54,6 +54,11 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
 
     ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
 
+    lv_obj_t *lbl_sig_type = lv_label_create(scr_ecg);
+    lv_label_set_text(lbl_sig_type, "Showing ECG");
+    //lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+
     curr_screen = SCR_ECG;
 
     hpi_show_screen(scr_ecg, m_scroll_dir);

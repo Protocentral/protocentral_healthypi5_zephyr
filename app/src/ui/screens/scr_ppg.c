@@ -52,6 +52,11 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
 
     ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
 
+    lv_obj_t *lbl_sig_type = lv_label_create(scr_ppg);
+    lv_label_set_text(lbl_sig_type, "Showing PPG");
+    // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+
     curr_screen = SCR_PPG;
 
     hpi_show_screen(scr_ppg, m_scroll_dir);
@@ -101,7 +106,7 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int
             lv_chart_set_next_value(chart_ppg, ser_ppg, data_ppg_i);
             hpi_ppg_disp_add_samples(1);
         }
-        //hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
+        // hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
     }
 
     if (ppg_lead_off == true)

@@ -52,6 +52,11 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
 
     ser_resp = lv_chart_add_series(chart_resp, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
 
+    lv_obj_t *lbl_sig_type = lv_label_create(scr_resp);
+    lv_label_set_text(lbl_sig_type, "Showing Resp.");
+    // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+
     curr_screen = SCR_RESP;
 
     hpi_show_screen(scr_resp, m_scroll_dir);
@@ -84,7 +89,7 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_resp_i = ((data_resp[i]));// / 10066); // in mV// (data_resp[i]);
+            int32_t data_resp_i = ((data_resp[i])); // / 10066); // in mV// (data_resp[i]);
             /*  2^19	524288
                 BIOZ GAIN	40	V/V
                 CG_MAG	48	uA
