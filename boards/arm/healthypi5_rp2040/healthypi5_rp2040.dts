@@ -43,17 +43,14 @@
 		compatible = "gpio-keys";
 		label = "buttons";
 		button_up: sw1 {
-			label = "Button UP / SW1";
 			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_UP>;
 		};
 		button_ok: sw2 {
-			label = "Button OK / SW2";
 			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_ENTER>;
 		};
 		button_down: sw3 {
-			label = "Button DOWN / SW3";
 			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_DOWN>;
 		};
