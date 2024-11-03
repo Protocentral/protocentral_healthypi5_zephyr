@@ -21,9 +21,9 @@
 #include "hw_module.h"
 #include "fs_module.h"
 
-// #ifdef CONFIG_DISPLAY
+#ifdef CONFIG_DISPLAY
 #include "display_module.h"
-// #endif
+#endif
 
 #include "ble_module.h"
 
@@ -255,7 +255,7 @@ static void gpio_keys_cb_handler(struct input_event *evt)
     printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",
            evt->dev->name, evt->code, evt->value);
 
-    enum hpi_scr_event curr_event;
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
     if (evt->value == 1)
     {
         switch (evt->code)
@@ -276,6 +276,7 @@ static void gpio_keys_cb_handler(struct input_event *evt)
             break;
         }
     }
+#endif
 }
 INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
