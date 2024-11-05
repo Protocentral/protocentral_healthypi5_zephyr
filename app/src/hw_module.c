@@ -223,10 +223,11 @@ static void usb_init()
     printk("\nUSB Init complete\n\n");
 }
 
-int32_t hpi_hw_read_temp(void)
+int16_t hpi_hw_read_temp(void)
 {
     int ret = 0;
-    int32_t temp_val = 0;
+    int32_t i32_temp_val = 0;
+    int16_t temp_val = 0;
 
     struct sensor_value temp_sample;
     sensor_sample_fetch(max30205_dev);
@@ -234,7 +235,8 @@ int32_t hpi_hw_read_temp(void)
     // Convert to degree F
     if (temp_sample.val1 > 0)
     {
-        temp_val = (temp_sample.val1 * 9 / 5) + 32000;
+        i32_temp_val = (temp_sample.val1 * 9 / 5) + 32000;
+        temp_val = (int16_t) (i32_temp_val / 10);
     }
 
     return temp_val;

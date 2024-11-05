@@ -166,7 +166,7 @@ void hpi_disp_update_temp(int32_t temp)
     }
 
     char buf[32];
-    double temp_d = (double)(temp / 1000.00);
+    double temp_d = (double)(temp / 100.00);
     sprintf(buf, "%.1f", temp_d);
     lv_label_set_text(label_temp, buf);
 }
