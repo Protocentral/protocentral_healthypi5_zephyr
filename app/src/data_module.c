@@ -57,7 +57,7 @@ char DataPacket[DATA_LEN];
 const uint8_t DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 
-#define HPI_OV3_DATA_LEN 40
+#define HPI_OV3_DATA_LEN 45
 #define HPI_OV3_DATA_ECG_LEN 8
 #define HPI_OV3_DATA_BIOZ_LEN 4
 #define HPI_OV3_DATA_RED_LEN 8
@@ -130,6 +130,9 @@ float firState[NUM_TAPS + BLOCK_SIZE - 1];
 void send_data_ov3_format()
 {
     uint8_t pkt_pos_counter = 0;
+    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
+    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
+    struct hpi_temp_sensor_data_t temp_sensor_sample;
     for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
     {
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)ecg_serial_streaming[i];
@@ -159,13 +162,13 @@ void send_data_ov3_format()
     {
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)raw_ir[i];
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(raw_ir[i] >> 8);
-    }
+    }*/
 
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)temp;
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(temp >> 8);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(spo2);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(hr);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(rr);*/
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)temp_sensor_sample.temp;
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(temp_sensor_sample.temp >> 8);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ppg_sensor_sample.spo2);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ecg_bioz_sensor_sample.hr);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ecg_bioz_sensor_sample.rr);
 
     // LOG_INF("Sending Data %d", pkt_pos_counter);
 
@@ -448,6 +451,7 @@ void data_thread(void)
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
+
     // record_init_session_log();
 
     int m_temp_sample_counter = 0;
@@ -521,6 +525,9 @@ void data_thread(void)
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
             resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
+            ecg_bioz_sensor_sample.hr = ecg_bioz_sensor_sample.hr;
+            ecg_bioz_sensor_sample.rr = globalRespirationRate;
+
             // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
@@ -547,6 +554,7 @@ void data_thread(void)
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
 #endif
+            
         }
 
         /* Get Sample from PPG sampling queue */
@@ -600,6 +608,8 @@ void data_thread(void)
                     // #ifdef CONFIG_BT
                     ble_spo2_notify(m_spo2);
                     // #endif
+                    ppg_sensor_sample.spo2 = m_spo2;
+
                 }
 
                 if (validHeartRate)

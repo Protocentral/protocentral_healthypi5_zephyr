@@ -20,6 +20,7 @@
 #include "max30001.h"
 #include "hw_module.h"
 #include "fs_module.h"
+#include "sampling_module.h"
 
 #ifdef CONFIG_DISPLAY
 #include "display_module.h"
@@ -69,6 +70,7 @@ const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
 const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
 const struct device *fg_dev;
+struct hpi_temp_sensor_data_t temp_sensor_sample;
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm));
@@ -377,6 +379,7 @@ void hw_thread(void)
         global_batt_level = hpi_hw_read_batt();
 
         global_temp_val = hpi_hw_read_temp();
+        temp_sensor_sample.temp = global_temp_val;
 
 #ifdef CONFIG_DISPLAY
         hpi_disp_update_batt_level(global_batt_level);
