@@ -75,7 +75,7 @@ static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm
 #endif
 
 uint8_t global_batt_level = 0;
-static int16_t global_temp_val = 0;
+static int32_t global_temp_val = 0;
 
 static void leds_init()
 {
@@ -223,10 +223,10 @@ static void usb_init()
     printk("\nUSB Init complete\n\n");
 }
 
-int16_t hpi_hw_read_temp(void)
+int32_t hpi_hw_read_temp(void)
 {
     int ret = 0;
-    int16_t temp_val = 0;
+    int32_t temp_val = 0;
 
     struct sensor_value temp_sample;
     sensor_sample_fetch(max30205_dev);
@@ -381,7 +381,7 @@ void hw_thread(void)
         ble_temp_notify(global_temp_val);
 #endif
 
-        k_sleep(K_MSEC(2000));
+        k_sleep(K_MSEC(1000));
     }
 }
 

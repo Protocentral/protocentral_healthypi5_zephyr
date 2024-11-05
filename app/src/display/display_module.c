@@ -154,7 +154,7 @@ void display_init_styles()
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
-void hpi_disp_update_temp(int16_t temp)
+void hpi_disp_update_temp(int32_t temp)
 {
     if (label_temp == NULL)
         return;
@@ -167,7 +167,7 @@ void hpi_disp_update_temp(int16_t temp)
 
     char buf[32];
     double temp_d = (double)(temp / 1000.00);
-    sprintf(buf, "%.2f", temp_d);
+    sprintf(buf, "%.1f", temp_d);
     lv_label_set_text(label_temp, buf);
 }
 
@@ -355,7 +355,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // Temp Number label
     label_temp = lv_label_create(parent);
     lv_label_set_text(label_temp, "---");
-    lv_obj_align_to(label_temp, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_align_to(label_temp, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 50, 0);
     lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
 
     // Temp label

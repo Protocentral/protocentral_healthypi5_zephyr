@@ -44,7 +44,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir);
 void scr_home_plot_ecg(float plot_data);
 void scr_home_plot_ppg(float plot_data);
 
-void hpi_disp_update_temp(int16_t temp);
+void hpi_disp_update_temp(int32_t temp);
 
 // Display helper functions
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
