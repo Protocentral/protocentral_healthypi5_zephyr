@@ -3,8 +3,8 @@
 
 uint32_t hw_keypad_get_key(void);
 
-void set_current(uint16_t current_uA);
-uint16_t read_voltage(int channel_no);
+
+int16_t hpi_hw_read_temp(void);
 
 void send_usb_cdc(const char *buf, size_t len);
 

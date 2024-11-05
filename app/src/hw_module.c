@@ -75,6 +75,7 @@ static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm
 #endif
 
 uint8_t global_batt_level = 0;
+static int16_t global_temp_val = 0;
 
 static void leds_init()
 {
@@ -222,7 +223,24 @@ static void usb_init()
     printk("\nUSB Init complete\n\n");
 }
 
-uint8_t read_battery_level(void)
+int16_t hpi_hw_read_temp(void)
+{
+    int ret = 0;
+    int16_t temp_val = 0;
+
+    struct sensor_value temp_sample;
+    sensor_sample_fetch(max30205_dev);
+    sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
+    // Convert to degree F
+    if (temp_sample.val1 > 0)
+    {
+        temp_val = (temp_sample.val1 * 9 / 5) + 32000;
+    }
+
+    return temp_val;
+}
+
+uint8_t hpi_hw_read_batt(void)
 {
     int ret = 0;
     uint8_t batt_level = 0;
@@ -348,14 +366,19 @@ void hw_thread(void)
 
     for (;;)
     {
-        // Housekeeping
-        global_batt_level = read_battery_level();
+        // Sample slow changing sensors
+        global_batt_level = hpi_hw_read_batt();
+
+        global_temp_val = hpi_hw_read_temp();
+
 #ifdef CONFIG_DISPLAY
         hpi_disp_update_batt_level(global_batt_level);
+        hpi_disp_update_temp(global_temp_val);
 #endif
 
 #ifdef CONFIG_BT
         ble_bas_notify(global_batt_level);
+        ble_temp_notify(global_temp_val);
 #endif
 
         k_sleep(K_MSEC(2000));

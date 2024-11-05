@@ -154,7 +154,7 @@ void display_init_styles()
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
-void hpi_scr_home_update_temp(int temp)
+void hpi_disp_update_temp(int16_t temp)
 {
     if (label_temp == NULL)
         return;
