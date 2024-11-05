@@ -2,6 +2,7 @@
 #define hw_module_h
 
 int16_t hpi_hw_read_temp(void);
+int16_t hpi_get_global_temp(void);
 
 void send_usb_cdc(const char *buf, size_t len);
 

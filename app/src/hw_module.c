@@ -223,6 +223,11 @@ static void usb_init()
     printk("\nUSB Init complete\n\n");
 }
 
+int16_t hpi_get_global_temp(void)
+{
+    return global_temp_val;
+}
+
 int16_t hpi_hw_read_temp(void)
 {
     int ret = 0;
