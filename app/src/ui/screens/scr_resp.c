@@ -107,8 +107,9 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
 
             lv_chart_set_next_value(chart_resp, ser_resp, data_resp_i);
             hpi_resp_disp_add_samples(1);
-            hpi_resp_disp_do_set_scale(RESP_DISP_WINDOW_SIZE);
+            
         }
+        hpi_resp_disp_do_set_scale(RESP_DISP_WINDOW_SIZE);
     }
 
     if (resp_lead_off == true)

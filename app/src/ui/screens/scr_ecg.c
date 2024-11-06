@@ -113,9 +113,9 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
             // printk("E");
 
             lv_chart_set_next_value(chart_ecg, ser_ecg, data_ecg_i);
-            //hpi_ecg_disp_add_samples(1);
-            //hpi_ecg_disp_do_set_scale(DISP_WINDOW_SIZE_ECG);
+            hpi_ecg_disp_add_samples(1);      
         }
+        hpi_ecg_disp_do_set_scale(DISP_WINDOW_SIZE_ECG);
         // lv_chart_set_next_value(chart_ecg, ser_ecg, data_ecg);
         // hpi_ecg_disp_add_samples(1);
         // hpi_ecg_disp_do_set_scale(DISP_WINDOW_SIZE_ECG);

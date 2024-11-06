@@ -106,7 +106,7 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int
             lv_chart_set_next_value(chart_ppg, ser_ppg, data_ppg_i);
             hpi_ppg_disp_add_samples(1);
         }
-        // hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
+        hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
     }
 
     if (ppg_lead_off == true)
