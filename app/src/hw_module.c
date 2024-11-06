@@ -20,6 +20,7 @@
 #include "max30001.h"
 #include "hw_module.h"
 #include "fs_module.h"
+#include "sampling_module.h"
 
 #ifdef CONFIG_DISPLAY
 #include "display_module.h"

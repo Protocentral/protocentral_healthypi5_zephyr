@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #include "spo2_process.h"
 #include "resp_process.h"
 #include "datalog_module.h"
+#include "hw_module.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -57,7 +58,7 @@ char DataPacket[DATA_LEN];
 const uint8_t DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
 const uint8_t DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
 
-#define HPI_OV3_DATA_LEN 40
+#define HPI_OV3_DATA_LEN 45
 #define HPI_OV3_DATA_ECG_LEN 8
 #define HPI_OV3_DATA_BIOZ_LEN 4
 #define HPI_OV3_DATA_RED_LEN 8
@@ -127,9 +128,19 @@ float firCoeffs[NUM_TAPS] = {0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.990, 0.
 arm_fir_instance_f32 sFIR;
 float firState[NUM_TAPS + BLOCK_SIZE - 1];
 
+int16_t spo2_serial;
+int16_t hr_serial;
+int16_t rr_serial;
+int16_t temp_serial;
+
 void send_data_ov3_format()
 {
     uint8_t pkt_pos_counter = 0;
+
+    //struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
+    //struct hpi_ppg_sensor_data_t ppg_sensor_sample;
+    //struct hpi_temp_sensor_data_t temp_sensor_sample;
+
     for (int i = 0; i < HPI_OV3_DATA_ECG_LEN; i++)
     {
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)ecg_serial_streaming[i];
@@ -142,32 +153,17 @@ void send_data_ov3_format()
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(resp_serial_streaming[i] >> 8);
     }
 
-    /*for (int i=0;i<HPI_OV3_DATA_LEN;i++)
-    {
-        printk("Packet %d value %d\n",i,hpi_ov3_data[i]);
-    }*/
-
-    // hpi_ov3_data[pkt_pos_counter++] = (uint8_t)1;
-
     for (int i = 0; i < HPI_OV3_DATA_RED_LEN; i++)
     {
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)ppg_serial_streaming[i];
         hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(ppg_serial_streaming[i] >> 8);
     }
 
-    /*for (int i = 0; i < HPI_OV3_DATA_IR_LEN; i++)
-    {
-        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)raw_ir[i];
-        hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(raw_ir[i] >> 8);
-    }
-
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)temp;
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(temp >> 8);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(spo2);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(hr);
-    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(rr);*/
-
-    // LOG_INF("Sending Data %d", pkt_pos_counter);
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)temp_serial;
+    hpi_ov3_data[pkt_pos_counter++] = (uint8_t)(temp_serial >> 8);
+    hpi_ov3_data[pkt_pos_counter++] = spo2_serial;
+    hpi_ov3_data[pkt_pos_counter++] = hr_serial;
+    hpi_ov3_data[pkt_pos_counter++] = rr_serial;
 
     if (settings_send_usb_enabled)
     {
@@ -521,6 +517,9 @@ void data_thread(void)
             resp_process_sample(resp_i16_buf, resp_i16_filt_out);
             resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
+            rr_serial = globalRespirationRate;
+
+
             // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
@@ -547,6 +546,7 @@ void data_thread(void)
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
 #endif
+            
         }
 
         /* Get Sample from PPG sampling queue */
@@ -556,6 +556,7 @@ void data_thread(void)
             if (settings_send_usb_enabled)
             {
                 buffer_ppg_data_for_serial(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
+                
                 // buffer_bioz_data_for_serial(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
 
@@ -599,7 +600,13 @@ void data_thread(void)
 #endif
                     // #ifdef CONFIG_BT
                     ble_spo2_notify(m_spo2);
+                    if (settings_send_usb_enabled)
+                    {
+                        spo2_serial = m_spo2;
+                    }
                     // #endif
+                    
+
                 }
 
                 if (validHeartRate)
@@ -607,6 +614,7 @@ void data_thread(void)
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_pr(m_hr);
 #endif
+                    hr_serial = m_hr;
                 }
 
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
@@ -616,6 +624,8 @@ void data_thread(void)
                 }
             }
         }
+
+        temp_serial = hpi_hw_read_temp();
 
         k_sleep(K_MSEC(1));
     }

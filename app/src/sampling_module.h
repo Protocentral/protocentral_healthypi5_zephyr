@@ -34,7 +34,9 @@ struct hpi_ppg_sensor_data_t
     int32_t ppg_ir_samples[PPG_POINTS_PER_SAMPLE];
     uint8_t ppg_num_samples;
     uint8_t ppg_lead_off;
+    uint8_t spo2;
 };
+
 
  
 
