@@ -406,12 +406,12 @@ void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz
     {
         for (int i = 0; i < ecg_len; i++)
         {
-            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)(ecg_data_in[i] >> 16);
+            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)(ecg_data_in[i] >> 8);
         }
 
         for (int i = 0; i < bioz_len; i++)
         {
-            resp_serial_streaming[serial_bioz_counter++] = (int16_t)(bioz_data_in[i] >> 16);
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)(bioz_data_in[i] >> 8);
         }
     }
     else
@@ -423,13 +423,13 @@ void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz
         memset(resp_serial_streaming, 0, sizeof(resp_serial_streaming));
         for (int i = 0; i < bioz_len; i++)
         {
-            resp_serial_streaming[serial_bioz_counter++] = (int16_t)(bioz_data_in[i] >> 16);
+            resp_serial_streaming[serial_bioz_counter++] = (int16_t)(bioz_data_in[i] >> 8);
             // resp_serial_streaming[serial_bioz_counter++] = (int16_t) 50;
         }
 
         for (int i = 0; i < ecg_len; i++)
         {
-            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)(ecg_data_in[i] >> 16);
+            ecg_serial_streaming[serial_ecg_counter++] = (int16_t)(ecg_data_in[i] >> 8);
         }
     }
 }
