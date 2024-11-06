@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #include "spo2_process.h"
 #include "resp_process.h"
 #include "datalog_module.h"
+#include "hw_module.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -130,7 +131,7 @@ float firState[NUM_TAPS + BLOCK_SIZE - 1];
 int16_t spo2_serial;
 int16_t hr_serial;
 int16_t rr_serial;
-extern int16_t temp_serial;
+int16_t temp_serial;
 
 void send_data_ov3_format()
 {
@@ -623,6 +624,8 @@ void data_thread(void)
                 }
             }
         }
+
+        temp_serial = hpi_hw_read_temp();
 
         k_sleep(K_MSEC(1));
     }
