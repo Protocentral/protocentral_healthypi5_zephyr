@@ -53,7 +53,6 @@ enum hpi5_data_format
 
 } hpi5_data_format_t;
 
-
 #define HPI_OV3_DATA_ECG_BIOZ_LEN 50
 #define HPI_OV3_DATA_PPG_LEN 19
 #define HPI_OV3_DATA_ECG_LEN 8
@@ -160,10 +159,9 @@ void send_ppg_data_ov3_format()
         // send_rpi_uart(DataPacket, DATA_LEN);
         // send_rpi_uart(DataPacketFooter, 2);
     }
-
 }
 
-void send_ecg_bioz_data_ov3_format(int32_t *ecg_data, int32_t ecg_sample_count, int32_t *bioz_samples,int32_t bioz_sample_count, uint8_t hr,uint8_t rr)
+void send_ecg_bioz_data_ov3_format(int32_t *ecg_data, int32_t ecg_sample_count, int32_t *bioz_samples, int32_t bioz_sample_count, uint8_t hr, uint8_t rr)
 {
     uint8_t pkt_ecg_bioz_pos_counter = 0;
 
@@ -379,7 +377,6 @@ void record_session_add_ecg_point(int32_t *ecg_samples, uint8_t ecg_len, int32_t
     }
 }
 
-
 void buffer_ppg_data_for_serial(int16_t *ppg_data_in, int ppg_len)
 {
     if (serial_ppg_counter < HPI_OV3_DATA_IR_LEN)
@@ -393,7 +390,7 @@ void buffer_ppg_data_for_serial(int16_t *ppg_data_in, int ppg_len)
     {
         send_ppg_data_ov3_format();
         serial_ppg_counter = 0;
-        memset(ppg_serial_streaming,0,sizeof(ppg_serial_streaming));
+        memset(ppg_serial_streaming, 0, sizeof(ppg_serial_streaming));
         for (int i = 0; i < ppg_len; i++)
         {
             ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
@@ -420,8 +417,8 @@ void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz
         // send_data_ov3_format();
         serial_ecg_counter = 0;
         serial_bioz_counter = 0;
-        //memset(ecg_serial_streaming,0,sizeof(ecg_serial_streaming));
-        //memset(resp_serial_streaming, 0, sizeof(resp_serial_streaming));
+        // memset(ecg_serial_streaming,0,sizeof(ecg_serial_streaming));
+        // memset(resp_serial_streaming, 0, sizeof(resp_serial_streaming));
 
         for (int i = 0; i < ecg_len; i++)
         {
@@ -477,13 +474,10 @@ void data_thread(void)
     {
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_FOREVER) == 0)
         {
-            // printk("PPG %d\n",ppg_sensor_sample.ppg_num_samples);
-            for (int i = 0; i < ppg_sensor_sample.ppg_num_samples; i++)
-            {
-                irBuffer[init_buffer_count] = ppg_sensor_sample.ppg_ir_samples[i];
-                redBuffer[init_buffer_count] = ppg_sensor_sample.ppg_red_samples[i];
-                init_buffer_count++;
-            }
+
+            irBuffer[init_buffer_count] = ppg_sensor_sample.ppg_ir_sample;
+            redBuffer[init_buffer_count] = ppg_sensor_sample.ppg_red_sample;
+            init_buffer_count++;
         }
     }
 
@@ -531,7 +525,7 @@ void data_thread(void)
             {
                 hr_serial = ecg_bioz_sensor_sample.hr;
                 rr_serial = globalRespirationRate;
-                send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples,hr_serial,rr_serial);
+                send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
@@ -554,13 +548,13 @@ void data_thread(void)
             if (settings_send_usb_enabled)
             {
                 temp_serial = hpi_hw_read_temp();
-                buffer_ppg_data_for_serial(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
+                buffer_ppg_data_for_serial(ppg_sensor_sample.ppg_red_sample);
             }
 
             // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
-                ble_ppg_notify(ppg_sensor_sample.ppg_red_samples, PPG_POINTS_PER_SAMPLE);
+                ble_ppg_notify(ppg_sensor_sample.ppg_red_sample);
             }
             // #endif
 
@@ -573,14 +567,14 @@ void data_thread(void)
 
             if (settings_log_data_enabled && sd_card_present)
             {
-                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_samples, PPG_POINTS_PER_SAMPLE);
+                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
             }
 
             // Buffer the PPG data for SPO2 calculation
             if (spo2_time_count < FreqS)
             {
-                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_samples[0];
-                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_samples[0];
+                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_sample;
+                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_sample;
 
                 spo2_time_count++;
             }
@@ -609,7 +603,6 @@ void data_thread(void)
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     hpi_scr_home_update_pr(m_hr);
 #endif
-                    
                 }
 
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
@@ -619,8 +612,6 @@ void data_thread(void)
                 }
             }
         }
-
-       
 
         k_sleep(K_MSEC(1));
     }

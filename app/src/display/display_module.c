@@ -584,7 +584,7 @@ void display_screens_thread(void)
         {
             if (curr_screen == SCR_PPG)
             {
-                hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_samples, ppg_sensor_sample.ppg_ir_samples, ppg_sensor_sample.ppg_num_samples, ppg_sensor_sample.ppg_lead_off);
+                hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_sample, ppg_sensor_sample.ppg_ir_sample, ppg_sensor_sample.ppg_lead_off);
             }
         }
 

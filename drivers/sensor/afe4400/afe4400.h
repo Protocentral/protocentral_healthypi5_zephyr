@@ -19,8 +19,8 @@ struct afe4400_config
 
 struct afe4400_data
 {
-	int32_t raw_samples_ir;
-	int32_t raw_samples_red;
+	int32_t raw_sample_ir;
+	int32_t raw_sample_red;
 };
 
 struct afe4400_decoder_header
@@ -31,8 +31,8 @@ struct afe4400_decoder_header
 struct afe4400_encoded_data
 {
 	struct afe4400_decoder_header header;
-	int32_t raw_samples_ir[8];
-	int32_t raw_samples_red[8];
+	int32_t raw_sample_ir;
+	int32_t raw_sample_red;
 
 	uint32_t num_samples;
 };

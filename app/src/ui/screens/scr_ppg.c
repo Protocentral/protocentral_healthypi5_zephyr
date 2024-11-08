@@ -83,7 +83,7 @@ static void hpi_ppg_disp_do_set_scale(int disp_window_size)
     }
 }
 
-void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int num_samples, bool ppg_lead_off)
+void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, bool ppg_lead_off)
 {
     if (chart_ppg_update == true) // && ppg_lead_off == false)
     {
