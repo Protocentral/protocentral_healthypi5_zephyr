@@ -109,8 +109,8 @@ static void sensor_ppg_process_cb(int result, uint8_t *buf, uint32_t buf_len, vo
 
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
-    ppg_sensor_sample.ppg_red_samples = edata->raw_sample_red;
-    ppg_sensor_sample.ppg_ir_samples = edata->raw_sample_ir;
+    ppg_sensor_sample.ppg_red_sample = edata->raw_sample_red;
+    ppg_sensor_sample.ppg_ir_sample = edata->raw_sample_ir;
     k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1));
 }
 

@@ -321,23 +321,17 @@ void flush_current_session_logs(bool write_to_file)
     hpi_log_session_header.file_no = 0;
 }
 
-void record_session_add_ppg_point(int16_t *ppg_samples, uint8_t ppg_len)
+void record_session_add_ppg_point(int16_t ppg_sample)
 {
     if (current_session_ppg_counter < LOG_BUFFER_LENGTH)
     {
-        for (int i = 0; i < ppg_len; i++)
-        {
-            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
-        }
+        log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_sample;
     }
     else
     {
         hpi_log_session_write_file(PPG_DATA);
         current_session_ppg_counter = 0;
-        for (int i = 0; i < ppg_len; i++)
-        {
-            log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_samples[i];
-        }
+        log_buffer[current_session_ppg_counter++].log_ppg_sample = ppg_sample;
     }
 }
 
@@ -377,24 +371,18 @@ void record_session_add_ecg_point(int32_t *ecg_samples, uint8_t ecg_len, int32_t
     }
 }
 
-void buffer_ppg_data_for_serial(int16_t *ppg_data_in, int ppg_len)
+void buffer_ppg_data_for_serial(int16_t ppg_data_in)
 {
     if (serial_ppg_counter < HPI_OV3_DATA_IR_LEN)
     {
-        for (int i = 0; i < ppg_len; i++)
-        {
-            ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
-        }
+        ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in;
     }
     else
     {
         send_ppg_data_ov3_format();
         serial_ppg_counter = 0;
         memset(ppg_serial_streaming, 0, sizeof(ppg_serial_streaming));
-        for (int i = 0; i < ppg_len; i++)
-        {
-            ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in[i];
-        }
+        ppg_serial_streaming[serial_ppg_counter++] = ppg_data_in;
     }
 }
 

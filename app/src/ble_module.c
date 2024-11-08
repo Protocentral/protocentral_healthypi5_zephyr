@@ -268,7 +268,7 @@ void ble_ppg_notify(int16_t ppg_data)
 {
 	uint8_t out_data[128];
 
-	out_data[0] = (uint8_t)ppg_data;
+	out_data[0] = (uint8_t)(ppg_data);
 	out_data[1] = (uint8_t)(ppg_data >> 8);
 
 	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[1], &out_data, 2);
