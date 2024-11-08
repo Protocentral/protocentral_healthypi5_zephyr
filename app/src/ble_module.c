@@ -266,7 +266,7 @@ void ble_bioz_notify(int32_t *resp_data, uint8_t len)
 
 void ble_ppg_notify(int16_t ppg_data)
 {
-	uint8_t out_data[128];
+	uint8_t out_data[32];
 
 	out_data[0] = (uint8_t)(ppg_data);
 	out_data[1] = (uint8_t)(ppg_data >> 8);
