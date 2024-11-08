@@ -62,6 +62,18 @@ void resp_filt(int16_t *RESP_WorkingBuff, int16_t *CoeffBuf, int16_t *FilterOut)
     *FilterOut = (int16_t)(acc >> 15);
 }
 
+void resp_remove_dc_component(int32_t CurrAqsSample, int32_t respFiltered)
+{
+    int32_t temp1; //, RESPData;
+    int32_t RESPData;
+
+    temp1 = NRCOEFF * Pvev_DC_Sample;
+    Pvev_DC_Sample = (CurrAqsSample - Pvev_Sample) + temp1;
+    Pvev_Sample = CurrAqsSample;
+    RESPData = (int32_t)Pvev_DC_Sample;
+    respFiltered = RESPData;
+}
+
 void resp_process_sample(int16_t *CurrAqsSample, int16_t *respFiltered)
 {
     static uint16_t bufStart = 0, bufCur = FILTERORDER - 1;
