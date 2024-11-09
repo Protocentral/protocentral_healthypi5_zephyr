@@ -284,11 +284,11 @@ void send_data_text_1(int32_t in_sample)
 }
 
 // Start a new session log
-void flush_current_session_logs(bool write_to_file)
+void flush_current_session_logs()
 {
     // if data is pending in the log Buffer
 
-    if ((current_session_ecg_counter > 0) && (write_to_file))
+    /*if ((current_session_ecg_counter > 0) && (write_to_file))
     {
         hpi_log_session_write_file(ECG_DATA);
     }
@@ -296,7 +296,7 @@ void flush_current_session_logs(bool write_to_file)
     if ((current_session_ppg_counter > 0) && (write_to_file))
     {
         hpi_log_session_write_file(PPG_DATA);
-    }
+    }*/
 
     // current_session_log_id = 0;
     for (int i = 0; i < LOG_BUFFER_LENGTH; i++)
