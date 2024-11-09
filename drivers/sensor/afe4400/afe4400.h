@@ -19,8 +19,8 @@ struct afe4400_config
 
 struct afe4400_data
 {
-	int32_t raw_samples_ir;
-	int32_t raw_samples_red;
+	int32_t raw_sample_ir;
+	int32_t raw_sample_red;
 };
 
 struct afe4400_decoder_header
@@ -31,10 +31,8 @@ struct afe4400_decoder_header
 struct afe4400_encoded_data
 {
 	struct afe4400_decoder_header header;
-	int32_t raw_samples_ir[8];
-	int32_t raw_samples_red[8];
-
-	uint32_t num_samples;
+	int32_t raw_sample_ir;
+	int32_t raw_sample_red;
 };
 
 // AFE4400 Register Map
@@ -92,3 +90,6 @@ struct afe4400_encoded_data
 
 int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
 int afe4400_get_decoder(const struct device *dev, const struct sensor_decoder_api **decoder);
+
+uint32_t _afe4400_read_reg(const struct device *dev, uint8_t reg);
+int _afe4400_reg_write(const struct device *dev, uint8_t reg, uint32_t val);

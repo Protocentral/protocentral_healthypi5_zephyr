@@ -85,7 +85,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 uecgtemp = (uint32_t)(uecgtemp << 8);
 
                 int32_t secgtemp = (int32_t)uecgtemp;
-                secgtemp = (int32_t)secgtemp >> 6;
+                secgtemp = (int32_t)secgtemp >> 14;
 
                 ecg_samples[i] = (int32_t)(secgtemp); //((secgtemp*1000*1000)/2621440);   // Convert to microvolts
                 // printf("%d ", ecg_samples[i]);
@@ -116,7 +116,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 u_bioz_temp = (uint32_t)(u_bioz_temp << 8);
 
                 int32_t s_bioz_temp = (int32_t)u_bioz_temp;
-                s_bioz_temp = (int32_t)(s_bioz_temp >> 4);
+                s_bioz_temp = (int32_t)(s_bioz_temp >> 12);
                 // printf("%d ", secgtemp);
 
                 bioz_samples[i] = s_bioz_temp;

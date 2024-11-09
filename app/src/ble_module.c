@@ -36,7 +36,6 @@ extern struct k_msgq q_cmd_msg;
 #define CMD_RX_CHARACTERISTIC_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
 								   0x96, 0x8d, 0x0f, 0x97, 0x27, 0x15, 0xbf, 0x01
 
-
 #define HPI_SPO2_SERVICE BT_UUID_DECLARE_16(BT_UUID_POS_VAL)
 #define HPI_SPO2_CHAR BT_UUID_DECLARE_16(BT_UUID_GATT_PLX_SCM_VAL)
 
@@ -63,7 +62,6 @@ extern struct k_msgq q_cmd_msg;
 
 #define CMD_SERVICE_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
 						 0x96, 0x8d, 0x0f, 0x97, 0x92, 0x74, 0xbf, 0x01
-
 
 #define CMD_TX_CHARACTERISTIC_UUID 0xdc, 0xad, 0x7f, 0xc4, 0x23, 0x90, 0x4d, 0xd4, \
 								   0x96, 0x8d, 0x0f, 0x97, 0x28, 0x15, 0xbf, 0x01
@@ -127,7 +125,7 @@ static void cmd_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 	}
 }
 
-static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr,const void *buf,uint16_t len,uint16_t offset,uint8_t flags)
+static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *attr, const void *buf, uint16_t len, uint16_t offset, uint8_t flags)
 {
 	const uint8_t *buffer = buf;
 
@@ -149,7 +147,6 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 
 	return len;
 }
-
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -267,17 +264,14 @@ void ble_bioz_notify(int32_t *resp_data, uint8_t len)
 	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
 }
 
-void ble_ppg_notify(int16_t *ppg_data, uint8_t len)
+void ble_ppg_notify(int16_t ppg_data)
 {
-	uint8_t out_data[128];
+	uint8_t out_data[32];
 
-	for (int i = 0; i < len; i++)
-	{
-		out_data[i * 2] = (uint8_t)ppg_data[i];
-		out_data[i * 2 + 1] = (uint8_t)(ppg_data[i] >> 8);
-	}
+	out_data[0] = (uint8_t)(ppg_data);
+	out_data[1] = (uint8_t)(ppg_data >> 8);
 
-	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[1], &out_data, len * 2);
+	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[1], &out_data, 2);
 }
 
 void ble_temp_notify(int16_t temp_val)
@@ -442,14 +436,11 @@ void ble_module_init()
 	// bt_conn_auth_cb_register(&auth_cb_display);
 }
 
-
 void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 {
 	const struct bt_gatt_attr *attr = &hpi_cmd_service.attrs[4];
-	//printk("Sending response %d \n", data);
+	// printk("Sending response %d \n", data);
 
 	bt_gatt_notify(NULL, attr, data, len);
-	//printk("Response sent\n");
+	// printk("Response sent\n");
 }
-
-

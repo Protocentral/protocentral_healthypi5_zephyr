@@ -131,7 +131,7 @@ void set_current_session_id(uint8_t m_sec, uint8_t m_min, uint8_t m_hour, uint8_
     if (sd_card_present)
     {
 
-        flush_current_session_logs(true);
+        flush_current_session_logs();
 
         // update structure with new session start time
         hpi_log_session_header.session_start_time.year = year;

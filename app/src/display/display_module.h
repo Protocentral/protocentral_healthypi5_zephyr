@@ -65,7 +65,7 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
 
 // PPG Screen functions
 void draw_scr_ppg(enum scroll_dir m_scroll_dir);
-void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int num_samples, bool ppg_lead_off);
+void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool ppg_lead_off);
 void hpi_scr_home_update_pr(int pr);
 
 //void draw_scr_chart_resp(void);

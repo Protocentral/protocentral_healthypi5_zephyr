@@ -28,19 +28,19 @@ SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), SENSOR_CHAN_VOLTAGE);
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
 
 RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
-                         16,  /* submission queue size */
-                         16,  /* completion queue size */
-                         64,  /* number of memory blocks */
+                         16, /* submission queue size */
+                         16, /* completion queue size */
+                         64, /* number of memory blocks */
                          32, /* size of each memory block */
-                         4    /* memory alignment */
+                         4   /* memory alignment */
 );
 
 RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
-                         16,  /* submission queue size */
-                         16,  /* completion queue size */
-                         64,  /* number of memory blocks */
+                         16, /* submission queue size */
+                         16, /* completion queue size */
+                         64, /* number of memory blocks */
                          32, /* size of each memory block */
-                         4    /* memory alignment */
+                         4   /* memory alignment */
 );
 
 /*
@@ -109,34 +109,9 @@ static void sensor_ppg_process_cb(int result, uint8_t *buf, uint32_t buf_len, vo
 
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
-    /*uint32_t un_ir_mean;
-
-        // calculates DC mean and subtract DC from ir
-    un_ir_mean = 0;
-    for (k = 0; k < n_ir_buffer_length; k++)
-        un_ir_mean += pun_ir_buffer[k];
-    un_ir_mean = un_ir_mean / n_ir_buffer_length;
-    
-    // remove DC and invert signal so that we can use peak detector as valley detector
-    for (k = 0; k < n_ir_buffer_length; k++)
-        an_x[k] = -1 * (pun_ir_buffer[k] - un_ir_mean);
-    */
-
-
-    if (edata->num_samples > 0)
-    {
-        ppg_sensor_sample.ppg_num_samples = edata->num_samples;
-
-        // Add DC removal code here
-        
-
-        for (int i = 0; i < edata->num_samples; i++)
-        {
-            ppg_sensor_sample.ppg_red_samples[i] = edata->raw_samples_red[i];
-            ppg_sensor_sample.ppg_ir_samples[i] = edata->raw_samples_ir[i];
-        }
-        k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1));
-    }
+    ppg_sensor_sample.ppg_red_sample = edata->raw_sample_red;
+    ppg_sensor_sample.ppg_ir_sample = edata->raw_sample_ir;
+    k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1));
 }
 
 static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,

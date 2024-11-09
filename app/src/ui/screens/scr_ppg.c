@@ -83,29 +83,24 @@ static void hpi_ppg_disp_do_set_scale(int disp_window_size)
     }
 }
 
-void hpi_ppg_disp_draw_plot_ppg(int32_t *data_ppg_red, int32_t *data_ppg_ir, int num_samples, bool ppg_lead_off)
+void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool ppg_lead_off)
 {
     if (chart_ppg_update == true) // && ppg_lead_off == false)
     {
-        for (int i = 0; i < num_samples; i++)
+       
+        if (data_ppg_red < y_min_ppg)
         {
-            int32_t data_ppg_i = ((data_ppg_red[i]));
-
-            // printk("PPG: %d\n", data_ppg_i);
-
-            if (data_ppg_i < y_min_ppg)
-            {
-                y_min_ppg = data_ppg_i;
-            }
-
-            if (data_ppg_i > y_max_ppg)
-            {
-                y_max_ppg = data_ppg_i;
-            }
-
-            lv_chart_set_next_value(chart_ppg, ser_ppg, data_ppg_i);
-            hpi_ppg_disp_add_samples(1);
+            y_min_ppg = data_ppg_red;
         }
+
+        if (data_ppg_red > y_max_ppg)
+        {
+            y_max_ppg = data_ppg_red;
+        }
+
+        lv_chart_set_next_value(chart_ppg, ser_ppg, data_ppg_red);
+        hpi_ppg_disp_add_samples(1);
+
         hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
     }
 

@@ -177,7 +177,7 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         printk("Command to end logging\n");
         // AKW: Replace with a function to stop logging
         settings_log_data_enabled = false;
-        flush_current_session_logs(true);
+        flush_current_session_logs();
         break;
 
     case CMD_LOGGING_START:

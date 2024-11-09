@@ -9,6 +9,7 @@
 #include "display_module.h"
 #include "sampling_module.h"
 #include "data_module.h"
+#include "resp_process.h"
 
 static lv_obj_t *scr_resp;
 
@@ -89,7 +90,10 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_resp_i = ((data_resp[i])); // / 10066); // in mV// (data_resp[i]);
+
+            int32_t resp_i16_filt_out;
+            resp_remove_dc_component(data_resp[i], resp_i16_filt_out);
+            int32_t data_resp_i = resp_i16_filt_out; // / 10066); // in mV// (data_resp[i]);
             /*  2^19	524288
                 BIOZ GAIN	40	V/V
                 CG_MAG	48	uA
