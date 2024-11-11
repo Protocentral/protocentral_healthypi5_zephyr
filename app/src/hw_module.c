@@ -288,15 +288,18 @@ static void gpio_keys_cb_handler(struct input_event *evt)
         {
         case INPUT_KEY_ENTER:
             LOG_INF("OK Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            //hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            k_sem_give(&sem_ok_key_pressed);
             break;
         case INPUT_KEY_UP:
             LOG_INF("UP Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            //hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            k_sem_give(&sem_up_key_pressed);
             break;
         case INPUT_KEY_DOWN:
             LOG_INF("DOWN Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            //hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            k_sem_give(&sem_down_key_pressed);
             break;
         default:
             break;
