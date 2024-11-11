@@ -18,6 +18,7 @@ uint8_t Respiration_Rate = 0;
 
 int16_t RESP_WorkingBuff[2 * FILTERORDER];
 int16_t Pvev_DC_Sample = 0, Pvev_Sample = 0;
+int16_t Prev_DC_Sample = 0, Prev_Sample = 0;
 
 int16_t RespCoeffBuf[FILTERORDER] = {120, 124, 126, 127, 127, 125, 122, 118, 113, /* Coeff for lowpass Fc=2Hz @ 125 SPS*/
                                      106, 97, 88, 77, 65, 52, 38, 24, 8,
@@ -62,16 +63,16 @@ void resp_filt(int16_t *RESP_WorkingBuff, int16_t *CoeffBuf, int16_t *FilterOut)
     *FilterOut = (int16_t)(acc >> 15);
 }
 
-void resp_remove_dc_component(int32_t CurrAqsSample, int32_t respFiltered)
+int16_t resp_remove_dc_component(int16_t current_sample)
 {
-    int32_t temp1; //, RESPData;
-    int32_t RESPData;
+    int16_t temp1; //, RESPData;
+    int16_t RESPData;
 
-    temp1 = NRCOEFF * Pvev_DC_Sample;
-    Pvev_DC_Sample = (CurrAqsSample - Pvev_Sample) + temp1;
-    Pvev_Sample = CurrAqsSample;
-    RESPData = (int32_t)Pvev_DC_Sample;
-    respFiltered = RESPData;
+    temp1 = NRCOEFF * Prev_DC_Sample;
+    Prev_DC_Sample = (current_sample - Prev_Sample) + temp1;
+    Prev_Sample = current_sample;
+    RESPData = (int16_t)Prev_DC_Sample;
+    return RESPData;
 }
 
 void resp_process_sample(int16_t *CurrAqsSample, int16_t *respFiltered)
