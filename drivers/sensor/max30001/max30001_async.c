@@ -34,7 +34,13 @@ static int max30001_async_sample_fetch(const struct device *dev,
 
     uint32_t max30001_rtor = 0;
 
-    max30001_status = max30001_read_status(dev);
+    // max30001_status = max30001_read_status(dev);
+
+    while ((max30001_status & MAX30001_STATUS_MASK_EINT) != MAX30001_STATUS_MASK_EINT)
+    {
+        max30001_status = max30001_read_status(dev);
+        k_sleep(K_MSEC(20));
+    };
 
     if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
     {
@@ -48,7 +54,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
         ecg_lead_off = 0;
     }
 
-    if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
+    if (1) //((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
         max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
         e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1); // No of samples = EFIT + 1
@@ -108,7 +114,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
         {
             uint32_t btag = ((((uint8_t)buf_bioz[i * 3 + 2]) & 0x07));
 
-            //printk("B %x ", btag);
+            // printk("B %x ", btag);
 
             if ((btag == 0x00) || (btag == 0x02)) // Valid sample
             {
@@ -129,7 +135,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
             {
                 printk("BOVF ");
                 max30001_fifo_reset(dev);
-                // max30001_synch(dev);
+                //max30001_synch(dev);
                 break;
             }
         }

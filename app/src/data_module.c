@@ -424,9 +424,6 @@ void data_thread(void)
 {
     printk("Data Thread starting\n");
 
-    struct hpi_sensor_data_t sensor_sample;
-    struct hpi_computed_data_t computed_data;
-
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
