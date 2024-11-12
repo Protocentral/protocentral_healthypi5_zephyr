@@ -67,8 +67,9 @@ const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
-static bool settings_send_usb_enabled = true;
-static bool settings_send_ble_enabled = true;
+extern bool settings_send_usb_enabled;
+extern bool settings_send_ble_enabled;
+extern bool settings_send_display_enabled;
 static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
 
@@ -472,20 +473,6 @@ void data_thread(void)
         // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
-            // printk("S: %d", ecg_bioz_sensor_sample.ecg_num_samples);
-
-            /*for (int i = 0; i < ecg_bioz_sensor_sample.ecg_num_samples; i++)
-            {
-                ecg_filt_in[i] = (float)(ecg_bioz_sensor_sample.bioz_samples[i]/1000.0000 );
-            }
-
-            arm_fir_f32(&sFIR, ecg_filt_in, ecg_filt_out, BLOCK_SIZE);
-
-            for (int i = 0; i < ecg_bioz_sensor_sample.ecg_num_samples; i++)
-            {
-                ecg_bioz_sensor_sample.bioz_samples[i] = (int32_t)(ecg_filt_out[i] * 1000.0000);
-            }*/
-
             int16_t resp_i16_buf[4];
             int16_t resp_i16_filt_out[4];
 
@@ -520,7 +507,7 @@ void data_thread(void)
             // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-            if (settings_plot_enabled)
+            if (settings_plot_enabled && settings_send_display_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
@@ -544,7 +531,7 @@ void data_thread(void)
             // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-            if (settings_plot_enabled)
+            if (settings_plot_enabled && settings_send_display_enabled)
             {
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
@@ -572,21 +559,27 @@ void data_thread(void)
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    hpi_scr_home_update_spo2(m_spo2);
+                    if (settings_send_display_enabled)
+                    {
+                        hpi_scr_home_update_spo2(m_spo2);
+                    }
 #endif
-                    // #ifdef CONFIG_BT
-                    ble_spo2_notify(m_spo2);
+                    if (settings_send_ble_enabled)
+                    {
+                        ble_spo2_notify(m_spo2);
+                    }
+
                     if (settings_send_usb_enabled)
                     {
                         spo2_serial = m_spo2;
                     }
-                    // #endif
                 }
 
                 if (validHeartRate)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    hpi_scr_home_update_pr(m_hr);
+                    if (settings_send_display_enabled)
+                        hpi_scr_home_update_pr(m_hr);
 #endif
                 }
 
