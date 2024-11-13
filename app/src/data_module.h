@@ -16,3 +16,5 @@ struct hpi_computed_data_t {
     uint8_t hr_valid;
     uint8_t spo2_valid;
 };
+
+void flush_current_session_logs(void);

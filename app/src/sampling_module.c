@@ -19,10 +19,10 @@ extern const struct device *const max30205_dev;
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
 #define PPG_SAMPLING_INTERVAL_MS 8
-#define ECG_SAMPLING_INTERVAL_MS 60
+#define ECG_SAMPLING_INTERVAL_MS 50
 
-K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
-K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
+K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 128, 4);
+K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 128, 4);
 
 SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), SENSOR_CHAN_VOLTAGE);
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
@@ -120,26 +120,42 @@ static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
     const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
 
-    // printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
+    printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
+    uint8_t n_samples_ecg = edata->num_samples_ecg;
+    uint8_t n_samples_bioz = edata->num_samples_bioz;
 
-    if ((edata->num_samples_ecg > 0) || (edata->num_samples_bioz > 0))
+    if (n_samples_ecg > 8)
     {
-        ecg_bioz_sensor_sample.ecg_num_samples = edata->num_samples_ecg;
-        ecg_bioz_sensor_sample.bioz_num_samples = edata->num_samples_bioz;
+        n_samples_ecg = 8;
+    }
 
-        for (int i = 0; i < edata->num_samples_ecg; i++)
+    if (n_samples_bioz > 4)
+    {
+        n_samples_bioz = 4;
+    }
+
+    if ((n_samples_ecg > 0) || (n_samples_bioz > 0))
+    {
+        ecg_bioz_sensor_sample.ecg_num_samples = n_samples_ecg;
+        ecg_bioz_sensor_sample.bioz_num_samples = n_samples_bioz;
+
+        for (int i = 0; i < n_samples_ecg; i++)
         {
             ecg_bioz_sensor_sample.ecg_samples[i] = edata->ecg_samples[i];
         }
 
-        for (int i = 0; i < edata->num_samples_bioz; i++)
+        for (int i = 0; i < n_samples_bioz; i++)
         {
             ecg_bioz_sensor_sample.bioz_samples[i] = edata->bioz_samples[i];
         }
 
         ecg_bioz_sensor_sample.hr = edata->hr;
 
-        k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_MSEC(1));
+        while(k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT)!=0)
+        {
+            printk("Q Err \n");
+            k_msgq_purge(&q_ecg_bioz_sample);
+        }
     }
 }
 
@@ -166,10 +182,11 @@ void ecg_bioz_sample_trigger_thread(void)
         sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_bioz_processing_cb);
 
         k_sleep(K_MSEC(ECG_SAMPLING_INTERVAL_MS));
+        // k_msleep(4);
     }
 }
 
-#define ECG_SAMPLING_THREAD_PRIORITY 3
+#define ECG_SAMPLING_THREAD_PRIORITY 4
 
-K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 2048, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
 K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 2048, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);

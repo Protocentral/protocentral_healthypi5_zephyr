@@ -24,10 +24,13 @@
 void cmdif_send_ble_progress(uint8_t m_stage, uint16_t m_total_time, uint16_t m_curr_time, uint16_t m_current, uint16_t m_imped);
 void cmdif_send_ble_command(uint8_t m_cmd);
 void cmdif_send_ble_device_status_response(void);
-
-//void cmdif_send_ble_data(const char *buf, size_t len);
 void cmdif_send_ble_file_data(int8_t *m_data, uint8_t m_data_len);
-//void cmdif_send_ble_file_data(uint8_t *m_data, uint32_t number_writes,uint8_t m_data_len);
+void cmdif_send_memory_status(uint8_t m_cmd);
+void cmdif_send_session_count(uint8_t m_cmd,uint8_t indication);
+void cmdif_send_ble_session_data(int8_t *m_data, uint8_t m_data_len);
+void cmdif_send_ble_data_idx(uint8_t *m_data, uint8_t m_data_len);
+
+
 
 enum cmdsm_state
 {

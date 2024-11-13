@@ -246,10 +246,10 @@ static void max30001_enable_rtor(const struct device *dev)
     k_sleep(K_MSEC(100));
 }
 
-static void max30001_enable_dcloff(const struct device *dev)
+/*static void max30001_enable_dcloff(const struct device *dev)
 {
     LOG_INF("Enabling MAX30001 DCLOFF...\n");
-}
+}*/
 
 static void max30001_disable_ecg(const struct device *dev)
 {
@@ -266,10 +266,10 @@ static void max30001_disable_rtor(const struct device *dev)
     LOG_INF("Disabling MAX30001 RTOR...\n");
 }
 
-static void max30001_disable_dcloff(const struct device *dev)
+/*static void max30001_disable_dcloff(const struct device *dev)
 {
     LOG_INF("Disabling MAX30001 DCLOFF...\n");
-}
+}*/
 
 static int max30001_sample_fetch(const struct device *dev,
                                  enum sensor_channel chan)
@@ -420,11 +420,11 @@ static int max30001_attr_set(const struct device *dev,
     return 0;
 }
 
-static int max30001_load_settings_regs(const struct device *dev)
+/*static int max30001_load_settings_regs(const struct device *dev)
 {
 
     return 0;
-}
+}*/
 
 static int max30001_chip_init(const struct device *dev)
 {

@@ -90,15 +90,15 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool 
        
         if (data_ppg_red < y_min_ppg)
         {
-            y_min_ppg = data_ppg_red;
+            y_min_ppg = (int16_t)data_ppg_red;
         }
 
         if (data_ppg_red > y_max_ppg)
         {
-            y_max_ppg = data_ppg_red;
+            y_max_ppg = (int16_t)data_ppg_red;
         }
 
-        lv_chart_set_next_value(chart_ppg, ser_ppg, data_ppg_red);
+        lv_chart_set_next_value(chart_ppg, ser_ppg, (int16_t)data_ppg_red);
         hpi_ppg_disp_add_samples(1);
 
         hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
