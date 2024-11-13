@@ -60,7 +60,7 @@ struct fs_mount_t *mp_sd = &sd_fs_mnt;
     return rc;
 }*/
 
-static int littlefs_mount(struct fs_mount_t *mp)
+/*static int littlefs_mount(struct fs_mount_t *mp)
 {
     int rc;
 
@@ -70,7 +70,7 @@ static int littlefs_mount(struct fs_mount_t *mp)
         return rc;
     }
 
-    /* Do not mount if auto-mount has been enabled */
+    // Do not mount if auto-mount has been enabled 
 #if !DT_NODE_EXISTS(PARTITION_NODE) || \
     !(FSTAB_ENTRY_DT_MOUNT_FLAGS(PARTITION_NODE) & FS_MOUNT_FLAG_AUTOMOUNT)
     rc = fs_mount(mp);
@@ -86,7 +86,7 @@ static int littlefs_mount(struct fs_mount_t *mp)
 #endif
 
     return 0;
-}
+}*/
 
 static int lsdir(const char *path)
 {
@@ -146,7 +146,6 @@ static int mount_sd_fs()
 {
     int rc;
     struct fs_statvfs sbuf;
-    struct fs_dir_t dir;
 
     rc = fs_mount(&sd_fs_mnt);
     k_sleep(K_MSEC(50));
@@ -188,50 +187,15 @@ static int mount_sd_fs()
     {
         printk("unable to access SD card\n");
     }
-
-
-    
 }
 
 #endif
 
 void fs_module_init(void)
 {
-    /*int rc;
-    struct fs_statvfs sbuf;
-
-    printk("Initing FS...\n");
-
-    rc = littlefs_mount(mp);
-    if (rc < 0)
-    {
-        return;
-    }
-
-    rc = fs_statvfs(mp->mnt_point, &sbuf);
-    if (rc < 0)
-    {
-        // printk("FAIL: statvfs: %d\n", rc);
-        // goto out;
-    }
-
-    printk("%s: bsize = %lu ; frsize = %lu ;"
-           " blocks = %lu ; bfree = %lu\n",
-           mp->mnt_point,
-           sbuf.f_bsize, sbuf.f_frsize,
-           sbuf.f_blocks, sbuf.f_bfree);
-
-    //fs_mkdir("/lfs/log");
-    rc = lsdir("/lfs/log");
-    if (rc < 0)
-    {
-        LOG_PRINTK("FAIL: lsdir %s: %d\n", mp->mnt_point, rc);
-        // goto out;
-    }*/
-
-#ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
-    mount_sd_fs();
-#endif
+    #ifdef CONFIG_HEALTHYPI_SD_CARD_ENABLED
+        mount_sd_fs();
+    #endif
 }
 
 

@@ -22,7 +22,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
     uint8_t buf_ecg[512];
     uint8_t buf_bioz[512];
 
-    int num_bytes = 0;
+    //int num_bytes = 0;
 
     uint8_t cmd_tx_ecg_fifo_burst = ((ECG_FIFO_BURST << 1) | RREG);
     const struct spi_buf tx_buf_ecg[1] = {{.buf = &cmd_tx_ecg_fifo_burst, .len = 1}};

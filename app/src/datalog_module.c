@@ -222,7 +222,7 @@ void hpi_get_session_count(void)
         if (res)
         {
             printk("Error opening dir %s [%d]\n", path, res);
-            return res;
+            //return res;
         }
 
         for (;;)
@@ -277,7 +277,7 @@ void hpi_get_session_index(void)
         if (res)
         {
             printk("Error opening dir %s [%d]\n", path, res);
-            return res;
+            //return res;
         }
 
         for (;;)
@@ -298,8 +298,7 @@ void hpi_get_session_index(void)
 
             if (entry.type != FS_DIR_ENTRY_DIR)
             {
-                char session_header[80];
-
+                //char session_header[80];
 
                 hpi_log_session_header.session_id =(uint16_t)atoi(entry.name);
                 hpi_log_session_header.session_size = (uint32_t)entry.size;
@@ -379,7 +378,7 @@ uint32_t hpi_log_session_get_length(char *m_file_name)
 void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
 {
     int8_t m_buffer[FILE_TRANSFER_BLE_PACKET_SIZE];
-    char m_session_id[20];
+    //char m_session_id[20];
     char m_session_name[30];
     char m_session_path[50] = "/SD:/";
     char m_session_file_type[4];
@@ -502,7 +501,6 @@ void hpi_datalog_delete_all(void)
 
 void hpi_datalog_delete_session(uint16_t session_id,uint8_t file_no)
 {
-    int res;
     struct fs_dir_t dir;
     fs_dir_t_init(&dir);
 
@@ -519,29 +517,6 @@ void hpi_datalog_delete_session(uint16_t session_id,uint8_t file_no)
 
     snprintf(session_name, sizeof(session_name), "/SD:/%d_%s.CSV", session_id,m_session_file_type);
     fs_unlink(session_name);
-    /*res = fs_opendir(&dir, "/SD:/");
-    if (res)
-    {
-        printk("Unable to open (err %d)", res);
-    }
-
-    while (1)
-    {
-        struct fs_dirent entry;
-
-        res = fs_readdir(&dir, &entry);
-        if (res)
-        {
-            printk("Unable to read directory");
-            break;
-        }
-
-        if (strcmp(session_name, entry.name) == 0)
-        {
-            fs_unlink(entry.name);
-        }
-    }
-    fs_closedir(&dir);*/
     printk("%s\n",session_name);
         
 }

@@ -67,9 +67,13 @@ const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
-extern bool settings_send_usb_enabled;
+/*extern bool settings_send_usb_enabled;
 extern bool settings_send_ble_enabled;
-extern bool settings_send_display_enabled;
+extern bool settings_send_display_enabled;*/
+
+static bool settings_send_usb_enabled = true;
+static bool settings_send_ble_enabled = true;
+static bool settings_send_display_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
 
@@ -77,7 +81,6 @@ extern bool settings_log_data_enabled; // true;
 extern bool sd_card_present;
 extern struct fs_mount_t *mp_sd;
 extern struct hpi_log_session_header_t hpi_log_session_header;
-static int settings_data_format = DATA_FMT_HPI5_OV3; // DATA_FMT_PLAIN_TEXT;
 
 // struct hpi_sensor_data_t log_buffer[LOG_BUFFER_LENGTH];
 struct hpi_sensor_logging_data_t log_buffer[LOG_BUFFER_LENGTH];
@@ -255,7 +258,7 @@ void send_ecg_bioz_data_ov3_format(int32_t *ecg_data, int32_t ecg_sample_count, 
     }
 }*/
 
-void send_data_text(int32_t ecg_sample, int32_t bioz_samples, int32_t raw_red)
+/*void send_data_text(int32_t ecg_sample, int32_t bioz_samples, int32_t raw_red)
 {
     char data[100];
     float f_ecg_sample = (float)ecg_sample / 1000;
@@ -282,7 +285,7 @@ void send_data_text_1(int32_t in_sample)
 
     sprintf(data, "%.3f\r\n", (double)f_in_sample);
     send_usb_cdc(data, strlen(data));
-}
+}*/
 
 // Start a new session log
 void flush_current_session_logs()
@@ -430,21 +433,14 @@ void data_thread(void)
 
     // record_init_session_log();
 
-    int m_temp_sample_counter = 0;
-
     uint32_t irBuffer[500];  // infrared LED sensor data
     uint32_t redBuffer[500]; // red LED sensor data
-
-    float ecg_filt_in[8];
-    float ecg_filt_out[8];
 
     int32_t bufferLength;  // data length
     int32_t m_spo2;        // SPO2 value
     int8_t validSPO2;      // indicator to show if the SPO2 calculation is valid
     int32_t m_hr;          // heart rate value
     int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
-
-    uint32_t ppg_buffer_count = 0;
 
     uint32_t spo2_time_count = 0;
 

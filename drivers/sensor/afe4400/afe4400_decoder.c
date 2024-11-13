@@ -46,7 +46,7 @@ static int afe4400_decoder_decode(const uint8_t *buffer, enum sensor_channel cha
 								   uint16_t max_count, void *data_out)
 {
 	const struct afe4400_encoded_data *edata = (const struct max32664_encoded_data *)buffer;
-	const struct afe4400_decoder_header *header = &edata->header;
+	//const struct afe4400_decoder_header *header = &edata->header;
 
 	if (*fit != 0)
 	{
