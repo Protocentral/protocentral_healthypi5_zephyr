@@ -45,21 +45,9 @@ static int afe4400_decoder_decode(const uint8_t *buffer, enum sensor_channel cha
 								   size_t channel_idx, uint32_t *fit,
 								   uint16_t max_count, void *data_out)
 {
-	const struct afe4400_encoded_data *edata = (const struct max32664_encoded_data *)buffer;
-	//const struct afe4400_decoder_header *header = &edata->header;
-
-	if (*fit != 0)
-	{
-		return 0;
-	}
-
-	printk("D ");
-	//printk("Num samples: %u\n", edata->samples[0].ir_sample);
-
-	/*switch (channel)
-	{
+	//const struct afe4400_encoded_data *edata = (const struct afe4400_encoded_data *)buffer;
 	
-	}*/
+	return 0;
 }
 
 SENSOR_DECODER_API_DT_DEFINE() = {

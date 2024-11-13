@@ -54,6 +54,8 @@ void hpi_disp_change_event(enum hpi_scr_event);
 
 void draw_scr_chart_single(uint8_t m_data_type);
 void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj);
+void draw_scr_home_footer(lv_obj_t *parent);
+void hpi_scr_home_update_spo2(int spo2);
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);

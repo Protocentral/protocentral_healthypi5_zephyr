@@ -51,7 +51,7 @@ lv_style_t style_icon;
 
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
-static lv_obj_t *label_sym_ble;
+//static lv_obj_t *label_sym_ble;
 
 extern struct k_sem sem_hw_inited;
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
@@ -405,8 +405,7 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 void disp_screen_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    lv_obj_t *target = lv_event_get_target(e);
-
+    
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
         lv_indev_wait_release(lv_indev_get_act());
@@ -534,7 +533,6 @@ void hpi_disp_update_batt_level(int batt_level)
 
 void display_screens_thread(void)
 {
-    struct hpi_computed_data_t computed_data;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 

@@ -381,7 +381,7 @@ void hpi_session_fetch(uint16_t session_id,uint8_t file_no)
     //char m_session_id[20];
     char m_session_name[30];
     char m_session_path[50] = "/SD:/";
-    char m_session_file_type[4];
+    char m_session_file_type[5];
 
     if (file_no == 1)
         strcpy(m_session_file_type, "ECG");

@@ -187,6 +187,7 @@ static int mount_sd_fs()
     {
         printk("unable to access SD card\n");
     }
+    return 0;
 }
 
 #endif
