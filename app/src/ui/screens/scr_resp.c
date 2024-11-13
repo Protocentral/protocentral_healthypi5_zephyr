@@ -21,7 +21,7 @@ static bool chart_resp_update = true;
 
 // Chart Variables
 static float y_max_resp = 0;
-static float y_min_resp = 10000;
+static float y_min_resp = 500;
 static float gx = 0;
 
 // GUI Styles
@@ -79,8 +79,8 @@ static void hpi_resp_disp_do_set_scale(int disp_window_size)
 
         gx = 0;
 
-        y_max_resp = -900000;
-        y_min_resp = 900000;
+        y_max_resp = -200;
+        y_min_resp = 100;
     }
 }
 
@@ -91,9 +91,9 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
         for (int i = 0; i < num_samples; i++)
         {
 
-            int32_t resp_i16_filt_out;
-            resp_remove_dc_component(data_resp[i], resp_i16_filt_out);
-            int32_t data_resp_i = resp_i16_filt_out; // / 10066); // in mV// (data_resp[i]);
+            int16_t resp_filt_out;
+            resp_filt_out = resp_remove_dc_component(data_resp[i]);
+            int32_t data_resp_i = (int32_t) resp_filt_out; // / 10066); // in mV// (data_resp[i]);
             /*  2^19	524288
                 BIOZ GAIN	40	V/V
                 CG_MAG	48	uA

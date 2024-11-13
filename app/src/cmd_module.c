@@ -121,7 +121,7 @@ void ces_parse_packet(char rxch)
 
 void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 {
-    int rc;
+    //int rc;
     uint8_t cmd_cmd_id = in_pkt_buf[0];
 
     // printk("Recd Command: %X\n", cmd_cmd_id);
@@ -353,11 +353,11 @@ void cmd_serial_cb(const struct device *dev, void *user_data)
 }
 */
 
-static void cmd_init(void)
+/*static void cmd_init(void)
 {
     printk("CMD Module Init\n");
 
-    /*if (!device_is_ready(esp_uart_dev))
+    if (!device_is_ready(esp_uart_dev))
     {
         printk("UART device not found!");
         return;
@@ -382,8 +382,8 @@ static void cmd_init(void)
         return;
     }
     uart_irq_rx_enable(esp_uart_dev);
-    */
-}
+    
+}*/
 
 /*void cmd_thread(void)
 {

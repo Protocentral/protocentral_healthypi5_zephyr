@@ -31,6 +31,7 @@ extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
 extern uint8_t curr_screen;
+int counter_ecg = 0;
 
 #define DISP_WINDOW_SIZE_ECG 390
 
@@ -66,7 +67,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
 
 static void hpi_ecg_disp_add_samples(int num_samples)
 {
-    gx += num_samples;
+    gx += num_samples;    
 }
 
 static void hpi_ecg_disp_do_set_scale(int disp_window_size)
@@ -91,7 +92,7 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ecg_i = ((data_ecg[i]*1000)/5242880)*10;// in mV// (data_ecg[i]);
+            int32_t data_ecg_i = data_ecg[i];// in mV// (data_ecg[i]);
 
             if (data_ecg_i < y_min_ecg)
             {

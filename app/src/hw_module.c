@@ -78,6 +78,10 @@ static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm
 uint8_t global_batt_level = 0;
 static int32_t global_temp_val = 0;
 
+/*bool settings_send_usb_enabled = true;
+bool settings_send_ble_enabled = true;
+bool settings_send_display_enabled = false;*/
+
 static void leds_init()
 {
     int ret;
@@ -231,7 +235,6 @@ int16_t hpi_get_global_temp(void)
 
 int16_t hpi_hw_read_temp(void)
 {
-    int ret = 0;
     int32_t i32_temp_val = 0;
     int16_t temp_val = 0;
 
@@ -278,8 +281,10 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt)
 {
-    printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",
-           evt->dev->name, evt->code, evt->value);
+    printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
+    /*settings_send_usb_enabled = false;
+    settings_send_ble_enabled = false;
+    settings_send_display_enabled = true;*/
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
     if (evt->value == 1)
@@ -288,15 +293,18 @@ static void gpio_keys_cb_handler(struct input_event *evt)
         {
         case INPUT_KEY_ENTER:
             LOG_INF("OK Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            //hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            k_sem_give(&sem_ok_key_pressed);
             break;
         case INPUT_KEY_UP:
             LOG_INF("UP Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            //hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            k_sem_give(&sem_up_key_pressed);
             break;
         case INPUT_KEY_DOWN:
             LOG_INF("DOWN Key Pressed");
-            hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            //hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            k_sem_give(&sem_down_key_pressed);
             break;
         default:
             break;
@@ -380,13 +388,19 @@ void hw_thread(void)
         global_temp_val = hpi_hw_read_temp();
 
 #ifdef CONFIG_DISPLAY
+        //if (settings_send_display_enabled)
+        //{
         hpi_disp_update_batt_level(global_batt_level);
         hpi_disp_update_temp(global_temp_val);
+        //}
 #endif
 
 #ifdef CONFIG_BT
+        //if (settings_send_ble_enabled)
+        //{
         ble_bas_notify(global_batt_level);
         ble_temp_notify(global_temp_val);
+        //}
 #endif
 
         k_sleep(K_MSEC(1000));

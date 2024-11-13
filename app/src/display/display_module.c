@@ -51,7 +51,7 @@ lv_style_t style_icon;
 
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
-static lv_obj_t *label_sym_ble;
+//static lv_obj_t *label_sym_ble;
 
 extern struct k_sem sem_hw_inited;
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
@@ -238,7 +238,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
-            return;
+            //return;
+            hpi_load_screen(SCR_LIST_START+1, SCROLL_LEFT);
         }
         else
         {
@@ -253,7 +254,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         if ((curr_screen - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
-            return;
+            hpi_load_screen(SCR_LIST_END-1, SCROLL_RIGHT);
+            //return;
         }
         else
         {
@@ -403,8 +405,7 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 void disp_screen_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    lv_obj_t *target = lv_event_get_target(e);
-
+    
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
         lv_indev_wait_release(lv_indev_get_act());
@@ -413,7 +414,8 @@ void disp_screen_event(lv_event_t *e)
         if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
-            return;
+            hpi_load_screen(SCR_LIST_START+1, SCROLL_LEFT);
+            //return;
         }
         else
         {
@@ -429,7 +431,8 @@ void disp_screen_event(lv_event_t *e)
         if ((curr_screen - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
-            return;
+            hpi_load_screen(SCR_LIST_END, SCROLL_RIGHT);
+            //return;
         }
         else
         {
@@ -445,9 +448,10 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
     lv_obj_add_event_cb(parent, disp_screen_event, LV_EVENT_GESTURE, NULL);
 
     if (m_scroll_dir == SCROLL_LEFT)
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_LEFT, SCREEN_TRANS_TIME, 0, true);
+        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
     else
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
+        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+    // lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
 }
 
 void draw_header(lv_obj_t *parent, bool showFWVersion)
@@ -529,7 +533,6 @@ void hpi_disp_update_batt_level(int batt_level)
 
 void display_screens_thread(void)
 {
-    struct hpi_computed_data_t computed_data;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
@@ -555,9 +558,9 @@ void display_screens_thread(void)
 
     printk("Display screens inited");
 
-    //draw_scr_ecg(SCROLL_DOWN);
-    //  draw_scr_resp(SCROLL_DOWN);
-    //draw_scr_ppg(SCROLL_DOWN);
+    // draw_scr_ecg(SCROLL_DOWN);
+    //   draw_scr_resp(SCROLL_DOWN);
+    // draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
     hpi_load_screen(SCR_ECG, SCROLL_DOWN);
@@ -599,8 +602,18 @@ void display_screens_thread(void)
             sample_count++;
         }
 
+        if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
+        {
+            hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+        }
+
+        if (k_sem_take(&sem_up_key_pressed, K_NO_WAIT) == 0)
+        {
+            hpi_disp_change_event(HPI_SCR_EVENT_UP);
+        }
+
         lv_task_handler();
-        k_sleep(K_MSEC(2));
+        k_sleep(K_MSEC(1));
     }
 }
 
