@@ -503,7 +503,7 @@ void data_thread(void)
             // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-            if (settings_plot_enabled && settings_send_display_enabled)
+            if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
@@ -527,7 +527,7 @@ void data_thread(void)
             // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-            if (settings_plot_enabled && settings_send_display_enabled)
+            if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
             }
@@ -555,10 +555,10 @@ void data_thread(void)
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    if (settings_send_display_enabled)
-                    {
-                        hpi_scr_home_update_spo2(m_spo2);
-                    }
+                    //if (settings_send_display_enabled)
+                    //{
+                    hpi_scr_home_update_spo2(m_spo2);
+                    //}
 #endif
                     if (settings_send_ble_enabled)
                     {
@@ -574,8 +574,8 @@ void data_thread(void)
                 if (validHeartRate)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    if (settings_send_display_enabled)
-                        hpi_scr_home_update_pr(m_hr);
+                    //if (settings_send_display_enabled)
+                    hpi_scr_home_update_pr(m_hr);
 #endif
                 }
 
