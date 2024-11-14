@@ -39,9 +39,9 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     draw_header(scr_ppg, true);
 
     chart_ppg = lv_chart_create(scr_ppg);
-    lv_obj_set_pos(chart_ppg, 5, 30);
+    lv_obj_set_pos(chart_ppg, 5, 35);
 
-    lv_obj_set_size(chart_ppg, 475, 200);
+    lv_obj_set_size(chart_ppg, 475, 185);
     lv_obj_set_style_bg_color(chart_ppg, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_ppg, 0, LV_PART_INDICATOR);
@@ -55,7 +55,7 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     lv_obj_t *lbl_sig_type = lv_label_create(scr_ppg);
     lv_label_set_text(lbl_sig_type, "Showing PPG");
     // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
 
     curr_screen = SCR_PPG;
 

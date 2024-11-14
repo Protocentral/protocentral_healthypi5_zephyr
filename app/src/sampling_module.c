@@ -120,7 +120,7 @@ static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
     const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
 
-    printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
+    //printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
     uint8_t n_samples_ecg = edata->num_samples_ecg;
     uint8_t n_samples_bioz = edata->num_samples_bioz;
 

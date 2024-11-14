@@ -40,15 +40,15 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
     draw_header(scr_resp, true);
 
     chart_resp = lv_chart_create(scr_resp);
-    lv_obj_set_pos(chart_resp, 10, 25);
+    lv_obj_set_pos(chart_resp, 10, 35);
 
-    lv_obj_set_size(chart_resp, 450, 190);
+    lv_obj_set_size(chart_resp, 450, 185);
     lv_obj_set_style_bg_color(chart_resp, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_resp, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_resp, RESP_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_resp, LV_CHART_AXIS_PRIMARY_Y, 0, 8000);
-    lv_chart_set_div_line_count(chart_resp, 8, 0);
+    lv_chart_set_div_line_count(chart_resp, 0, 0);
     lv_chart_set_update_mode(chart_resp, LV_CHART_UPDATE_MODE_CIRCULAR);
 
     ser_resp = lv_chart_add_series(chart_resp, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
@@ -56,7 +56,7 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
     lv_obj_t *lbl_sig_type = lv_label_create(scr_resp);
     lv_label_set_text(lbl_sig_type, "Showing Resp.");
     // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
 
     curr_screen = SCR_RESP;
 

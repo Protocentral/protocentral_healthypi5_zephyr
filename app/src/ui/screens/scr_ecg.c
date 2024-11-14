@@ -42,23 +42,23 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     draw_header(scr_ecg, true);
 
     chart_ecg = lv_chart_create(scr_ecg);
-    lv_obj_set_pos(chart_ecg, 5, 30);
+    lv_obj_set_pos(chart_ecg, 5, 35);
 
-    lv_obj_set_size(chart_ecg, 475, 200);
+    lv_obj_set_size(chart_ecg, 475, 185);
     lv_obj_set_style_bg_color(chart_ecg, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_ecg, ECG_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_ecg, LV_CHART_AXIS_PRIMARY_Y, -200, 250);
-    lv_chart_set_div_line_count(chart_ecg, 8, 0);
+    lv_chart_set_div_line_count(chart_ecg, 0, 0);
     lv_chart_set_update_mode(chart_ecg, LV_CHART_UPDATE_MODE_CIRCULAR);
 
-    ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    ser_ecg = lv_chart_add_series(chart_ecg, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
 
     lv_obj_t *lbl_sig_type = lv_label_create(scr_ecg);
     lv_label_set_text(lbl_sig_type, "Showing ECG");
     //lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 25);
+    lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
 
     curr_screen = SCR_ECG;
 

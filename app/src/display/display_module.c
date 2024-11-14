@@ -37,6 +37,7 @@ lv_style_t style_rr;
 lv_style_t style_temp;
 
 lv_style_t style_header_black;
+lv_style_t style_header_red;
 
 lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
@@ -51,7 +52,7 @@ lv_style_t style_icon;
 
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
-//static lv_obj_t *label_sym_ble;
+// static lv_obj_t *label_sym_ble;
 
 extern struct k_sem sem_hw_inited;
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
@@ -121,6 +122,10 @@ void display_init_styles()
     lv_style_init(&style_header_black);
     lv_style_set_text_color(&style_header_black, lv_color_black());
     lv_style_set_text_font(&style_header_black, &lv_font_montserrat_14);
+
+    lv_style_init(&style_header_red);
+    lv_style_set_text_color(&style_header_red, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_text_font(&style_header_red, &lv_font_montserrat_16);
 
     // H2 welcome screen style
     lv_style_init(&style_h2);
@@ -238,8 +243,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
-            //return;
-            hpi_load_screen(SCR_LIST_START+1, SCROLL_LEFT);
+            // return;
+            hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else
         {
@@ -254,8 +259,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         if ((curr_screen - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
-            hpi_load_screen(SCR_LIST_END-1, SCROLL_RIGHT);
-            //return;
+            hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
+            // return;
         }
         else
         {
@@ -263,6 +268,61 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
             hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
         }
     }
+}
+
+void draw_header(lv_obj_t *parent, bool showFWVersion)
+{
+    // Draw Header bar
+
+    // ProtoCentral logo
+    /*LV_IMG_DECLARE(logo_oneline);
+    lv_obj_t *img1 = lv_img_create(parent);
+    lv_img_set_src(img1, &logo_oneline);
+    lv_obj_align(img1, LV_ALIGN_TOP_LEFT, 10, 7);
+    lv_obj_set_size(img1, 104, 10);
+    */
+
+    lv_obj_t *header_bar = lv_obj_create(parent);
+    lv_obj_set_size(header_bar, 480, 30);
+    lv_obj_set_pos(header_bar, 0, 0);
+    lv_obj_set_style_bg_color(header_bar, lv_color_white(), LV_STATE_DEFAULT);
+
+    lv_obj_clear_flag(header_bar, LV_OBJ_FLAG_SCROLLABLE);
+
+    if (showFWVersion)
+    {
+        // HealthyPi label
+        lv_obj_t *label_hpi = lv_label_create(parent);
+        char fw_version[40];
+        sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
+        lv_label_set_text(label_hpi, fw_version);
+        lv_obj_add_style(label_hpi, &style_header_black, LV_STATE_DEFAULT);
+        // lv_style_set_text_color(label_hpi, lv_color_black());
+        lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 3, 5);
+    }
+    // Label for Symbols
+
+    label_batt_level = lv_label_create(parent);
+    lv_label_set_text(label_batt_level, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align(label_batt_level, LV_ALIGN_TOP_RIGHT, -50, 5);
+
+    label_batt_level_val = lv_label_create(parent);
+    lv_label_set_text(label_batt_level_val, "--%");
+    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
+    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_RIGHT_MID, 7, 0);
+    lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
+
+    lv_obj_t *lbl_conn_status = lv_label_create(parent);
+    lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
+    lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
+    lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    //lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
+
+    // label_sym_ble = lv_label_create(parent);
+    // lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
+    // lv_obj_add_style(label_sym_ble, &style_header_black, LV_STATE_DEFAULT);
+    // lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 1);
 }
 
 void draw_scr_home_footer(lv_obj_t *parent)
@@ -279,7 +339,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // HR Number label
     label_hr = lv_label_create(parent);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 120);
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
     lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
@@ -372,9 +432,9 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
-    // lv_obj_t *label_menu = lv_label_create(parent);
-    // lv_label_set_text(label_menu, "Press side wheel DOWN for more charts");
-    // lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_t *label_menu = lv_label_create(parent);
+    lv_label_set_text(label_menu, "Press side wheel UP/DOWN for other charts");
+    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
 }
 
 void down_key_event_handler()
@@ -405,7 +465,7 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 void disp_screen_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    
+
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
         lv_indev_wait_release(lv_indev_get_act());
@@ -414,8 +474,8 @@ void disp_screen_event(lv_event_t *e)
         if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
-            hpi_load_screen(SCR_LIST_START+1, SCROLL_LEFT);
-            //return;
+            hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
+            // return;
         }
         else
         {
@@ -432,7 +492,7 @@ void disp_screen_event(lv_event_t *e)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END, SCROLL_RIGHT);
-            //return;
+            // return;
         }
         else
         {
@@ -454,51 +514,7 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
     // lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
 }
 
-void draw_header(lv_obj_t *parent, bool showFWVersion)
-{
-    // Draw Header bar
-    // ProtoCentral logo
-    /*LV_IMG_DECLARE(logo_oneline);
-    lv_obj_t *img1 = lv_img_create(parent);
-    lv_img_set_src(img1, &logo_oneline);
-    lv_obj_align(img1, LV_ALIGN_TOP_LEFT, 10, 7);
-    lv_obj_set_size(img1, 104, 10);
-    */
 
-    lv_obj_t *header_bar = lv_obj_create(parent);
-    lv_obj_set_size(header_bar, 480, 25);
-    lv_obj_set_pos(header_bar, 0, 0);
-    lv_obj_set_style_bg_color(header_bar, lv_color_white(), LV_STATE_DEFAULT);
-
-    if (showFWVersion)
-    {
-        // HealthyPi label
-        lv_obj_t *label_hpi = lv_label_create(parent);
-        char fw_version[40];
-        sprintf(fw_version, " HealthyPi 5 (FW v%d.%d.%d)", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
-        lv_label_set_text(label_hpi, fw_version);
-        lv_obj_add_style(label_hpi, &style_header_black, LV_STATE_DEFAULT);
-        // lv_style_set_text_color(label_hpi, lv_color_black());
-        lv_obj_align(label_hpi, LV_ALIGN_TOP_LEFT, 3, 1);
-    }
-    // Label for Symbols
-
-    label_batt_level = lv_label_create(parent);
-    lv_label_set_text(label_batt_level, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align(label_batt_level, LV_ALIGN_TOP_RIGHT, -15, 1);
-
-    label_batt_level_val = lv_label_create(parent);
-    lv_label_set_text(label_batt_level_val, "--%");
-    lv_obj_add_style(label_batt_level, &style_header_black, LV_STATE_DEFAULT);
-    lv_obj_align_to(label_batt_level_val, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -25, 1);
-    lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
-
-    // label_sym_ble = lv_label_create(parent);
-    // lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
-    // lv_obj_add_style(label_sym_ble, &style_header_black, LV_STATE_DEFAULT);
-    // lv_obj_align_to(label_sym_ble, label_batt_level_val, LV_ALIGN_OUT_LEFT_MID, -5, 1);
-}
 
 void hpi_disp_update_batt_level(int batt_level)
 {

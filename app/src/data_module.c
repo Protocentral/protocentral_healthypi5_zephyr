@@ -71,8 +71,8 @@ uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 extern bool settings_send_ble_enabled;
 extern bool settings_send_display_enabled;*/
 
-static bool settings_send_usb_enabled = true;
-static bool settings_send_ble_enabled = true;
+static bool settings_send_usb_enabled = false;
+static bool settings_send_ble_enabled = false;
 static bool settings_send_display_enabled = true;
 static bool settings_send_rpi_uart_enabled = false;
 static bool settings_plot_enabled = true;
@@ -375,7 +375,7 @@ void record_session_add_ecg_point(int32_t *ecg_samples, uint8_t ecg_len, int32_t
     }
 }
 
-void buffer_ppg_data_for_serial(int16_t ppg_data_in)
+void ppg_buff_for_pkt(int16_t ppg_data_in)
 {
     if (serial_ppg_counter < HPI_OV3_DATA_IR_LEN)
     {
@@ -516,7 +516,7 @@ void data_thread(void)
             if (settings_send_usb_enabled)
             {
                 temp_serial = hpi_hw_read_temp();
-                buffer_ppg_data_for_serial(ppg_sensor_sample.ppg_red_sample);
+                ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
             }
 
             // #ifdef CONFIG_BT
