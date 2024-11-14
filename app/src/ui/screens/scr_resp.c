@@ -42,7 +42,7 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
     chart_resp = lv_chart_create(scr_resp);
     lv_obj_set_pos(chart_resp, 10, 35);
 
-    lv_obj_set_size(chart_resp, 450, 185);
+    lv_obj_set_size(chart_resp, 460, 185);
     lv_obj_set_style_bg_color(chart_resp, lv_color_black(), LV_STATE_DEFAULT);
 
     lv_obj_set_style_size(chart_resp, 0, LV_PART_INDICATOR);
