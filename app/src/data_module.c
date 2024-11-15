@@ -551,11 +551,11 @@ void data_thread(void)
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
-                LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    //if (settings_send_display_enabled)
+                    // if (settings_send_display_enabled)
                     //{
                     hpi_scr_home_update_spo2(m_spo2);
                     //}
@@ -574,7 +574,7 @@ void data_thread(void)
                 if (validHeartRate)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    //if (settings_send_display_enabled)
+                    // if (settings_send_display_enabled)
                     hpi_scr_home_update_pr(m_hr);
 #endif
                 }

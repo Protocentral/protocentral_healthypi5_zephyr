@@ -15,6 +15,7 @@ lv_obj_t *scr_ecg;
 // GUI Charts
 static lv_obj_t *chart_ecg;
 static lv_chart_series_t *ser_ecg;
+static lv_obj_t *label_ecg_lead_off;
 
 static bool chart_ecg_update = true;
 
@@ -59,6 +60,11 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     lv_label_set_text(lbl_sig_type, "Showing ECG");
     //lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
     lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
+
+    label_ecg_lead_off = lv_label_create(scr_ecg);
+    lv_label_set_text(label_ecg_lead_off, "ECG Lead Off");
+    lv_obj_align(label_ecg_lead_off, LV_ALIGN_TOP_RIGHT, -20, 200);
+    lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
 
     curr_screen = SCR_ECG;
 
@@ -124,6 +130,9 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
 
     if (ecg_lead_off == true)
     {
-        // printk("ECG Lead Off\n");
+        lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+    } else
+    {
+        lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
     }
 }
