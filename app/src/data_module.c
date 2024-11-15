@@ -13,6 +13,7 @@
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "sampling_module.h"
+#include "display_module.h"
 
 LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 
@@ -506,6 +507,7 @@ void data_thread(void)
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
+                hpi_scr_
             }
 #endif
         }
@@ -557,7 +559,7 @@ void data_thread(void)
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     // if (settings_send_display_enabled)
                     //{
-                    hpi_scr_home_update_spo2(m_spo2);
+                    hpi_scr_update_spo2(m_spo2);
                     //}
 #endif
                     if (settings_send_ble_enabled)
@@ -575,7 +577,7 @@ void data_thread(void)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     // if (settings_send_display_enabled)
-                    hpi_scr_home_update_pr(m_hr);
+                    hpi_scr_update_pr(m_hr);
 #endif
                 }
 

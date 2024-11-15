@@ -53,6 +53,13 @@ enum hpi_disp_op_mode
 
 // Home Screen functions
 void draw_scr_home(enum scroll_dir m_scroll_dir);
+void hpi_scr_home_update_spo2(int spo2);
+void hpi_scr_home_update_pr(int pr);
+void hpi_scr_home_update_rr(int rr);
+void hpi_scr_home_update_temp(int32_t temp);
+void hpi_scr_home_update_hr(int hr);
+
+
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);
@@ -72,14 +79,14 @@ void hpi_disp_change_event(enum hpi_scr_event);
 
 
 void draw_scr_home_footer(lv_obj_t *parent);
-void hpi_scr_home_update_spo2(int spo2);
+void hpi_scr_update_spo2(int spo2);
 
 
 
 // PPG Screen functions
 void draw_scr_ppg(enum scroll_dir m_scroll_dir);
 void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool ppg_lead_off);
-void hpi_scr_home_update_pr(int pr);
+void hpi_scr_update_pr(int pr);
 
 //void draw_scr_chart_resp(void);
 void draw_header(lv_obj_t *parent, bool showFWVersion);

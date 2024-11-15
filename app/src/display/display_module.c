@@ -49,6 +49,8 @@ lv_style_t style_h2;
 lv_style_t style_info;
 lv_style_t style_icon;
 
+lv_style_t style_home_number;
+
 // static lv_obj_t *roller_session_select;
 // static lv_obj_t *label_current_mode;
 
@@ -143,6 +145,11 @@ void display_init_styles()
     lv_style_init(&style_welcome_scr_bg);
     // lv_style_set_radius(&style, 5);
 
+    // Home screen number style
+    lv_style_init(&style_home_number);
+    lv_style_set_text_color(&style_home_number, lv_color_white());
+    lv_style_set_text_font(&style_home_number, &lv_font_montserrat_42);
+
     /*Make a gradient*/
     lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
     lv_style_set_border_width(&style_welcome_scr_bg, 0);
@@ -163,64 +170,92 @@ void display_init_styles()
 
 void hpi_disp_update_temp(int32_t temp)
 {
-    if (label_temp == NULL)
-        return;
-
-    if (temp <= 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_temp, "---");
-        return;
+        hpi_scr_home_update_temp(temp);
     }
-
-    char buf[32];
-    double temp_d = (double)(temp / 100.00);
-    sprintf(buf, "%.1f", temp_d);
-    lv_label_set_text(label_temp, buf);
-}
-
-void hpi_scr_home_update_hr(int hr)
-{
-    if (label_hr == NULL)
-        return;
-
-    char buf[32];
-    sprintf(buf, "%d", hr);
-    lv_label_set_text(label_hr, buf);
-}
-
-void hpi_scr_home_update_spo2(int spo2)
-{
-    if (label_spo2 == NULL)
-        return;
-
-    if (spo2 < 0)
+    else
     {
-        lv_label_set_text(label_spo2, "---");
-        return;
-    }
+        if (label_temp == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", spo2);
-    lv_label_set_text(label_spo2, buf);
+        if (temp <= 0)
+        {
+            lv_label_set_text(label_temp, "---");
+            return;
+        }
+
+        char buf[32];
+        double temp_d = (double)(temp / 100.00);
+        sprintf(buf, "%.1f", temp_d);
+        lv_label_set_text(label_temp, buf);
+    }
 }
 
-void hpi_scr_home_update_pr(int pr)
+void hpi_scr_update_hr(int hr)
 {
-    if (label_pr == NULL)
-        return;
-
-    if (pr < 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_pr, "---");
-        return;
+        hpi_scr_home_update_hr(hr);
     }
+    else
+    {
+        if (label_hr == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", pr);
-    lv_label_set_text(label_pr, buf);
+        char buf[32];
+        sprintf(buf, "%d", hr);
+        lv_label_set_text(label_hr, buf);
+    }
 }
 
-void hpi_scr_home_update_rr(int rr)
+void hpi_scr_update_spo2(int spo2)
+{
+    if (curr_screen == SCR_HOME)
+    {
+        hpi_scr_home_update_spo2(spo2);
+    }
+    else
+    {
+        if (label_spo2 == NULL)
+            return;
+
+        if (spo2 < 0)
+        {
+            lv_label_set_text(label_spo2, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", spo2);
+        lv_label_set_text(label_spo2, buf);
+    }
+}
+
+void hpi_scr_update_pr(int pr)
+{
+    if (curr_screen == SCR_HOME)
+    {
+        hpi_scr_home_update_pr(pr);
+    }
+    else
+    {
+        if (label_pr == NULL)
+            return;
+
+        if (pr < 0)
+        {
+            lv_label_set_text(label_pr, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", pr);
+        lv_label_set_text(label_pr, buf);
+    }
+}
+
+void hpi_scr_update_rr(int rr)
 {
     if (label_rr == NULL)
         return;
@@ -319,7 +354,7 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
     lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
     lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
-    //lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
+    // lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
 
     // label_sym_ble = lv_label_create(parent);
     // lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
@@ -519,8 +554,6 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
     // lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
 }
 
-
-
 void hpi_disp_update_batt_level(int batt_level)
 {
     if (label_batt_level == NULL)
@@ -584,13 +617,13 @@ void display_screens_thread(void)
     // draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
-    if(m_op_mode == OP_MODE_BASIC)
+    if (m_op_mode == OP_MODE_BASIC)
     {
-       hpi_load_screen(SCR_HOME, SCROLL_DOWN);
+        hpi_load_screen(SCR_HOME, SCROLL_DOWN);
     }
     else
     {
-       hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+        hpi_load_screen(SCR_ECG, SCROLL_DOWN);
     }
 
     int sample_count = 0;
@@ -601,13 +634,10 @@ void display_screens_thread(void)
             if (curr_screen == SCR_ECG)
             {
                 hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
-                hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
-                // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
             }
             else if (curr_screen == SCR_RESP)
             {
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
-                // hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
             }
         }
 
@@ -623,7 +653,7 @@ void display_screens_thread(void)
         {
             sample_count = 0;
             // hpi_scr_home_update_temp(sensor_sample.temp);
-            // hpi_scr_home_update_hr(sensor_sample.hr);
+            // hpi_scr_update_hr(sensor_sample.hr);
         }
         else
         {
