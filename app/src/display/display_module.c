@@ -24,6 +24,12 @@ extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
 
+#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
+static enum hpi_disp_op_mode m_op_mode = OP_MODE_DISPLAY;
+#else
+static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
+#endif
+
 // LVGL Screens
 
 lv_obj_t *scr_menu;
@@ -34,10 +40,12 @@ lv_style_t style_sub;
 lv_style_t style_hr;
 lv_style_t style_spo2;
 lv_style_t style_rr;
+lv_style_t style_pr;
 lv_style_t style_temp;
 
 lv_style_t style_header_black;
 lv_style_t style_header_red;
+lv_style_t style_header_green;
 
 lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
@@ -82,6 +90,11 @@ static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
 
+int hpi_disp_get_op_mode()
+{
+    return m_op_mode;
+}
+
 void display_init_styles()
 {
     // Subscript (Unit) label style
@@ -91,7 +104,7 @@ void display_init_styles()
 
     // HR Number label style
     lv_style_init(&style_hr);
-    lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_GREEN));
     lv_style_set_text_font(&style_hr, &lv_font_montserrat_34);
 
     // SpO2 label style
@@ -106,7 +119,7 @@ void display_init_styles()
 
     // Temp label style
     lv_style_init(&style_temp);
-    lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_LIME));
+    lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_ORANGE));
     lv_style_set_text_font(&style_temp, &lv_font_montserrat_34);
 
     // Icon welcome screen style
@@ -127,6 +140,10 @@ void display_init_styles()
     lv_style_set_text_color(&style_header_red, lv_palette_main(LV_PALETTE_RED));
     lv_style_set_text_font(&style_header_red, &lv_font_montserrat_16);
 
+    lv_style_init(&style_header_green);
+    lv_style_set_text_color(&style_header_green, lv_palette_main(LV_PALETTE_GREEN));
+    lv_style_set_text_font(&style_header_green, &lv_font_montserrat_16);
+
     // H2 welcome screen style
     lv_style_init(&style_h2);
     lv_style_set_text_color(&style_h2, lv_palette_main(LV_PALETTE_ORANGE));
@@ -140,6 +157,11 @@ void display_init_styles()
     // Screen background style
     lv_style_init(&style_welcome_scr_bg);
     // lv_style_set_radius(&style, 5);
+
+    // Home screen number style
+    lv_style_init(&style_pr);
+    lv_style_set_text_color(&style_pr, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_text_font(&style_pr, &lv_font_montserrat_42);
 
     /*Make a gradient*/
     lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
@@ -161,77 +183,112 @@ void display_init_styles()
 
 void hpi_disp_update_temp(int32_t temp)
 {
-    if (label_temp == NULL)
-        return;
-
-    if (temp <= 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_temp, "---");
-        return;
+        hpi_scr_home_update_temp(temp);
     }
+    else
+    {
+        if (label_temp == NULL)
+            return;
 
-    char buf[32];
-    double temp_d = (double)(temp / 100.00);
-    sprintf(buf, "%.1f", temp_d);
-    lv_label_set_text(label_temp, buf);
+        if (temp <= 0)
+        {
+            lv_label_set_text(label_temp, "---");
+            return;
+        }
+
+        char buf[32];
+        double temp_d = (double)(temp / 100.00);
+        sprintf(buf, "%.1f", temp_d);
+        lv_label_set_text(label_temp, buf);
+    }
 }
 
-void hpi_scr_home_update_hr(int hr)
+void hpi_scr_update_hr(int hr)
 {
-    if (label_hr == NULL)
-        return;
+    if (curr_screen == SCR_HOME)
+    {
+        hpi_scr_home_update_hr(hr);
+    }
+    else
+    {
+        if (label_hr == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", hr);
-    lv_label_set_text(label_hr, buf);
+        char buf[32];
+        sprintf(buf, "%d", hr);
+        lv_label_set_text(label_hr, buf);
+    }
 }
 
-void hpi_scr_home_update_spo2(int spo2)
+void hpi_scr_update_spo2(int spo2)
 {
-    if (label_spo2 == NULL)
-        return;
-
-    if (spo2 < 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_spo2, "---");
-        return;
+        hpi_scr_home_update_spo2(spo2);
     }
+    else
+    {
+        if (label_spo2 == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", spo2);
-    lv_label_set_text(label_spo2, buf);
+        if (spo2 < 0)
+        {
+            lv_label_set_text(label_spo2, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", spo2);
+        lv_label_set_text(label_spo2, buf);
+    }
 }
 
-void hpi_scr_home_update_pr(int pr)
+void hpi_scr_update_pr(int pr)
 {
-    if (label_pr == NULL)
-        return;
-
-    if (pr < 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_pr, "---");
-        return;
+        hpi_scr_home_update_pr(pr);
     }
+    else
+    {
+        if (label_pr == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", pr);
-    lv_label_set_text(label_pr, buf);
+        if (pr < 0)
+        {
+            lv_label_set_text(label_pr, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", pr);
+        lv_label_set_text(label_pr, buf);
+    }
 }
 
-void hpi_scr_home_update_rr(int rr)
+void hpi_scr_update_rr(int rr)
 {
-    if (label_rr == NULL)
-        return;
-
-    if (rr < 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_rr, "---");
-        return;
+        hpi_scr_home_update_rr(rr);
     }
+    else
+    {
+        if (label_rr == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", rr);
-    lv_label_set_text(label_rr, buf);
+        if (rr < 0)
+        {
+            lv_label_set_text(label_rr, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", rr);
+        lv_label_set_text(label_rr, buf);
+    }
 }
 
 void hpi_disp_change_event(enum hpi_scr_event evt)
@@ -314,10 +371,23 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
 
     lv_obj_t *lbl_conn_status = lv_label_create(parent);
-    lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
-    lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
-    lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
-    //lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
+    if (m_op_mode == OP_MODE_DISPLAY)
+    {
+        
+        lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
+        lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
+        lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    }
+    else
+    {
+        
+        lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
+        lv_obj_add_style(lbl_conn_status, &style_header_green, LV_STATE_DEFAULT);
+        lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    }
+    /*
+     */
+    // lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
 
     // label_sym_ble = lv_label_create(parent);
     // lv_label_set_text(label_sym_ble, LV_SYMBOL_BLUETOOTH);
@@ -339,7 +409,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // HR Number label
     label_hr = lv_label_create(parent);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 75, 100);
     lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
@@ -378,6 +448,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
 
+    /*
     // Pulse Rate Number label
     label_pr = lv_label_create(parent);
     lv_label_set_text(label_pr, "---");
@@ -395,11 +466,12 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_label_set_text(label_pr_sub, "bpm");
     lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
+    */
 
     // RR Number label
     label_rr = lv_label_create(parent);
     lv_label_set_text(label_rr, "---");
-    lv_obj_align_to(label_rr, label_pr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
     lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
 
     // RR Title label
@@ -455,6 +527,9 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
         break;
     case SCR_PPG:
         draw_scr_ppg(SCROLL_DOWN);
+        break;
+    case SCR_HOME:
+        draw_scr_home(SCROLL_DOWN);
         break;
 
     default:
@@ -513,8 +588,6 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
         lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
     // lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
 }
-
-
 
 void hpi_disp_update_batt_level(int batt_level)
 {
@@ -579,25 +652,29 @@ void display_screens_thread(void)
     // draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
-    hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+    if (m_op_mode == OP_MODE_BASIC)
+    {
+        hpi_load_screen(SCR_HOME, SCROLL_DOWN);
+    }
+    else
+    {
+        hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+    }
 
     int sample_count = 0;
     while (1)
     {
+
         if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
             if (curr_screen == SCR_ECG)
             {
                 hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
-                
-                // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
             }
             else if (curr_screen == SCR_RESP)
             {
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
-                // hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
             }
-            
         }
 
         if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
@@ -611,8 +688,6 @@ void display_screens_thread(void)
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
             sample_count = 0;
-            //hpi_scr_home_update_temp(sensor_sample.temp);
-            // hpi_scr_home_update_hr(sensor_sample.hr);
         }
         else
         {
@@ -630,7 +705,14 @@ void display_screens_thread(void)
         }
 
         lv_task_handler();
-        k_sleep(K_MSEC(1));
+        if (m_op_mode == OP_MODE_BASIC)
+        {
+            k_sleep(K_MSEC(100));
+        }
+        else
+        {
+            k_sleep(K_MSEC(1));
+        }
     }
 }
 
