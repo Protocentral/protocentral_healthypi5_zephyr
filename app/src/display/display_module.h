@@ -59,7 +59,7 @@ void hpi_scr_home_update_rr(int rr);
 void hpi_scr_home_update_temp(int32_t temp);
 void hpi_scr_home_update_hr(int hr);
 
-
+int hpi_disp_get_op_mode();
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);

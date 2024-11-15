@@ -86,6 +86,11 @@ static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
 
+int hpi_disp_get_op_mode()
+{
+    return m_op_mode;
+}
+
 void display_init_styles()
 {
     // Subscript (Unit) label style
@@ -257,18 +262,25 @@ void hpi_scr_update_pr(int pr)
 
 void hpi_scr_update_rr(int rr)
 {
-    if (label_rr == NULL)
-        return;
-
-    if (rr < 0)
+    if (curr_screen == SCR_HOME)
     {
-        lv_label_set_text(label_rr, "---");
-        return;
+        hpi_scr_home_update_rr(rr);
     }
+    else
+    {
+        if (label_rr == NULL)
+            return;
 
-    char buf[32];
-    sprintf(buf, "%d", rr);
-    lv_label_set_text(label_rr, buf);
+        if (rr < 0)
+        {
+            lv_label_set_text(label_rr, "---");
+            return;
+        }
+
+        char buf[32];
+        sprintf(buf, "%d", rr);
+        lv_label_set_text(label_rr, buf);
+    }
 }
 
 void hpi_disp_change_event(enum hpi_scr_event evt)
@@ -629,6 +641,7 @@ void display_screens_thread(void)
     int sample_count = 0;
     while (1)
     {
+
         if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
             if (curr_screen == SCR_ECG)
@@ -639,7 +652,6 @@ void display_screens_thread(void)
             {
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
             }
-            
         }
 
         if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
@@ -670,7 +682,14 @@ void display_screens_thread(void)
         }
 
         lv_task_handler();
-        k_sleep(K_MSEC(1));
+        if (m_op_mode == OP_MODE_BASIC)
+        {
+            k_sleep(K_MSEC(100));
+        }
+        else
+        {
+            k_sleep(K_MSEC(1));
+        }
     }
 }
 
