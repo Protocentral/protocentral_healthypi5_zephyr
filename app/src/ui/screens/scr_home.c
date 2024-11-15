@@ -19,7 +19,7 @@ extern lv_style_t style_hr;
 extern lv_style_t style_spo2;
 extern lv_style_t style_rr;
 extern lv_style_t style_temp;
-extern lv_style_t style_home_number;
+extern lv_style_t style_pr;
 
 // GUI Labels
 static lv_obj_t *label_hr;
@@ -33,15 +33,11 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     scr_home = lv_obj_create(NULL);
     draw_header(scr_home, true);
 
-    lv_obj_t *lbl_screen_title = lv_label_create(scr_home);
-    lv_label_set_text(lbl_screen_title, "Home Screen");
-    lv_obj_align(lbl_screen_title, LV_ALIGN_CENTER, 0, 0);
-
     // HR Number label
     label_hr = lv_label_create(scr_home);
     lv_label_set_text(label_hr, "---");
     lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 50, -50);
-    lv_obj_add_style(label_hr, &style_home_number, LV_STATE_DEFAULT);
+    lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
     lv_obj_t *label_hr_title = lv_label_create(scr_home);
@@ -59,7 +55,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     label_spo2 = lv_label_create(scr_home);
     lv_label_set_text(label_spo2, "---");
     lv_obj_align_to(label_spo2, label_hr, LV_ALIGN_OUT_RIGHT_TOP, 100, 0);
-    lv_obj_add_style(label_spo2, &style_home_number, LV_STATE_DEFAULT);
+    lv_obj_add_style(label_spo2, &style_spo2, LV_STATE_DEFAULT);
 
     // SpO2 Title label
     lv_obj_t *label_spo2_title = lv_label_create(scr_home);
@@ -91,11 +87,12 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_align_to(label_rr_sub, label_rr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
 
+    /*
     // Pulse Rate Number label
     label_pr = lv_label_create(scr_home);
     lv_label_set_text(label_pr, "---");
     lv_obj_align_to(label_pr, label_hr, LV_ALIGN_OUT_BOTTOM_MID, 60, 100);
-    lv_obj_add_style(label_pr, &style_hr, LV_STATE_DEFAULT);
+    lv_obj_add_style(label_pr, &style_pr, LV_STATE_DEFAULT);
 
     // Pulse Rate Title label
     lv_obj_t *label_pr_title = lv_label_create(scr_home);
@@ -108,11 +105,12 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_label_set_text(label_pr_sub, "bpm");
     lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
+    */
 
     // Temp Number label
     label_temp = lv_label_create(scr_home);
     lv_label_set_text(label_temp, "---");
-    lv_obj_align_to(label_temp, label_pr, LV_ALIGN_OUT_RIGHT_TOP, 100, 0);
+    lv_obj_align_to(label_temp, label_spo2, LV_ALIGN_OUT_BOTTOM_MID, 0, 100);
     lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
 
     // Temp label

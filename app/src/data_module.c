@@ -67,15 +67,17 @@ const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
-/*extern bool settings_send_usb_enabled;
-extern bool settings_send_ble_enabled;
-extern bool settings_send_display_enabled;*/
-
+#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
+static bool settings_send_usb_enabled = false;
+static bool settings_send_ble_enabled = false;
+static bool settings_plot_enabled = true;
+#else
 static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
-static bool settings_send_display_enabled = true;
+static bool settings_plot_enabled = false;
+#endif
+
 static bool settings_send_rpi_uart_enabled = false;
-static bool settings_plot_enabled = true;
 
 extern bool settings_log_data_enabled; // true;
 extern bool sd_card_present;
@@ -465,7 +467,6 @@ void data_thread(void)
 
     for (;;)
     {
-
         // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
@@ -501,17 +502,15 @@ void data_thread(void)
                 record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
             // #endif
-            
+
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                if (settings_plot_enabled)
-                {
-                    if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
-                    {
-                        k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
-                    }
-                    hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
-                    hpi_scr_update_rr(globalRespirationRate);
-                }
+
+            if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
+            {
+                k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
+            }
+            hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
+            hpi_scr_update_rr(globalRespirationRate);
 #endif
         }
 
@@ -563,10 +562,7 @@ void data_thread(void)
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    // if (settings_send_display_enabled)
-                    //{
-                    hpi_scr_update_spo2(m_spo2);
-                    //}
+                    hpi_scr_update_spo2(m_spo2);                   
 #endif
                     if (settings_send_ble_enabled)
                     {

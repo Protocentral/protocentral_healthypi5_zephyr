@@ -24,7 +24,11 @@ extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
 
+#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
+static enum hpi_disp_op_mode m_op_mode = OP_MODE_DISPLAY;
+#else
 static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
+#endif
 
 // LVGL Screens
 
@@ -36,10 +40,12 @@ lv_style_t style_sub;
 lv_style_t style_hr;
 lv_style_t style_spo2;
 lv_style_t style_rr;
+lv_style_t style_pr;
 lv_style_t style_temp;
 
 lv_style_t style_header_black;
 lv_style_t style_header_red;
+lv_style_t style_header_green;
 
 lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
@@ -48,8 +54,6 @@ lv_style_t style_h1;
 lv_style_t style_h2;
 lv_style_t style_info;
 lv_style_t style_icon;
-
-lv_style_t style_home_number;
 
 // static lv_obj_t *roller_session_select;
 // static lv_obj_t *label_current_mode;
@@ -100,7 +104,7 @@ void display_init_styles()
 
     // HR Number label style
     lv_style_init(&style_hr);
-    lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_GREEN));
     lv_style_set_text_font(&style_hr, &lv_font_montserrat_34);
 
     // SpO2 label style
@@ -115,7 +119,7 @@ void display_init_styles()
 
     // Temp label style
     lv_style_init(&style_temp);
-    lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_LIME));
+    lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_ORANGE));
     lv_style_set_text_font(&style_temp, &lv_font_montserrat_34);
 
     // Icon welcome screen style
@@ -136,6 +140,10 @@ void display_init_styles()
     lv_style_set_text_color(&style_header_red, lv_palette_main(LV_PALETTE_RED));
     lv_style_set_text_font(&style_header_red, &lv_font_montserrat_16);
 
+    lv_style_init(&style_header_green);
+    lv_style_set_text_color(&style_header_green, lv_palette_main(LV_PALETTE_GREEN));
+    lv_style_set_text_font(&style_header_green, &lv_font_montserrat_16);
+
     // H2 welcome screen style
     lv_style_init(&style_h2);
     lv_style_set_text_color(&style_h2, lv_palette_main(LV_PALETTE_ORANGE));
@@ -151,9 +159,9 @@ void display_init_styles()
     // lv_style_set_radius(&style, 5);
 
     // Home screen number style
-    lv_style_init(&style_home_number);
-    lv_style_set_text_color(&style_home_number, lv_color_white());
-    lv_style_set_text_font(&style_home_number, &lv_font_montserrat_42);
+    lv_style_init(&style_pr);
+    lv_style_set_text_color(&style_pr, lv_palette_main(LV_PALETTE_RED));
+    lv_style_set_text_font(&style_pr, &lv_font_montserrat_42);
 
     /*Make a gradient*/
     lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
@@ -363,9 +371,22 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_add_style(label_batt_level_val, &style_header_black, LV_STATE_DEFAULT);
 
     lv_obj_t *lbl_conn_status = lv_label_create(parent);
-    lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
-    lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
-    lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    if (m_op_mode == OP_MODE_DISPLAY)
+    {
+        
+        lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
+        lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
+        lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    }
+    else
+    {
+        
+        lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
+        lv_obj_add_style(lbl_conn_status, &style_header_green, LV_STATE_DEFAULT);
+        lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
+    }
+    /*
+     */
     // lv_obj_set_text_color(lbl_no_ble, LV_PART_MAIN, LV_STATE_DEFAULT, lv_palette_main(LV_PALETTE_RED));
 
     // label_sym_ble = lv_label_create(parent);
@@ -388,7 +409,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // HR Number label
     label_hr = lv_label_create(parent);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 20, 100);
+    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 75, 100);
     lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
 
     // HR Title label
@@ -427,6 +448,7 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
 
+    /*
     // Pulse Rate Number label
     label_pr = lv_label_create(parent);
     lv_label_set_text(label_pr, "---");
@@ -444,11 +466,12 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_label_set_text(label_pr_sub, "bpm");
     lv_obj_align_to(label_pr_sub, label_pr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_pr_sub, &style_sub, LV_STATE_DEFAULT);
+    */
 
     // RR Number label
     label_rr = lv_label_create(parent);
     lv_label_set_text(label_rr, "---");
-    lv_obj_align_to(label_rr, label_pr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
     lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
 
     // RR Title label
