@@ -506,6 +506,8 @@ void data_thread(void)
             if (settings_plot_enabled)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
+                hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
+                hpi_scr_home_update_rr(globalRespirationRate);
             }
 #endif
         }

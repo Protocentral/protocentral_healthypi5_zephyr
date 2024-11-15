@@ -589,7 +589,7 @@ void display_screens_thread(void)
             if (curr_screen == SCR_ECG)
             {
                 hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
-                hpi_scr_home_update_hr(ecg_bioz_sensor_sample.hr);
+                
                 // hpi_ecg_disp_update_hr(ecg_bioz_sensor_sample.hr);
             }
             else if (curr_screen == SCR_RESP)
@@ -597,6 +597,7 @@ void display_screens_thread(void)
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
                 // hpi_scr_home_update_rr(ecg_bioz_sensor_sample.rr);
             }
+            
         }
 
         if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
@@ -610,7 +611,7 @@ void display_screens_thread(void)
         if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
         {
             sample_count = 0;
-            // hpi_scr_home_update_temp(sensor_sample.temp);
+            //hpi_scr_home_update_temp(sensor_sample.temp);
             // hpi_scr_home_update_hr(sensor_sample.hr);
         }
         else
