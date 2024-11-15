@@ -24,6 +24,8 @@ extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
 
+static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
+
 // LVGL Screens
 
 lv_obj_t *scr_menu;
@@ -456,6 +458,9 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
     case SCR_PPG:
         draw_scr_ppg(SCROLL_DOWN);
         break;
+    case SCR_HOME:
+        draw_scr_home(SCROLL_DOWN);
+        break;
 
     default:
         break;
@@ -579,7 +584,14 @@ void display_screens_thread(void)
     // draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
-    hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+    if(m_op_mode == OP_MODE_BASIC)
+    {
+       hpi_load_screen(SCR_HOME, SCROLL_DOWN);
+    }
+    else
+    {
+       hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+    }
 
     int sample_count = 0;
     while (1)

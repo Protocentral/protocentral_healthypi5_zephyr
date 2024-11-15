@@ -130,9 +130,9 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
 
     if (ecg_lead_off == true)
     {
-        lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+        //lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
     } else
     {
-        lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+        //lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
     }
 }

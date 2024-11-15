@@ -29,6 +29,18 @@ enum hpi_disp_screens
     SCR_LIST_END
 };
 
+enum hpi_disp_screens_spl
+{
+    SCR_SPLASH=51,
+    SCR_HOME
+};
+
+enum hpi_disp_op_mode
+{
+    OP_MODE_BASIC,
+    OP_MODE_DISPLAY,
+};
+
 #define SCREEN_TRANS_TIME 100
 
 #define SAMPLE_RATE 128
@@ -41,8 +53,14 @@ enum hpi_disp_screens
 
 // Home Screen functions
 void draw_scr_home(enum scroll_dir m_scroll_dir);
-void scr_home_plot_ecg(float plot_data);
-void scr_home_plot_ppg(float plot_data);
+
+// ECG Screen functions
+void draw_scr_ecg(enum scroll_dir m_scroll_dir);
+void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
+
+// Resp Screen functions
+void draw_scr_resp(enum scroll_dir m_scroll_dir);
+void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
 
 void hpi_disp_update_temp(int32_t temp);
 
@@ -52,18 +70,11 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
 void hpi_disp_update_batt_level(int batt_level);
 void hpi_disp_change_event(enum hpi_scr_event);
 
-void draw_scr_chart_single(uint8_t m_data_type);
-void draw_chart_single_scr(uint8_t m_data_type, lv_obj_t *scr_obj);
+
 void draw_scr_home_footer(lv_obj_t *parent);
 void hpi_scr_home_update_spo2(int spo2);
 
-// ECG Screen functions
-void draw_scr_ecg(enum scroll_dir m_scroll_dir);
-void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
 
-// Resp Screen functions
-void draw_scr_resp(enum scroll_dir m_scroll_dir);
-void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
 
 // PPG Screen functions
 void draw_scr_ppg(enum scroll_dir m_scroll_dir);
