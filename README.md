@@ -37,14 +37,14 @@ This firmware is still in development and is not yet ready for general use. We a
 
 Drivers / Module        |    Status     |           |
 ----------------        | --------------| --------- |
-MAX30001 Sensor Driver  | Basic functionality Completed | :white_check_mark:    | 
-AFE4400 Sensor Driver   | Basic functionality Completed | :white_check_mark:    |
-MAX30205 Sensor Driver  | Basic functionality Completed | :white_check_mark:    |
-Display Driver (LCD)    | Basic functionality Completed | :white_check_mark:    |
-GUI (LVGL)              | In Progress     |  :white_check_mark: |
-SD Card Driver          | Basic functionality Completed | :white_check_mark:    |
-USB CDC Driver          | Basic functionality Completed     | :white_check_mark: |
-Data Logging module     | In Progress     |  :white_check_mark: |
+MAX30001 Sensor Driver  | Completed | :white_check_mark:    | 
+AFE4400 Sensor Driver   | Completed | :white_check_mark:    |
+MAX30205 Sensor Driver  | Completed | :white_check_mark:    |
+Display Driver (LCD)    | Completed | :white_check_mark:    |
+GUI (LVGL)              | Completed |  :white_check_mark: |
+SD Card Driver          | Completed | :white_check_mark:    |
+USB CDC Driver          | Completed | :white_check_mark: |
+Data Logging module     | Completed |  :white_check_mark: |
 RP2040 <> ESP32C3 communication | Completed | :white_check_mark: |
 USB MSC Driver          | In Progress     | :hourglass: |
 OTA updates             | In Progress     | :hourglass: |
