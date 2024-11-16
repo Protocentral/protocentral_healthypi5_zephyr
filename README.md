@@ -41,12 +41,12 @@ MAX30001 Sensor Driver  | Basic functionality Completed | :white_check_mark:    
 AFE4400 Sensor Driver   | Basic functionality Completed | :white_check_mark:    |
 MAX30205 Sensor Driver  | Basic functionality Completed | :white_check_mark:    |
 Display Driver (LCD)    | Basic functionality Completed | :white_check_mark:    |
-GUI (LVGL)              | In Progress     | :hourglass: |
+GUI (LVGL)              | In Progress     |  :white_check_mark: |
 SD Card Driver          | Basic functionality Completed | :white_check_mark:    |
 USB CDC Driver          | Basic functionality Completed     | :white_check_mark: |
-USB MSC Driver          | In Progress     | :hourglass: |
-Data Logging module     | In Progress     | :hourglass: |
+Data Logging module     | In Progress     |  :white_check_mark: |
 RP2040 <> ESP32C3 communication | Completed | :white_check_mark: |
+USB MSC Driver          | In Progress     | :hourglass: |
 OTA updates             | In Progress     | :hourglass: |
 
 ## Compiling the firmware
