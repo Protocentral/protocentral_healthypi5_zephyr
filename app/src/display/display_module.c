@@ -645,7 +645,7 @@ void display_screens_thread(void)
 
     display_blanking_off(display_dev);
 
-    printk("Display screens inited");
+    printk("Display screens inited\n");
 
     // draw_scr_ecg(SCROLL_DOWN);
     //   draw_scr_resp(SCROLL_DOWN);

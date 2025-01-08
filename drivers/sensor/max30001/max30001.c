@@ -579,7 +579,7 @@ static int max30001_chip_init(const struct device *dev)
     //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
     k_sleep(K_MSEC(100));
 
-    //_max30001RegWrite(dev, EN_INT, 0x800003); // Disable all interrupts
+    //_max30001RegWrite(dev, EN_INT, 0x900000); // Disable all interrupts
 
     if (config->rtor_enabled)
     {
