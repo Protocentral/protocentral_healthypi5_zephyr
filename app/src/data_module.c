@@ -470,6 +470,8 @@ void data_thread(void)
         // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
+            //printk("ECG lead %d\n",ecg_bioz_sensor_sample.ecg_lead_off);
+            //printk("BIOZ lead %d\n",ecg_bioz_sensor_sample.bioz_lead_off);
             int16_t resp_i16_buf[4];
             int16_t resp_i16_filt_out[4];
 
@@ -558,7 +560,7 @@ void data_thread(void)
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
-                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                //printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED

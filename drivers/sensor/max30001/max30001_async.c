@@ -2,7 +2,6 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(MAX30001_ASYNC, CONFIG_SENSOR_LOG_LEVEL);
-
 #include "max30001.h"
 
 static int max30001_async_sample_fetch(const struct device *dev,
@@ -44,18 +43,17 @@ static int max30001_async_sample_fetch(const struct device *dev,
 
     if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
     {
-        printk("Leads Off\n");
+        printk("ECG Lead off %d\n",max30001_status & MAX30001_STATUS_MASK_DCLOFF);
         data->ecg_lead_off = 1;
         *ecg_lead_off = 1;
     }
-    else
+    else if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
+        printk(" ECG Lead on %d\n",max30001_status & MAX30001_STATUS_MASK_DCLOFF);
+
         data->ecg_lead_off = 0;
         *ecg_lead_off = 0;
-    }
 
-    if (1) //((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
-    {
         max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
         e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1); // No of samples = EFIT + 1
         e_fifo_num_bytes = ((e_fifo_num_samples * 3));                                                        // 24 bit register + 1 dummy byte

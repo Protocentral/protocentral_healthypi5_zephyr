@@ -464,7 +464,7 @@ static int max30001_chip_init(const struct device *dev)
 
     // data->chip_cfg.reg_cnfg_gen.bit.en_bioz = 0;
 
-    data->chip_cfg.reg_cnfg_gen.bit.en_dcloff = 0;
+    //data->chip_cfg.reg_cnfg_gen.bit.en_dcloff = 0;
     data->chip_cfg.reg_cnfg_gen.bit.en_bloff = 0;
     data->chip_cfg.reg_cnfg_gen.bit.en_rbias = 0;
     data->chip_cfg.reg_cnfg_gen.bit.rbiasv = 1;
