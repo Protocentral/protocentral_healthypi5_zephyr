@@ -4,6 +4,29 @@
 LOG_MODULE_REGISTER(MAX30001_ASYNC, CONFIG_SENSOR_LOG_LEVEL);
 #include "max30001.h"
 
+uint32_t config_leadon(const struct device *dev)
+{
+    struct max30001_data *data = dev->data;
+    const struct max30001_config *config = dev->config;
+    
+    _max30001RegWrite(dev,EN_INT,0x810400);
+    _max30001RegWrite(dev,CNFG_GEN, 0x0C0004);
+    uint32_t max30001_status = max30001_read_status(dev);
+    max30001_synch(dev);
+    return max30001_status;
+}
+
+void config_leadoff(const struct device *dev)
+{
+    struct max30001_data *data = dev->data;
+    const struct max30001_config *config = dev->config;
+
+    _max30001RegWrite(dev,CNFG_GEN, 0x0C1217);
+    _max30001RegWrite(dev,EN_INT,0x100401);
+    max30001_synch(dev);
+}
+
+
 static int max30001_async_sample_fetch(const struct device *dev,
                                        uint32_t *num_samples_ecg, uint32_t *num_samples_bioz, int32_t ecg_samples[32],
                                        int32_t bioz_samples[32], uint16_t *rri, uint16_t *hr,
@@ -34,38 +57,36 @@ static int max30001_async_sample_fetch(const struct device *dev,
     uint32_t max30001_rtor = 0;
 
     max30001_status = max30001_read_status(dev);
-    printk("%d\n",max30001_status);
+    //printk("status %d\n",max30001_status);
 
-    while ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT)
-    {
-        //data->ecg_lead_off = 1;
-        //*ecg_lead_off = 1;
-        max30001_status = max30001_read_status(dev);
-        k_sleep(K_MSEC(20));
-    };
-
-    /*if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
+    while ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
     {
         
-        printk("ECG lead status %d\n",*ecg_lead_off);
+        data->ecg_lead_off = 1;
+        *ecg_lead_off = 1;
+        //max30001_status = config_leadon(dev);
+        max30001_status = max30001_read_status(dev);
+        //printk("status %d\n",max30001_status);
+        k_sleep(K_MSEC(100));
+    };
 
-    }
-    else if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
-    */
-    if (1)//((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
+    if (1)
     {
+
         if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
         {
+            //printk("Lead off-2\n");
             data->ecg_lead_off = 1;
             *ecg_lead_off = 1;
-            printk("ECG lead status %d\n",*ecg_lead_off);
-
+            //config_leadon(dev);
         }
-        else
+        else if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT)
         {
+            //printk("Lead on\n");
             data->ecg_lead_off = 0;
             *ecg_lead_off = 0;
-            printk("ECG lead status %d\n",*ecg_lead_off);
+            //config_leadoff(dev);
+            
 
             max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
             e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1); // No of samples = EFIT + 1
@@ -150,7 +171,9 @@ static int max30001_async_sample_fetch(const struct device *dev,
                     break;
                 }
             }
-
+        }
+        else if ((max30001_status & MAX30001_STATUS_MASK_RTOR) == MAX30001_STATUS_MASK_RTOR)
+        {
             max30001_rtor = max30001_read_reg(dev, RTOR);
             if (max30001_rtor > 0)
             {
@@ -162,6 +185,8 @@ static int max30001_async_sample_fetch(const struct device *dev,
             }
         }
     }
+
+
 
     /*if ((max30001_status & MAX30001_STATUS_MASK_BINT) == MAX30001_STATUS_MASK_BINT)
     {

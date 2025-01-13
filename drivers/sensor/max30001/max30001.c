@@ -283,7 +283,7 @@ static int max30001_sample_fetch(const struct device *dev,
         return -EIO;
 #endif
 
-    uint32_t max30001_status, max30001_mngr_int = 0;
+    uint32_t max30001_status=0, max30001_mngr_int = 0;
     uint8_t e_fifo_num_bytes;
     uint8_t b_fifo_num_bytes;
 
