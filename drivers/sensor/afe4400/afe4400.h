@@ -21,6 +21,7 @@ struct afe4400_data
 {
 	int32_t raw_sample_ir;
 	int32_t raw_sample_red;
+	uint8_t ppg_lead_off;
 };
 
 struct afe4400_decoder_header
@@ -33,6 +34,7 @@ struct afe4400_encoded_data
 	struct afe4400_decoder_header header;
 	int32_t raw_sample_ir;
 	int32_t raw_sample_red;
+	uint8_t ppg_lead_off;
 };
 
 // AFE4400 Register Map

@@ -132,7 +132,7 @@ static int afe4400_chip_init(const struct device *dev)
     k_sleep(K_MSEC(100));
 
     _afe4400_reg_write(dev, CONTROL0, 0x000000);
-    _afe4400_reg_write(dev, CONTROL0, 0x000008);
+    _afe4400_reg_write(dev, CONTROL0, 0x00000C);
     _afe4400_reg_write(dev, TIAGAIN, 0x000000); // CF = 5pF, RF = 500kR
     _afe4400_reg_write(dev, TIA_AMB_GAIN, 0x000001);
     _afe4400_reg_write(dev, LEDCNTRL, 0x001414);
