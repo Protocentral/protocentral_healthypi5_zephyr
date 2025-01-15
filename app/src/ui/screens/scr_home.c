@@ -121,7 +121,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
 
     // Temp Sub deg C label
     lv_obj_t *label_temp_sub = lv_label_create(scr_home);
-    lv_label_set_text(label_temp_sub, "°C");
+    lv_label_set_text(label_temp_sub, "°F");
     lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
