@@ -511,7 +511,8 @@ void data_thread(void)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
-            hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
+            //hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
+            hpi_scr_update_hr(ecg_bioz_sensor_sample.hr,ecg_bioz_sensor_sample.ecg_lead_off);
             hpi_scr_update_rr(globalRespirationRate);
 #endif
         }

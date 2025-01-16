@@ -64,7 +64,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     label_ecg_lead_off = lv_label_create(scr_ecg);
     lv_label_set_text(label_ecg_lead_off, "ECG Lead Off");
     lv_obj_align(label_ecg_lead_off, LV_ALIGN_TOP_RIGHT, -20, 200);
-    lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+    //lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
 
     curr_screen = SCR_ECG;
 
@@ -92,9 +92,9 @@ static void hpi_ecg_disp_do_set_scale(int disp_window_size)
     }
 }
 
-void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off)
+void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, uint8_t ecg_lead_off)
 {
-    if (chart_ecg_update == true) // && ecg_lead_off == false)
+    if (chart_ecg_update == true && ecg_lead_off == 0)
     {
         for (int i = 0; i < num_samples; i++)
         {
@@ -128,11 +128,11 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
         // hpi_ecg_disp_do_set_scale(DISP_WINDOW_SIZE_ECG);
     }
 
-    if (ecg_lead_off == true)
+    if (ecg_lead_off == 1)
     {
-        //lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
     } else
     {
-        //lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
     }
 }

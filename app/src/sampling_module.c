@@ -124,6 +124,8 @@ static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
     uint8_t n_samples_ecg = edata->num_samples_ecg;
     uint8_t n_samples_bioz = edata->num_samples_bioz;
 
+    ecg_bioz_sensor_sample.ecg_lead_off = edata->ecg_lead_off;
+
     if (n_samples_ecg > 8)
     {
         n_samples_ecg = 8;
@@ -150,6 +152,7 @@ static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
         }
 
         ecg_bioz_sensor_sample.hr = edata->hr;
+        
 
         while(k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT)!=0)
         {

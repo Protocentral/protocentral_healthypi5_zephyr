@@ -63,7 +63,7 @@ int hpi_disp_get_op_mode();
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);
-void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
+void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, uint8_t ecg_lead_off);
 
 // Resp Screen functions
 void draw_scr_resp(enum scroll_dir m_scroll_dir);

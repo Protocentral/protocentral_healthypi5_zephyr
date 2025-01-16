@@ -205,20 +205,24 @@ void hpi_disp_update_temp(int32_t temp)
     }
 }
 
-void hpi_scr_update_hr(int hr)
+void hpi_scr_update_hr(int hr, uint8_t ecg_lead_off)
+//void hpi_scr_update_hr(int hr)
 {
-    if (curr_screen == SCR_HOME)
+    if (ecg_lead_off == 0)
     {
-        hpi_scr_home_update_hr(hr);
-    }
-    else
-    {
-        if (label_hr == NULL)
-            return;
+        if (curr_screen == SCR_HOME)
+        {
+            hpi_scr_home_update_hr(hr);
+        }
+        else
+        {
+            if (label_hr == NULL)
+                return;
 
-        char buf[32];
-        sprintf(buf, "%d", hr);
-        lv_label_set_text(label_hr, buf);
+            char buf[32];
+            sprintf(buf, "%d", hr);
+            lv_label_set_text(label_hr, buf);
+        }
     }
 }
 
