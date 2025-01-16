@@ -15,9 +15,19 @@ static int afe4400_async_sample_fetch(const struct device *dev, int32_t *raw_ir_
 
     //for (int i = 0; i < AFE4400_READ_BLOCK_SIZE; i++)
 //{
+    _afe4400_reg_write(dev, CONTROL0, 0x000004);
+    //k_sleep(K_MSEC(16));
+
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
 
+    while ((_afe4400_read_reg(dev, DIAG) & DIAGNOSTIC_MASK_BIT) != DIAGNOSTIC_MASK_BIT)
+    {
+        _afe4400_reg_write(dev, CONTROL0, 0x000001);
+    }
+
+    _afe4400_reg_write(dev, CONTROL0, 0x000001);
     uint32_t diagnostic = _afe4400_read_reg(dev, DIAG);
+    
     printk("%d\n",diagnostic);
     if (diagnostic > 0 & diagnostic < 8191)
     {

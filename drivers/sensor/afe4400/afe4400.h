@@ -90,6 +90,8 @@ struct afe4400_encoded_data
 #define LED1ABSVAL 0x2f
 #define DIAG 0x30
 
+#define DIAGNOSTIC_MASK_BIT 0x000000
+
 int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
 int afe4400_get_decoder(const struct device *dev, const struct sensor_decoder_api **decoder);
 
