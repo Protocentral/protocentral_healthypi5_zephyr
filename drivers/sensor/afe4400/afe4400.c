@@ -137,7 +137,7 @@ static int afe4400_chip_init(const struct device *dev)
     _afe4400_reg_write(dev, TIA_AMB_GAIN, 0x000001);
     _afe4400_reg_write(dev, LEDCNTRL, 0x001414);
     _afe4400_reg_write(dev, CONTROL2, 0x000000); // LED_RANGE=100mA, LED=50mA
-    _afe4400_reg_write(dev, CONTROL1, 0x010707); // Timers ON, average 3 samples
+    _afe4400_reg_write(dev, CONTROL1, 0x010707); // 0x000702 Timers ON, average 3 samples
     _afe4400_reg_write(dev, PRPCOUNT, 0X001F3F);
     _afe4400_reg_write(dev, LED2STC, 0X001770);
     _afe4400_reg_write(dev, LED2ENDC, 0X001F3E);
@@ -167,6 +167,7 @@ static int afe4400_chip_init(const struct device *dev)
     _afe4400_reg_write(dev, ADCRSTENDCT2, 0X000FA0);
     _afe4400_reg_write(dev, ADCRSTCNT3, 0X001770);
     _afe4400_reg_write(dev, ADCRSTENDCT3, 0X001770);
+
 
     // printk("\nafe4400_chip_init\n");
 
