@@ -595,7 +595,7 @@ void data_thread(void)
     }
 }
 
-#define DATA_THREAD_STACKSIZE 8192
+#define DATA_THREAD_STACKSIZE 6144
 #define DATA_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);

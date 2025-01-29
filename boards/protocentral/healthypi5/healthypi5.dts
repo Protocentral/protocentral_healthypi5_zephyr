@@ -146,7 +146,7 @@
 	pinctrl-names = "default";
 	hw-flow-control;
 
-	bt_hci_uart: bt_hci_uart {
+	bt_hci_uart: bt_hci_uart {  
 		compatible = "zephyr,bt-hci-uart";
 		status = "okay";
 	};
@@ -247,7 +247,9 @@
 		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
+			disk-name = "sdhc0";
 			status = "okay";
+
 		};
 	};
 };

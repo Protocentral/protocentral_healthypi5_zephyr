@@ -44,7 +44,7 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     lv_obj_set_size(chart_ppg, 460, 185);
     lv_obj_set_style_bg_color(chart_ppg, lv_color_black(), LV_STATE_DEFAULT);
 
-    lv_obj_set_style_size(chart_ppg, 0, LV_PART_INDICATOR);
+    //lv_obj_set_style_size(chart_ppg, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_ppg, PPG_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_ppg, LV_CHART_AXIS_PRIMARY_Y, -200, 250);
     lv_chart_set_div_line_count(chart_ppg, 0, 0);

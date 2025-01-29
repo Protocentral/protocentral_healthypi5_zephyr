@@ -30,7 +30,7 @@ SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), SENSOR_CHAN_RED);
 RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
                          16, /* submission queue size */
                          16, /* completion queue size */
-                         64, /* number of memory blocks */
+                         32, /* number of memory blocks */
                          32, /* size of each memory block */
                          4   /* memory alignment */
 );
@@ -38,7 +38,7 @@ RTIO_DEFINE_WITH_MEMPOOL(max30001_read_rtio_ctx,
 RTIO_DEFINE_WITH_MEMPOOL(afe4400_read_rtio_ctx,
                          16, /* submission queue size */
                          16, /* completion queue size */
-                         64, /* number of memory blocks */
+                         32, /* number of memory blocks */
                          32, /* size of each memory block */
                          4   /* memory alignment */
 );
@@ -165,7 +165,7 @@ void ppg_sample_trigger_thread(void)
 
     for (;;)
     {
-        sensor_read(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
+        sensor_read_async_mempool(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
         sensor_processing_with_callback(&afe4400_read_rtio_ctx, sensor_ppg_process_cb);
 
         k_sleep(K_MSEC(PPG_SAMPLING_INTERVAL_MS));
@@ -178,7 +178,7 @@ void ecg_bioz_sample_trigger_thread(void)
 
     for (;;)
     {
-        sensor_read(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
+        sensor_read_async_mempool(&max30001_iodev, &max30001_read_rtio_ctx, NULL);
         sensor_processing_with_callback(&max30001_read_rtio_ctx, sensor_ecg_bioz_processing_cb);
 
         k_sleep(K_MSEC(ECG_SAMPLING_INTERVAL_MS));
@@ -188,5 +188,5 @@ void ecg_bioz_sample_trigger_thread(void)
 
 #define ECG_SAMPLING_THREAD_PRIORITY 4
 
-K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 2048, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
 K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 2048, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);

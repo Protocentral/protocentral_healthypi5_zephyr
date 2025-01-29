@@ -312,7 +312,7 @@ static void gpio_keys_cb_handler(struct input_event *evt)
     }
 #endif
 }
-INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
+//INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
 void hw_thread(void)
 {
