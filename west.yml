@@ -33,6 +33,7 @@ manifest:
           - liblc3
           - net-tools
           - picolibc
+          - hal_espressif
           
 #    - name: max30001
 #      repo-path: protocentral_max30001_zephyr_driver

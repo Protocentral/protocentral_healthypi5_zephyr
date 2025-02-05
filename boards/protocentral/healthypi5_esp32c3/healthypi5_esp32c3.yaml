@@ -11,7 +11,9 @@ supported:
   - watchdog
   - uart
   - dma
-testing:
-  ignore_tags:
-    - net
-    - bluetooth
+  - pwm
+  - spi
+  - counter
+  - entropy
+vendor: protocentral
+

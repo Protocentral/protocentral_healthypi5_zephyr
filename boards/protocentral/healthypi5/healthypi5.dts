@@ -247,7 +247,7 @@
 		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
-			disk-name = "sdhc0";
+			//disk-name = "sdhc0";
 			status = "okay";
 
 		};
