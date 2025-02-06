@@ -67,15 +67,16 @@ const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
-#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
-static bool settings_send_usb_enabled = false;
+//#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
+/*static bool settings_send_usb_enabled = false;
 static bool settings_send_ble_enabled = false;
 static bool settings_plot_enabled = true;
 #else
+*/
 static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
 static bool settings_plot_enabled = false;
-#endif
+//#endif
 
 static bool settings_send_rpi_uart_enabled = false;
 
@@ -428,8 +429,6 @@ void buffer_ecg_data_for_serial(int32_t *ecg_data_in, int ecg_len, int32_t *bioz
 
 void data_thread(void)
 {
-    printk("Data Thread starting\n");
-
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
@@ -465,23 +464,29 @@ void data_thread(void)
         }
     }
 
+    LOG_INF("Data Thread starting");
+
     for (;;)
     {
         // Get Sample from ECG / BioZ sampling queue
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        //if(0)
         {
-            int16_t resp_i16_buf[4];
-            int16_t resp_i16_filt_out[4];
+            //int16_t resp_i16_buf[4];
+            //int16_t resp_i16_filt_out[4];
 
-            for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            /*for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
             {
                 resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
-            }
+            }*/
 
-            resp_process_sample(resp_i16_buf, resp_i16_filt_out);
-            resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
+            //resp_process_sample(resp_i16_buf, resp_i16_filt_out);
+            //resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
 
             // #ifdef CONFIG_BT
+
+            printk("R ");
+            
             if (settings_send_ble_enabled)
             {
                 ble_resp_rate_notify(globalRespirationRate);
@@ -494,23 +499,24 @@ void data_thread(void)
             {
                 hr_serial = ecg_bioz_sensor_sample.hr;
                 rr_serial = globalRespirationRate;
-                send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
+                //send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
             {
-                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                //record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
             // #endif
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 
-            if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
+            /*if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
             hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
             hpi_scr_update_rr(globalRespirationRate);
+            */
 #endif
         }
 
@@ -558,7 +564,7 @@ void data_thread(void)
             {
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
-                printk("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                //LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
@@ -583,11 +589,11 @@ void data_thread(void)
 #endif
                 }
 
-                for (int i = FreqS; i < BUFFER_SIZE; i++)
+                /*for (int i = FreqS; i < BUFFER_SIZE; i++)
                 {
                     redBuffer[i - FreqS] = redBuffer[i];
                     irBuffer[i - FreqS] = irBuffer[i];
-                }
+                }*/
             }
         }
 

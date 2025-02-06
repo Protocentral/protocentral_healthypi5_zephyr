@@ -15,7 +15,7 @@
 #include "data_module.h"
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(display_module, CONFIG_SENSOR_LOG_LEVEL);
+LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
 
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
@@ -645,7 +645,7 @@ void display_screens_thread(void)
 
     display_blanking_off(display_dev);
 
-    printk("Display screens inited");
+    LOG_INF("Display screens inited");
 
     // draw_scr_ecg(SCROLL_DOWN);
     //   draw_scr_resp(SCROLL_DOWN);

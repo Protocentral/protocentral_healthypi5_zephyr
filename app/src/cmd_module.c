@@ -21,6 +21,8 @@
 
 // #include "tdcs3.h"
 
+LOG_MODULE_REGISTER(cmd_module, LOG_LEVEL_DBG);
+
 // #define ESP_UART_DEVICE_NODE DT_ALIAS(esp_uart)
 #define MAX_MSG_SIZE 32
 
@@ -105,7 +107,7 @@ void ces_parse_packet(char rxch)
         {
             if (rxch == CES_CMDIF_PKT_STOP_2)
             {
-                printk("Packet Received len: %d, type: %d\n", cmd_pkt_len, cmd_pkt_pkttype);
+                LOG_DBG("Packet Received len: %d, type: %d", cmd_pkt_len, cmd_pkt_pkttype);
                 cmd_pkt_pos_counter = 0;
                 cmd_pkt_data_counter = 0;
                 ecs_rx_state = 0;
@@ -130,19 +132,19 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
     {
 
     case HPI_CMD_GET_DEVICE_STATUS:
-        printk("Recd Get Device Status Command\n");
+        LOG_DBG("Recd Get Device Status Command");
         // cmdif_send_ble_device_status_response();
         break;
 
     case HPI_CMD_RESET:
-        printk("Recd Reset Command\n");
-        printk("Rebooting...\n");
+        LOG_DBG("Recd Reset Command");
+        LOG_DBG("Rebooting...");
         k_sleep(K_MSEC(1000));
         sys_reboot(SYS_REBOOT_COLD);
         break;
 
     case CMD_LOG_GET_COUNT:
-        printk("Comamnd to send log count\n");
+        LOG_DBG("Comamnd to send log count");
         hpi_get_session_count();
         break;
 
@@ -154,27 +156,27 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
         break;
 
     case CMD_LOG_SESSION_HEADERS:
-        printk("Sending all session headers\n");
+        LOG_DBG("Sending all session headers");
         hpi_get_session_index();
         break;
 
     case CMD_FETCH_LOG_FILE_DATA:
-        printk("Command to fetch file data\n");
+        LOG_DBG("Command to fetch file data");
         hpi_session_fetch(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
         break;
 
     case CMD_SESSION_WIPE_ALL:
-        printk("Command to delete all files\n");
+        LOG_DBG("Command to delete all files");
         hpi_datalog_delete_all();
         break;
 
     case CMG_SESSION_DELETE:
-        printk("Command to delete file\n");
+        LOG_DBG("Command to delete file");
         hpi_datalog_delete_session(in_pkt_buf[2] | (in_pkt_buf[1] << 8),in_pkt_buf[3]);
         break;
 
     case CMD_LOGGING_END:
-        printk("Command to end logging\n");
+        LOG_DBG("Command to end logging");
         // AKW: Replace with a function to stop logging
         settings_log_data_enabled = false;
         flush_current_session_logs();
@@ -182,12 +184,12 @@ void hpi_decode_data_packet(uint8_t *in_pkt_buf, uint8_t pkt_len)
 
     case CMD_LOGGING_START:
         // bool header_set_flag = false;
-        printk("Command to start logging\n");
+        LOG_DBG("Command to start logging");
         hpi_datalog_start_session(in_pkt_buf);
         break;
 
     default:
-        printk("Recd Unknown Command\n");
+        LOG_ERR("Recd Unknown Command");
         break;
     }
 }
@@ -304,7 +306,7 @@ void cmdif_send_ble_device_status_response(void)
 
 void cmdif_send_ble_command(uint8_t m_cmd)
 {
-    printk("Sending BLE Command: %X\n", m_cmd);
+    LOG_DBG("Sending BLE Command: %X", m_cmd);
     uint8_t cmd_pkt[8];
     cmd_pkt[0] = CES_CMDIF_PKT_START_1;
     cmd_pkt[1] = CES_CMDIF_PKT_START_2;
@@ -467,21 +469,23 @@ void cmd_serial_cb(const struct device *dev, void *user_data)
 
 void cmd_thread(void)
 {
-    printk("CMD Thread Started\n");
-
     struct hpi_cmd_data_obj_t rx_cmd_data_obj;
+
+    LOG_INF("CMD Thread Started");
+
+    
 
     for (;;)
     {
         if (k_msgq_get(&q_cmd_msg, &rx_cmd_data_obj, K_NO_WAIT) == 0)
         {
 
-            printk("Recd BLE Packet len: %d", rx_cmd_data_obj.data_len);
+            LOG_DBG("Recd BLE Packet len: %d", rx_cmd_data_obj.data_len);
             for (int i = 0; i < rx_cmd_data_obj.data_len; i++)
             {
                 // printk("%02X\t", rx_cmd_data_obj.data[i]);
             }
-            printk("\n");
+            
             hpi_decode_data_packet(rx_cmd_data_obj.data, rx_cmd_data_obj.data_len);
         }
 

@@ -8,7 +8,7 @@ LOG_MODULE_REGISTER(MAX30001_ASYNC, CONFIG_SENSOR_LOG_LEVEL);
 static int max30001_async_sample_fetch(const struct device *dev,
                                        uint32_t *num_samples_ecg, uint32_t *num_samples_bioz, int32_t ecg_samples[32],
                                        int32_t bioz_samples[32], uint16_t *rri, uint16_t *hr,
-                                       uint8_t *ecg_lead_off, uint8_t *bioz_lead_off)
+                                       uint8_t ecg_lead_off, uint8_t bioz_lead_off)
 {
     struct max30001_data *data = dev->data;
     const struct max30001_config *config = dev->config;
@@ -22,7 +22,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
     uint8_t buf_ecg[512];
     uint8_t buf_bioz[512];
 
-    //int num_bytes = 0;
+    int num_bytes = 0;
 
     uint8_t cmd_tx_ecg_fifo_burst = ((ECG_FIFO_BURST << 1) | RREG);
     const struct spi_buf tx_buf_ecg[1] = {{.buf = &cmd_tx_ecg_fifo_burst, .len = 1}};
@@ -36,25 +36,23 @@ static int max30001_async_sample_fetch(const struct device *dev,
 
     max30001_status = max30001_read_status(dev);
 
-    while ((max30001_status & MAX30001_STATUS_MASK_EINT) != MAX30001_STATUS_MASK_EINT)
-    {
-        max30001_status = max30001_read_status(dev);
-        k_sleep(K_MSEC(20));
-    };
-
     if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
     {
-        printk("Leads Off\n");
+        // LOG_INF("Leads Off\n");
         data->ecg_lead_off = 1;
-        *ecg_lead_off = 1;
+        ecg_lead_off = 1;
     }
     else
     {
         data->ecg_lead_off = 0;
-        *ecg_lead_off = 0;
+        ecg_lead_off = 0;
     }
 
-    if (1) //((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
+    while (!(max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT)
+        ;
+
+    if ((max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
+    // while ((max30001_status & MAX30001_STATUS_MASK_EINT) != MAX30001_STATUS_MASK_EINT) // EINT bit is set, FIFO is full
     {
         max30001_mngr_int = max30001_read_reg(dev, MNGR_INT);
         e_fifo_num_samples = (((max30001_mngr_int & MAX30001_INT_MASK_EFIT) >> MAX30001_INT_SHIFT_EFIT) + 1); // No of samples = EFIT + 1
@@ -91,7 +89,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 uecgtemp = (uint32_t)(uecgtemp << 8);
 
                 int32_t secgtemp = (int32_t)uecgtemp;
-                secgtemp = (int32_t)secgtemp >> 14;
+                secgtemp = (int32_t)secgtemp >> 6;
 
                 ecg_samples[i] = (int32_t)(secgtemp); //((secgtemp*1000*1000)/2621440);   // Convert to microvolts
                 // printf("%d ", ecg_samples[i]);
@@ -102,7 +100,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
             }
             else if (etag == 0x07) // FIFO Overflow
             {
-                printk("EOVF ");
+                // printk("EOVF ");
                 max30001_fifo_reset(dev);
                 // max30001_synch(dev);
                 break;
@@ -122,7 +120,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 u_bioz_temp = (uint32_t)(u_bioz_temp << 8);
 
                 int32_t s_bioz_temp = (int32_t)u_bioz_temp;
-                s_bioz_temp = (int32_t)(s_bioz_temp >> 12);
+                s_bioz_temp = (int32_t)(s_bioz_temp >> 4);
                 // printf("%d ", secgtemp);
 
                 bioz_samples[i] = s_bioz_temp;
@@ -133,9 +131,9 @@ static int max30001_async_sample_fetch(const struct device *dev,
             }
             else if (btag == 0x07) // FIFO Overflow
             {
-                printk("BOVF ");
+                // printk("BOVF ");
                 max30001_fifo_reset(dev);
-                //max30001_synch(dev);
+                // max30001_synch(dev);
                 break;
             }
         }

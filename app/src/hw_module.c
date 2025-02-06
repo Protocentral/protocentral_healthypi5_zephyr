@@ -28,7 +28,7 @@
 
 #include "ble_module.h"
 
-LOG_MODULE_REGISTER(hw_module);
+LOG_MODULE_REGISTER(hw_module, LOG_LEVEL_INF);
 char curr_string[40];
 
 /*******EXTERNS******/
@@ -60,6 +60,8 @@ static bool rx_throttled;
 K_SEM_DEFINE(sem_up_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_down_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
+
+K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 
 // USB CDC UART
 #define RING_BUF_SIZE 1024
@@ -225,7 +227,7 @@ static void usb_init()
 
 #endif
 
-    printk("\nUSB Init complete\n\n");
+    LOG_INF("USB Init complete");
 }
 
 int16_t hpi_get_global_temp(void)
@@ -268,11 +270,11 @@ uint8_t hpi_hw_read_batt(void)
 
     if (ret < 0)
     {
-        printk("Error: cannot get properties\n");
+        LOG_ERR("Error: cannot get properties\n");
     }
     else
     {
-        // printk("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
+        // LOG_DBG("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
         batt_level = vals[2].relative_state_of_charge;
     }
 
@@ -281,7 +283,7 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt)
 {
-    printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
+    //LOG_DBG("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
     /*settings_send_usb_enabled = false;
     settings_send_ble_enabled = false;
     settings_send_display_enabled = true;*/
@@ -318,8 +320,7 @@ void hw_thread(void)
 {
     if (!device_is_ready(max30001_dev))
     {
-        printk("MAX30001 device not found! Rebooting !");
-        // sys_reboot(SYS_REBOOT_COLD);
+        LOG_ERR("MAX30001 device not found! Rebooting !");
     }
     else
     {
@@ -332,20 +333,20 @@ void hw_thread(void)
 
     if (!device_is_ready(afe4400_dev))
     {
-        printk("AFE4400 device not found!");
+        LOG_ERR("AFE4400 device not found!");
         // return;
     }
 
     if (!device_is_ready(max30205_dev))
     {
-        printk("MAX30205 device not found!");
+        LOG_ERR("MAX30205 device not found!");
         // return;
     }
 
     fg_dev = DEVICE_DT_GET_ANY(maxim_max17048);
     if (!device_is_ready(fg_dev))
     {
-        printk("No device found...\n");
+        LOG_ERR("Fuel Gauge device not found!");
     }
 
 #ifdef CONFIG_BT
@@ -357,7 +358,7 @@ void hw_thread(void)
 
     // init_settings();
 
-    printk("HW Thread started\n");
+    LOG_INF("HW Thread started");
 
     k_sem_give(&sem_hw_inited);
 
@@ -367,7 +368,7 @@ void hw_thread(void)
     // PWM for LCD Backlight
     if (!pwm_is_ready_dt(&bl_led_pwm))
     {
-        printk("Error: PWM device %s is not ready\n",
+        LOG_ERR("Error: PWM device %s is not ready\n",
                bl_led_pwm.dev->name);
         // return 0;
     }
@@ -375,10 +376,12 @@ void hw_thread(void)
     int ret = pwm_set_pulse_dt(&bl_led_pwm, 3000);
     if (ret)
     {
-        printk("Error %d: failed to set pulse width\n", ret);
+        LOG_ERR("Error %d: failed to set pulse width\n", ret);
         // return 0;
     }
 #endif
+
+    k_sem_give(&sem_ecg_bioz_thread_start);
 
     for (;;)
     {
@@ -403,6 +406,7 @@ void hw_thread(void)
         //}
 #endif
 
+        gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));
     }
 }
