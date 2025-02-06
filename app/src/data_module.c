@@ -532,7 +532,7 @@ void data_thread(void)
             // #ifdef CONFIG_BT
             if (settings_send_ble_enabled)
             {
-                ble_ppg_notify(ppg_sensor_sample.ppg_red_sample);
+                //ble_ppg_notify(ppg_sensor_sample.ppg_red_sample);
             }
             // #endif
 
@@ -548,7 +548,7 @@ void data_thread(void)
 
             if (settings_log_data_enabled && sd_card_present)
             {
-                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
+                //record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
             }
 
             // Buffer the PPG data for SPO2 calculation
