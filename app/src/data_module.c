@@ -510,18 +510,19 @@ void data_thread(void)
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 
-            /*if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
+            if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
             hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
             hpi_scr_update_rr(globalRespirationRate);
-            */
+        
 #endif
         }
 
         /* Get Sample from PPG sampling queue */
-        if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
+        if(0)
+        //if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
             if (settings_send_usb_enabled)
             {
