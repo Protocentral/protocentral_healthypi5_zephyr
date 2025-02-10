@@ -15,7 +15,7 @@
 #include "ble_module.h"
 #include "data_module.h"
 #include "hw_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 
 #include "datalog_module.h"
 

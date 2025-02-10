@@ -6,7 +6,7 @@
 #include "max30001.h"
 #include "afe4400.h"
 
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 
 // #include "display_screens.h"
 LOG_MODULE_REGISTER(sampling_module, CONFIG_SENSOR_LOG_LEVEL);
@@ -18,7 +18,7 @@ extern const struct device *const max30205_dev;
 #define SAMPLING_INTERVAL_MS 6           // Time between samples in milliseconds
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
-#define PPG_SAMPLING_INTERVAL_MS 16
+#define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 100
 
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 256, 1);

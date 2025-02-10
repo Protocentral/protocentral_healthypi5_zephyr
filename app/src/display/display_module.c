@@ -7,11 +7,12 @@
 #include <lvgl.h>
 #include <stdio.h>
 #include <zephyr/smf.h>
+#include <zephyr/zbus/zbus.h>
 #include <app_version.h>
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 
 #include <zephyr/logging/log.h>
@@ -61,6 +62,11 @@ lv_style_t style_icon;
 static lv_obj_t *label_batt_level;
 static lv_obj_t *label_batt_level_val;
 // static lv_obj_t *label_sym_ble;
+
+static uint8_t m_disp_batt_level = 0;
+static bool m_disp_batt_charging = false;
+static uint16_t m_disp_hr = 0;
+static float m_disp_temp = 0;
 
 extern struct k_sem sem_hw_inited;
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
@@ -715,6 +721,35 @@ void display_screens_thread(void)
         }
     }
 }
+
+static void disp_batt_status_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_batt_status_t *batt_s = zbus_chan_const_msg(chan);
+
+    // LOG_DBG("Ch Batt: %d, Charge: %d", batt_s->batt_level, batt_s->batt_charging);
+    m_disp_batt_level = batt_s->batt_level;
+    m_disp_batt_charging = batt_s->batt_charging;
+}
+ZBUS_LISTENER_DEFINE(disp_batt_lis, disp_batt_status_listener);
+
+static void disp_hr_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
+    m_disp_hr = hpi_hr->hr;
+    //m_disp_hr_max = hpi_hr->hr_max;
+    //m_disp_hr_min = hpi_hr->hr_min;
+    //m_disp_hr_mean = hpi_hr->hr_mean;
+}
+ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
+
+static void disp_temp_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+    m_disp_temp = hpi_temp->temp_f;
+    // printk("ZB Temp: %.2f\n", hpi_temp->temp_f);
+}
+ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
+
 
 #define DISPLAY_SCREENS_THREAD_STACKSIZE 8192
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5

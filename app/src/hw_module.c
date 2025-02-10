@@ -20,7 +20,7 @@
 #include "max30001.h"
 #include "hw_module.h"
 #include "fs_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 
 #ifdef CONFIG_DISPLAY
 #include "display_module.h"
@@ -235,22 +235,21 @@ int16_t hpi_get_global_temp(void)
     return global_temp_val;
 }
 
-int16_t hpi_hw_read_temp(void)
+float hpi_hw_read_temp(void)
 {
-    int32_t i32_temp_val = 0;
-    int16_t temp_val = 0;
-
     struct sensor_value temp_sample;
     sensor_sample_fetch(max30205_dev);
     sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
-    // Convert to degree F
-    if (temp_sample.val1 > 0)
-    {
-        i32_temp_val = (temp_sample.val1 * 9 / 5) + 32000;
-        temp_val = (int16_t) (i32_temp_val / 10);
-    }
 
-    return temp_val;
+    if (temp_sample.val1 < 0)
+        return 0;
+
+    // Convert to degree F
+
+    double temp_c = (double)temp_sample.val1 * 0.005;
+    double temp_f = (temp_c * 1.8) + 32.0;
+
+    return temp_f;
 }
 
 uint8_t hpi_hw_read_batt(void)
@@ -283,7 +282,7 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt)
 {
-    //LOG_DBG("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
+    // LOG_DBG("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
     /*settings_send_usb_enabled = false;
     settings_send_ble_enabled = false;
     settings_send_display_enabled = true;*/
@@ -295,17 +294,17 @@ static void gpio_keys_cb_handler(struct input_event *evt)
         {
         case INPUT_KEY_ENTER:
             LOG_INF("OK Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            // hpi_disp_change_event(HPI_SCR_EVENT_OK);
             k_sem_give(&sem_ok_key_pressed);
             break;
         case INPUT_KEY_UP:
             LOG_INF("UP Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            // hpi_disp_change_event(HPI_SCR_EVENT_UP);
             k_sem_give(&sem_up_key_pressed);
             break;
         case INPUT_KEY_DOWN:
             LOG_INF("DOWN Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            // hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
             k_sem_give(&sem_down_key_pressed);
             break;
         default:
@@ -314,7 +313,7 @@ static void gpio_keys_cb_handler(struct input_event *evt)
     }
 #endif
 }
-//INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
+// INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
 void hw_thread(void)
 {
@@ -369,7 +368,7 @@ void hw_thread(void)
     if (!pwm_is_ready_dt(&bl_led_pwm))
     {
         LOG_ERR("Error: PWM device %s is not ready\n",
-               bl_led_pwm.dev->name);
+                bl_led_pwm.dev->name);
         // return 0;
     }
 
@@ -381,6 +380,8 @@ void hw_thread(void)
     }
 #endif
 
+    double _temp_f = 0.0;
+
     k_sem_give(&sem_ecg_bioz_thread_start);
 
     for (;;)
@@ -391,7 +392,7 @@ void hw_thread(void)
         global_temp_val = hpi_hw_read_temp();
 
 #ifdef CONFIG_DISPLAY
-        //if (settings_send_display_enabled)
+        // if (settings_send_display_enabled)
         //{
         hpi_disp_update_batt_level(global_batt_level);
         hpi_disp_update_temp(global_temp_val);
@@ -399,7 +400,7 @@ void hw_thread(void)
 #endif
 
 #ifdef CONFIG_BT
-        //if (settings_send_ble_enabled)
+        // if (settings_send_ble_enabled)
         //{
         ble_bas_notify(global_batt_level);
         ble_temp_notify(global_temp_val);
@@ -407,7 +408,7 @@ void hw_thread(void)
 #endif
 
         gpio_pin_toggle_dt(&led_blue);
-        k_sleep(K_MSEC(1000));
+        k_sleep(K_MSEC(5000));
     }
 }
 

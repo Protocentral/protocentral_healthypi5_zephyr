@@ -7,7 +7,7 @@
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 
 lv_obj_t *scr_ppg;
