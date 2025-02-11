@@ -16,6 +16,7 @@
 
 #include <zephyr/input/input.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/zbus/zbus.h>
 
 #include "max30001.h"
 #include "hw_module.h"
@@ -29,20 +30,9 @@
 #include "ble_module.h"
 
 LOG_MODULE_REGISTER(hw_module, LOG_LEVEL_INF);
-char curr_string[40];
 
-/*******EXTERNS******/
-extern struct k_msgq q_session_cmd_msg;
-
+ZBUS_CHAN_DECLARE(temp_chan, batt_chan);
 K_SEM_DEFINE(sem_hw_inited, 0, 1);
-
-/****END EXTERNS****/
-
-#define HW_THREAD_STACKSIZE 4096
-#define HW_THREAD_PRIORITY 7
-
-// Peripheral Device Pointers
-const struct device *fg_dev;
 
 // GPIO LEDs
 static const struct gpio_dt_spec led_green = GPIO_DT_SPEC_GET(DT_ALIAS(ledgreen), gpios);
@@ -68,6 +58,8 @@ K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
 
+// Peripheral Device Pointers
+const struct device *fg_dev;
 const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
 const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
@@ -78,7 +70,9 @@ static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm
 #endif
 
 uint8_t global_batt_level = 0;
-static int32_t global_temp_val = 0;
+
+/*******EXTERNS******/
+extern struct k_msgq q_session_cmd_msg;
 
 /*bool settings_send_usb_enabled = true;
 bool settings_send_ble_enabled = true;
@@ -230,11 +224,6 @@ static void usb_init()
     LOG_INF("USB Init complete");
 }
 
-int16_t hpi_get_global_temp(void)
-{
-    return global_temp_val;
-}
-
 float hpi_hw_read_temp(void)
 {
     struct sensor_value temp_sample;
@@ -380,8 +369,6 @@ void hw_thread(void)
     }
 #endif
 
-    double _temp_f = 0.0;
-
     k_sem_give(&sem_ecg_bioz_thread_start);
 
     for (;;)
@@ -389,27 +376,24 @@ void hw_thread(void)
         // Sample slow changing sensors
         global_batt_level = hpi_hw_read_batt();
 
-        global_temp_val = hpi_hw_read_temp();
+        struct hpi_batt_status_t batt_s = {
+            .batt_level = (uint8_t) hpi_hw_read_batt(),
+            .batt_charging = 0,
+        };
+        zbus_chan_pub(&batt_chan, &batt_s, K_SECONDS(1));
 
-#ifdef CONFIG_DISPLAY
-        // if (settings_send_display_enabled)
-        //{
-        hpi_disp_update_batt_level(global_batt_level);
-        hpi_disp_update_temp(global_temp_val);
-        //}
-#endif
-
-#ifdef CONFIG_BT
-        // if (settings_send_ble_enabled)
-        //{
-        ble_bas_notify(global_batt_level);
-        ble_temp_notify(global_temp_val);
-        //}
-#endif
+        // Read and publish temperature
+        struct hpi_temp_t temp = {
+            .temp_f = hpi_hw_read_temp()
+        };
+        zbus_chan_pub(&temp_chan, &temp, K_SECONDS(1));
 
         gpio_pin_toggle_dt(&led_blue);
-        k_sleep(K_MSEC(5000));
+        k_sleep(K_MSEC(1000));
     }
 }
+
+#define HW_THREAD_STACKSIZE 4096
+#define HW_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(hw_thread_id, HW_THREAD_STACKSIZE, hw_thread, NULL, NULL, NULL, HW_THREAD_PRIORITY, 0, 0);

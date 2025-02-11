@@ -9,7 +9,7 @@ ZBUS_CHAN_DEFINE(batt_chan,                     /* Name */
                  struct hpi_batt_status_t,      /* Message type */
                  NULL,                          /* Validator */
                  NULL,                          /* User Data */
-                 ZBUS_OBSERVERS(disp_batt_lis), // ZBUS_OBSERVERS_EMPTY, /* observers */
+                 ZBUS_OBSERVERS(disp_batt_lis, bt_batt_lis), 
                  ZBUS_MSG_INIT(0)               /* Initial value {0} */
 );
 
@@ -25,6 +25,6 @@ ZBUS_CHAN_DEFINE(temp_chan, /* Name */
                  struct hpi_temp_t,
                  NULL, /* Validator */
                  NULL, /* User Data */
-                 ZBUS_OBSERVERS(disp_temp_lis),
+                 ZBUS_OBSERVERS(disp_temp_lis, bt_temp_lis),
                  ZBUS_MSG_INIT(0) /* Initial value {0} */
 );

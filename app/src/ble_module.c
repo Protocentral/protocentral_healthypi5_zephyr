@@ -9,10 +9,12 @@
 #include <zephyr/bluetooth/services/bas.h>
 #include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/sys/ring_buffer.h>
+#include <zephyr/zbus/zbus.h>
 
 #include <zephyr/settings/settings.h>
 
 #include "cmd_module.h"
+#include "hpi_common_types.h"	
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 LOG_MODULE_REGISTER(ble_module);
@@ -276,7 +278,6 @@ void ble_ppg_notify(int16_t ppg_data)
 
 void ble_temp_notify(int16_t temp_val)
 {
-
 	uint16_t temp_val_uint16 = temp_val;
 
 	temp_val_uint16 = temp_val_uint16;
@@ -443,3 +444,17 @@ void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 	bt_gatt_notify(NULL, attr, data, len);
 	// printk("Response sent\n");
 }
+
+static void bt_temp_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+	ble_temp_notify(hpi_temp->temp_f*1000);
+}
+ZBUS_LISTENER_DEFINE(bt_temp_lis, bt_temp_listener);
+
+static void bt_batt_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_batt_status_t *hpi_batt = zbus_chan_const_msg(chan);
+	ble_bas_notify(hpi_batt->batt_level);
+}
+ZBUS_LISTENER_DEFINE(bt_batt_lis, bt_batt_listener);

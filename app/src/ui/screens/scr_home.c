@@ -12,8 +12,6 @@
 
 lv_obj_t *scr_home;
 
-extern uint8_t curr_screen;
-
 extern lv_style_t style_sub;
 extern lv_style_t style_hr;
 extern lv_style_t style_spo2;
@@ -129,7 +127,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_label_set_text(label_menu, "Use the Display mode firmware to view live charts");
     lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
 
-    curr_screen = SCR_HOME;
+    hpi_disp_set_curr_screen(SCR_HOME);
 
     hpi_show_screen(scr_home, m_scroll_dir);
 }

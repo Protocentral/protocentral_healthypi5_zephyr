@@ -18,6 +18,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
 
+#define HPI_DISP_TEMP_REFR_INT 1000
+#define HPI_DISP_BATT_REFR_INT 1000
+
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
 
@@ -32,7 +35,6 @@ static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
 #endif
 
 // LVGL Screens
-
 lv_obj_t *scr_menu;
 lv_obj_t *scr_charts_all;
 lv_obj_t *scr_charts_single;
@@ -65,29 +67,20 @@ static lv_obj_t *label_batt_level_val;
 
 static uint8_t m_disp_batt_level = 0;
 static bool m_disp_batt_charging = false;
+static int last_batt_refresh = 0;
+
 static uint16_t m_disp_hr = 0;
+
 static float m_disp_temp = 0;
-
-extern struct k_sem sem_hw_inited;
-K_SEM_DEFINE(sem_disp_inited, 0, 1);
-
-bool display_inited = false;
-
-extern struct k_sem sem_ok_key_pressed;
-extern struct k_sem sem_up_key_pressed;
-extern struct k_sem sem_down_key_pressed;
+static int last_temp_refresh = 0;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
 K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
+K_MUTEX_DEFINE(mutex_curr_screen);
+K_SEM_DEFINE(sem_disp_inited, 0, 1);
 
-extern struct k_msgq q_computed_val;
-
-uint8_t curr_screen = SCR_ECG;
-
-lv_obj_t *scr_chart_single;
-
-lv_obj_t *scr_chart_single_resp;
-lv_obj_t *scr_chart_single_ppg;
+bool display_inited = false;
+static uint8_t curr_screen = SCR_ECG;
 
 // GUI Labels
 static lv_obj_t *label_hr;
@@ -95,6 +88,14 @@ static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
 static lv_obj_t *label_temp;
+
+// Externs
+
+extern struct k_sem sem_hw_inited;
+extern struct k_sem sem_ok_key_pressed;
+extern struct k_sem sem_up_key_pressed;
+extern struct k_sem sem_down_key_pressed;
+extern struct k_msgq q_computed_val;
 
 int hpi_disp_get_op_mode()
 {
@@ -187,7 +188,7 @@ void display_init_styles()
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
-void hpi_disp_update_temp(int32_t temp)
+static void hpi_disp_update_temp(float temp)
 {
     if (curr_screen == SCR_HOME)
     {
@@ -205,7 +206,7 @@ void hpi_disp_update_temp(int32_t temp)
         }
 
         char buf[32];
-        double temp_d = (double)(temp / 100.00);
+        double temp_d = (double)(temp);
         sprintf(buf, "%.1f", temp_d);
         lv_label_set_text(label_temp, buf);
     }
@@ -213,7 +214,7 @@ void hpi_disp_update_temp(int32_t temp)
 
 void hpi_scr_update_hr(int hr)
 {
-    if (curr_screen == SCR_HOME)
+    if (hpi_disp_get_curr_screen() == SCR_HOME)
     {
         hpi_scr_home_update_hr(hr);
     }
@@ -230,7 +231,7 @@ void hpi_scr_update_hr(int hr)
 
 void hpi_scr_update_spo2(int spo2)
 {
-    if (curr_screen == SCR_HOME)
+    if (hpi_disp_get_curr_screen() == SCR_HOME)
     {
         hpi_scr_home_update_spo2(spo2);
     }
@@ -253,7 +254,7 @@ void hpi_scr_update_spo2(int spo2)
 
 void hpi_scr_update_pr(int pr)
 {
-    if (curr_screen == SCR_HOME)
+    if (hpi_disp_get_curr_screen() == SCR_HOME)
     {
         hpi_scr_home_update_pr(pr);
     }
@@ -276,7 +277,7 @@ void hpi_scr_update_pr(int pr)
 
 void hpi_scr_update_rr(int rr)
 {
-    if (curr_screen == SCR_HOME)
+    if (hpi_disp_get_curr_screen() == SCR_HOME)
     {
         hpi_scr_home_update_rr(rr);
     }
@@ -301,25 +302,24 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
 {
     if (evt == HPI_SCR_EVENT_DOWN)
     {
-        printf("DOWN at %d\n", curr_screen);
+        printf("DOWN at %d\n", hpi_disp_get_curr_screen() );
 
-        if ((curr_screen + 1) == SCR_LIST_END)
+        if ((hpi_disp_get_curr_screen() + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
-            // return;
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else
         {
-            printk("Loading screen %d\n", curr_screen + 1);
-            hpi_load_screen(curr_screen + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  + 1);
+            hpi_load_screen(hpi_disp_get_curr_screen()  + 1, SCROLL_LEFT);
         }
     }
     else if (evt == HPI_SCR_EVENT_UP)
     {
-        printf("UP at %d\n", curr_screen);
+        printf("UP at %d\n", hpi_disp_get_curr_screen() );
 
-        if ((curr_screen - 1) == SCR_LIST_START)
+        if ((hpi_disp_get_curr_screen()  - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
@@ -327,8 +327,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         }
         else
         {
-            printk("Loading screen %d\n", curr_screen - 1);
-            hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  - 1);
+            hpi_load_screen(hpi_disp_get_curr_screen()  - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -379,14 +379,14 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_t *lbl_conn_status = lv_label_create(parent);
     if (m_op_mode == OP_MODE_DISPLAY)
     {
-        
+
         lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
         lv_obj_add_style(lbl_conn_status, &style_header_red, LV_STATE_DEFAULT);
         lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
     }
     else
     {
-        
+
         lv_label_set_text(lbl_conn_status, LV_SYMBOL_BLUETOOTH "  " LV_SYMBOL_USB);
         lv_obj_add_style(lbl_conn_status, &style_header_green, LV_STATE_DEFAULT);
         lv_obj_align_to(lbl_conn_status, label_batt_level, LV_ALIGN_OUT_LEFT_MID, -15, 0);
@@ -550,9 +550,9 @@ void disp_screen_event(lv_event_t *e)
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
         lv_indev_wait_release(lv_indev_get_act());
-        printf("Left at %d\n", curr_screen);
+        printf("Left at %d\n", hpi_disp_get_curr_screen() );
 
-        if ((curr_screen + 1) == SCR_LIST_END)
+        if ((hpi_disp_get_curr_screen()  + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
@@ -560,16 +560,16 @@ void disp_screen_event(lv_event_t *e)
         }
         else
         {
-            printk("Loading screen %d\n", curr_screen + 1);
-            hpi_load_screen(curr_screen + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  + 1);
+            hpi_load_screen(hpi_disp_get_curr_screen()  + 1, SCROLL_LEFT);
         }
     }
 
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_RIGHT)
     {
         lv_indev_wait_release(lv_indev_get_act());
-        printf("Right at %d\n", curr_screen);
-        if ((curr_screen - 1) == SCR_LIST_START)
+        printf("Right at %d\n", hpi_disp_get_curr_screen() );
+        if ((hpi_disp_get_curr_screen()  - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END, SCROLL_RIGHT);
@@ -579,7 +579,7 @@ void disp_screen_event(lv_event_t *e)
         {
 
             printk("Loading screen %d\n", curr_screen - 1);
-            hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
+            hpi_load_screen(hpi_disp_get_curr_screen()  - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -626,6 +626,21 @@ void hpi_disp_update_batt_level(int batt_level)
     }
 }
 
+void hpi_disp_set_curr_screen(int screen)
+{
+    k_mutex_lock(&mutex_curr_screen, K_FOREVER);
+    curr_screen = screen;
+    k_mutex_unlock(&mutex_curr_screen);
+}
+
+int hpi_disp_get_curr_screen(void)
+{
+    k_mutex_lock(&mutex_curr_screen, K_FOREVER);
+    int screen = curr_screen;
+    k_mutex_unlock(&mutex_curr_screen);
+    return screen;
+}
+
 void display_screens_thread(void)
 {
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
@@ -667,17 +682,16 @@ void display_screens_thread(void)
         hpi_load_screen(SCR_ECG, SCROLL_DOWN);
     }
 
-    int sample_count = 0;
     while (1)
     {
 
         if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
-            if (curr_screen == SCR_ECG)
+            if (hpi_disp_get_curr_screen()  == SCR_ECG)
             {
                 hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
             }
-            else if (curr_screen == SCR_RESP)
+            else if (hpi_disp_get_curr_screen()  == SCR_RESP)
             {
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
             }
@@ -685,21 +699,25 @@ void display_screens_thread(void)
 
         if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
-            if (curr_screen == SCR_PPG)
+            if (hpi_disp_get_curr_screen()  == SCR_PPG)
             {
                 hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_sample, ppg_sensor_sample.ppg_ir_sample, ppg_sensor_sample.ppg_lead_off);
             }
         }
 
-        if (sample_count >= TEMP_SAMPLING_INTERVAL_COUNT)
+        if (k_uptime_get_32() - last_batt_refresh > HPI_DISP_BATT_REFR_INT)
         {
-            sample_count = 0;
-        }
-        else
-        {
-            sample_count++;
+            hpi_disp_update_batt_level(m_disp_batt_level);
+            last_batt_refresh = k_uptime_get_32();
         }
 
+        if (k_uptime_get_32() - last_temp_refresh > HPI_DISP_TEMP_REFR_INT)
+        {
+            hpi_disp_update_temp(m_disp_temp);
+            last_temp_refresh = k_uptime_get_32();
+        }
+
+        // Check for key presses
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
         {
             hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
@@ -711,13 +729,14 @@ void display_screens_thread(void)
         }
 
         lv_task_handler();
+
         if (m_op_mode == OP_MODE_BASIC)
         {
             k_sleep(K_MSEC(100));
         }
         else
         {
-            k_sleep(K_MSEC(1));
+            k_sleep(K_MSEC(30));
         }
     }
 }
@@ -736,9 +755,6 @@ static void disp_hr_listener(const struct zbus_channel *chan)
 {
     const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
     m_disp_hr = hpi_hr->hr;
-    //m_disp_hr_max = hpi_hr->hr_max;
-    //m_disp_hr_min = hpi_hr->hr_min;
-    //m_disp_hr_mean = hpi_hr->hr_mean;
 }
 ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
 
@@ -746,10 +762,8 @@ static void disp_temp_listener(const struct zbus_channel *chan)
 {
     const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
     m_disp_temp = hpi_temp->temp_f;
-    // printk("ZB Temp: %.2f\n", hpi_temp->temp_f);
 }
 ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
-
 
 #define DISPLAY_SCREENS_THREAD_STACKSIZE 8192
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5

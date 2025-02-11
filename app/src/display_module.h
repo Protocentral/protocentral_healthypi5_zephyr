@@ -69,8 +69,6 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
 void draw_scr_resp(enum scroll_dir m_scroll_dir);
 void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
 
-void hpi_disp_update_temp(int32_t temp);
-
 // Display helper functions
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
 void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_dir);
@@ -81,7 +79,8 @@ void hpi_disp_change_event(enum hpi_scr_event);
 void draw_scr_home_footer(lv_obj_t *parent);
 void hpi_scr_update_spo2(int spo2);
 
-
+void hpi_disp_set_curr_screen(int screen);
+int hpi_disp_get_curr_screen(void);
 
 // PPG Screen functions
 void draw_scr_ppg(enum scroll_dir m_scroll_dir);

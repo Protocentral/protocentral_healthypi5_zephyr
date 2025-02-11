@@ -31,7 +31,6 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern uint8_t curr_screen;
 int counter_ecg = 0;
 
 #define DISP_WINDOW_SIZE_ECG 390
@@ -66,7 +65,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     lv_obj_align(label_ecg_lead_off, LV_ALIGN_TOP_RIGHT, -20, 200);
     lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
 
-    curr_screen = SCR_ECG;
+    hpi_disp_set_curr_screen(SCR_ECG);
 
     hpi_show_screen(scr_ecg, m_scroll_dir);
 }
