@@ -458,3 +458,24 @@ static void bt_batt_listener(const struct zbus_channel *chan)
 	ble_bas_notify(hpi_batt->batt_level);
 }
 ZBUS_LISTENER_DEFINE(bt_batt_lis, bt_batt_listener);
+
+static void bt_hr_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
+	ble_hrs_notify(hpi_hr->hr);
+}
+ZBUS_LISTENER_DEFINE(bt_hr_lis, bt_hr_listener);
+
+static void bt_spo2_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
+	ble_spo2_notify(hpi_spo2->spo2);
+}
+ZBUS_LISTENER_DEFINE(bt_spo2_lis, bt_spo2_listener);
+
+static void bt_resp_rate_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
+	ble_resp_rate_notify(hpi_resp_rate->resp_rate);
+}
+ZBUS_LISTENER_DEFINE(bt_resp_rate_lis, bt_resp_rate_listener);

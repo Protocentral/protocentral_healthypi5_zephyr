@@ -18,8 +18,12 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
 
-#define HPI_DISP_TEMP_REFR_INT 1000
 #define HPI_DISP_BATT_REFR_INT 1000
+
+#define HPI_DISP_TEMP_REFR_INT 1000
+#define HPI_DISP_HR_REFR_INT 1000
+#define HPI_DISP_SPO2_REFR_INT 1000
+#define HPI_DISP_RR_REFR_INT 1000
 
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
@@ -50,7 +54,7 @@ lv_style_t style_header_black;
 lv_style_t style_header_red;
 lv_style_t style_header_green;
 
-lv_style_t style_welcome_scr_bg;
+//lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
 
 lv_style_t style_h1;
@@ -70,9 +74,16 @@ static bool m_disp_batt_charging = false;
 static int last_batt_refresh = 0;
 
 static uint16_t m_disp_hr = 0;
+static int last_hr_refresh = 0;
 
 static float m_disp_temp = 0;
 static int last_temp_refresh = 0;
+
+static uint8_t m_disp_spo2 = 0;
+static int last_spo2_refresh = 0;
+
+static uint8_t m_disp_rr = 0;
+static int last_rr_refresh = 0;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
 K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
@@ -161,8 +172,7 @@ void display_init_styles()
     lv_style_set_text_color(&style_info, lv_color_white());
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
 
-    // Screen background style
-    lv_style_init(&style_welcome_scr_bg);
+
     // lv_style_set_radius(&style, 5);
 
     // Home screen number style
@@ -170,7 +180,11 @@ void display_init_styles()
     lv_style_set_text_color(&style_pr, lv_palette_main(LV_PALETTE_RED));
     lv_style_set_text_font(&style_pr, &lv_font_montserrat_42);
 
-    /*Make a gradient*/
+    /*
+    // Screen background style
+    lv_style_init(&style_welcome_scr_bg);
+
+    Make a gradient
     lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
     lv_style_set_border_width(&style_welcome_scr_bg, 0);
 
@@ -180,11 +194,12 @@ void display_init_styles()
     grad.stops[0].color = lv_color_hex(0x003a57); // lv_palette_lighten(LV_PALETTE_GREY, 1);
     grad.stops[1].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
 
-    /*Shift the gradient to the bottom*/
+    //Shift the gradient to the bottom
     grad.stops[0].frac = 128;
     grad.stops[1].frac = 192;
 
     lv_style_set_bg_color(&style_welcome_scr_bg, lv_color_black());
+    */
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
@@ -521,7 +536,7 @@ void down_key_event_handler()
     // hpi_load_screen();
 }
 
-void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_dir)
+void hpi_load_screen(int m_screen, enum scroll_dir m_scroll_dir)
 {
     switch (m_screen)
     {
@@ -535,8 +550,8 @@ void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_di
         draw_scr_ppg(SCROLL_DOWN);
         break;
     case SCR_HOME:
-        draw_scr_home(SCROLL_DOWN);
-        break;
+       draw_scr_home(SCROLL_DOWN);
+       break;
 
     default:
         break;
@@ -669,7 +684,7 @@ void display_screens_thread(void)
     LOG_INF("Display screens inited");
 
     // draw_scr_ecg(SCROLL_DOWN);
-    //   draw_scr_resp(SCROLL_DOWN);
+    // draw_scr_resp(SCROLL_DOWN);
     // draw_scr_ppg(SCROLL_DOWN);
 
     // draw_scr_welcome();
@@ -679,7 +694,8 @@ void display_screens_thread(void)
     }
     else
     {
-        hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+        //hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+        hpi_load_screen(SCR_PPG, SCROLL_DOWN);
     }
 
     while (1)
@@ -715,6 +731,24 @@ void display_screens_thread(void)
         {
             hpi_disp_update_temp(m_disp_temp);
             last_temp_refresh = k_uptime_get_32();
+        }
+
+        if (k_uptime_get_32() - last_hr_refresh > HPI_DISP_HR_REFR_INT)
+        {
+            hpi_scr_update_hr(m_disp_hr);
+            last_hr_refresh = k_uptime_get_32();
+        }
+
+        if (k_uptime_get_32() - last_spo2_refresh > HPI_DISP_SPO2_REFR_INT)
+        {
+            hpi_scr_update_spo2(m_disp_spo2);
+            last_spo2_refresh = k_uptime_get_32();
+        }
+
+        if (k_uptime_get_32() - last_rr_refresh > HPI_DISP_RR_REFR_INT)
+        {
+            hpi_scr_update_rr(m_disp_rr);
+            last_rr_refresh = k_uptime_get_32();
         }
 
         // Check for key presses
@@ -765,7 +799,23 @@ static void disp_temp_listener(const struct zbus_channel *chan)
 }
 ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
 
-#define DISPLAY_SCREENS_THREAD_STACKSIZE 8192
+static void disp_spo2_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
+    m_disp_spo2 = hpi_spo2->spo2;
+    //hpi_scr_update_spo2(hpi_spo2->spo2);
+}
+ZBUS_LISTENER_DEFINE(disp_spo2_lis, disp_spo2_listener);
+
+static void disp_resp_rate_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
+    m_disp_rr = hpi_resp_rate->resp_rate;
+    //hpi_scr_update_rr(hpi_resp_rate->resp_rate);
+}
+ZBUS_LISTENER_DEFINE(disp_resp_rate_lis, disp_resp_rate_listener);
+
+#define DISPLAY_SCREENS_THREAD_STACKSIZE 5000
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5
 
 K_THREAD_DEFINE(display_screens_thread_id, DISPLAY_SCREENS_THREAD_STACKSIZE, display_screens_thread, NULL, NULL, NULL, DISPLAY_SCREENS_THREAD_PRIORITY, 0, 0);

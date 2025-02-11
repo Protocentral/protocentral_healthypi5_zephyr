@@ -52,11 +52,6 @@ struct hpi_computed_hrv_t
 struct hpi_hr_t
 {
     uint16_t hr;
-    uint16_t hr_max;
-    uint16_t hr_min;
-    uint16_t hr_mean;
-
-    bool hr_ready_flag;
 };
 
 struct hpi_steps_t
@@ -69,6 +64,16 @@ struct hpi_temp_t
 {
     double temp_f;
     double temp_c;
+};
+
+struct hpi_spo2_t
+{
+    uint8_t spo2;
+};
+
+struct hpi_resp_rate_t
+{
+    uint16_t resp_rate;
 };
 
 struct hpi_batt_status_t

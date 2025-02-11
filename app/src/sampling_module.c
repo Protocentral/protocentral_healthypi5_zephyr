@@ -128,14 +128,13 @@ static void sensor_ppg_decode(uint8_t *buf, uint32_t buf_len)
 
     ppg_sensor_sample.ppg_red_sample = edata->raw_sample_red;
     ppg_sensor_sample.ppg_ir_sample = edata->raw_sample_ir;
+
     if(k_msgq_put(&q_ppg_sample, &ppg_sensor_sample, K_MSEC(1))!=0)
     {
         LOG_ERR("PPG sample queue error");
         //k_msgq_purge(&q_ppg_sample);
     }
 }
-
-
 
 /*static void sensor_ecg_bioz_processing_cb(int result, uint8_t *buf,
                                           uint32_t buf_len, void *userdata)

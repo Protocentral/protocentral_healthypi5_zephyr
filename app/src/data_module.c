@@ -6,6 +6,8 @@
 #include <zephyr/fs/littlefs.h>
 #include <stdio.h>
 
+#include <zephyr/zbus/zbus.h>
+
 #include "max30001.h"
 
 #include "data_module.h"
@@ -13,6 +15,7 @@
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "hpi_common_types.h"
+#include "display_module.h"
 
 LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 
@@ -29,6 +32,7 @@ LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
 #include "resp_process.h"
 #include "datalog_module.h"
 #include "hw_module.h"
+#include "hpi_common_types.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -75,7 +79,7 @@ static bool settings_plot_enabled = true;
 */
 static bool settings_send_usb_enabled = true;
 static bool settings_send_ble_enabled = true;
-static bool settings_plot_enabled = false;
+static bool settings_plot_enabled = true;
 // #endif
 
 static bool settings_send_rpi_uart_enabled = false;
@@ -97,19 +101,14 @@ uint16_t current_session_ppg_counter = 0;
 uint16_t current_session_log_id = 0;
 char session_id_str[15];
 
-volatile uint8_t globalRespirationRate = 0;
-int16_t resWaveBuff, respFilterout;
-long timeElapsed = 0;
+static volatile uint16_t m_resp_rate = 0;
 
-int32_t ecg_sample_buffer[64];
 int32_t ecg_serial_streaming[8];
 int sample_buffer_count = 0;
 
-int16_t ppg_sample_buffer[64];
 int16_t ppg_serial_streaming[8];
 int ppg_sample_buffer_count = 0;
 
-int32_t resp_sample_buffer[64];
 int32_t resp_serial_streaming[4];
 int resp_sample_buffer_count = 0;
 
@@ -137,6 +136,10 @@ int16_t spo2_serial;
 int16_t hr_serial;
 int16_t rr_serial;
 int16_t temp_serial;
+
+ZBUS_CHAN_DECLARE(hr_chan);
+ZBUS_CHAN_DECLARE(spo2_chan);
+ZBUS_CHAN_DECLARE(resp_rate_chan);
 
 void send_ppg_data_ov3_format()
 {
@@ -472,34 +475,37 @@ void data_thread(void)
         if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         // if(0)
         {
-            // int16_t resp_i16_buf[4];
-            // int16_t resp_i16_filt_out[4];
+            int16_t resp_i16_buf[4];
+            int16_t resp_i16_filt_out[4];
 
-            /*for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
+            for (int i = 0; i < ecg_bioz_sensor_sample.bioz_num_samples; i++)
             {
                 resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
-            }*/
+            }
 
-            // resp_process_sample(resp_i16_buf, resp_i16_filt_out);
-            // resp_algo_process(resp_i16_filt_out, &globalRespirationRate);
+            resp_process_sample(resp_i16_buf, resp_i16_filt_out);
+            resp_algo_process(resp_i16_filt_out, &m_resp_rate);
 
             // #ifdef CONFIG_BT
 
-            printk("R ");
+            // printk("R ");
 
             if (settings_send_ble_enabled)
             {
-                ble_resp_rate_notify(globalRespirationRate);
+               
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
-                ble_hrs_notify(ecg_bioz_sensor_sample.hr);
+
+                // Move HR notify to ZBus
+                // ble_hrs_notify(ecg_bioz_sensor_sample.hr);
+                //ble_resp_rate_notify(globalRespirationRate);
             }
 
             if (settings_send_usb_enabled)
             {
                 hr_serial = ecg_bioz_sensor_sample.hr;
-                rr_serial = globalRespirationRate;
-                // send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
+                rr_serial = m_resp_rate;
+                //send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
@@ -514,10 +520,20 @@ void data_thread(void)
             {
                 k_msgq_put(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT);
             }
-            hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
-            hpi_scr_update_rr(globalRespirationRate);
 
 #endif
+            //hpi_scr_update_rr(globalRespirationRate);
+            //hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
+
+            struct hpi_resp_rate_t resp_rate_chan_value = {
+                .resp_rate = m_resp_rate
+            };
+            zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_SECONDS(1));
+            
+            struct hpi_hr_t hr_chan_value = {
+                .hr = ecg_bioz_sensor_sample.hr
+            };
+            zbus_chan_pub(&hr_chan, &hr_chan_value, K_SECONDS(1));
         }
 
         /* Get Sample from PPG sampling queue */
@@ -526,8 +542,8 @@ void data_thread(void)
         {
             if (settings_send_usb_enabled)
             {
-                //temp_serial = hpi_hw_read_temp();
-                //ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
+                // temp_serial = hpi_hw_read_temp();
+                // ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
             }
 
             // #ifdef CONFIG_BT
@@ -536,28 +552,31 @@ void data_thread(void)
                 ble_ppg_notify(ppg_sensor_sample.ppg_red_sample);
             }
             // #endif
-            
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
             if (settings_plot_enabled)
             {
                 if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
                 {
-                    //k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
+                    if (hpi_disp_get_curr_screen() == SCR_PPG)
+                    {
+                        k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
+                    }
+                    // k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
                 }
             }
 #endif
-            
+
             if (settings_log_data_enabled && sd_card_present)
             {
-                //record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
+                // record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
             }
 
             // Buffer the PPG data for SPO2 calculation
             if (spo2_time_count < FreqS)
             {
-                //irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_sample;
-                //redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_sample;
+                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_ir_sample;
+                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = ppg_sensor_sample.ppg_red_sample;
 
                 spo2_time_count++;
             }
@@ -565,16 +584,16 @@ void data_thread(void)
             // Buffer is full, calculate SPO2
             {
                 spo2_time_count = 0;
-                //maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
-                //LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
+                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
+                // LOG_DBG("SPO2: %d, Valid: %d, HR: %d, Valid: %d\n", m_spo2, validSPO2, m_hr, validHeartRate);
                 if (validSPO2)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                    //hpi_scr_update_spo2(m_spo2);
+                    // hpi_scr_update_spo2(m_spo2);
 #endif
                     if (settings_send_ble_enabled)
                     {
-                        //ble_spo2_notify(m_spo2);
+                        // ble_spo2_notify(m_spo2);
                     }
 
                     if (settings_send_usb_enabled)
@@ -587,7 +606,7 @@ void data_thread(void)
                 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
                     // if (settings_send_display_enabled)
-                    //hpi_scr_update_pr(m_hr);
+                    // hpi_scr_update_pr(m_hr);
 #endif
                 }
 
@@ -596,7 +615,7 @@ void data_thread(void)
                     redBuffer[i - FreqS] = redBuffer[i];
                     irBuffer[i - FreqS] = irBuffer[i];
                 }
-            }        
+            }
         }
 
         k_sleep(K_MSEC(2));

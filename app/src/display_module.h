@@ -1,4 +1,4 @@
-#define pragma once
+#pragma once
 
 #include <lvgl.h>
 
@@ -71,7 +71,7 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
 
 // Display helper functions
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
-void hpi_load_screen(enum hpi_disp_screens m_screen, enum scroll_dir m_scroll_dir);
+void hpi_load_screen(int m_screen, enum scroll_dir m_scroll_dir);
 void hpi_disp_update_batt_level(int batt_level);
 void hpi_disp_change_event(enum hpi_scr_event);
 

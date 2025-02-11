@@ -28,3 +28,19 @@ ZBUS_CHAN_DEFINE(temp_chan, /* Name */
                  ZBUS_OBSERVERS(disp_temp_lis, bt_temp_lis),
                  ZBUS_MSG_INIT(0) /* Initial value {0} */
 );
+
+ZBUS_CHAN_DEFINE(spo2_chan, 
+                 struct hpi_spo2_t,
+                 NULL, 
+                 NULL, 
+                 ZBUS_OBSERVERS(disp_spo2_lis, bt_spo2_lis),
+                 ZBUS_MSG_INIT(0) 
+);
+
+ZBUS_CHAN_DEFINE(resp_rate_chan, 
+                 struct hpi_resp_rate_t,
+                 NULL, 
+                 NULL, 
+                 ZBUS_OBSERVERS(disp_resp_rate_lis, bt_resp_rate_lis),
+                 ZBUS_MSG_INIT(0) 
+);
