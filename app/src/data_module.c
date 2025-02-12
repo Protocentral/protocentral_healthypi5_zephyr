@@ -542,7 +542,6 @@ void data_thread(void)
         {
             if (settings_send_usb_enabled)
             {
-                // temp_serial = hpi_hw_read_temp();
                 // ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
             }
 

@@ -224,7 +224,7 @@ static void usb_init()
     LOG_INF("USB Init complete");
 }
 
-float hpi_hw_read_temp(void)
+int hpi_hw_read_temp(float* temp_f, float* temp_c)
 {
     struct sensor_value temp_sample;
     sensor_sample_fetch(max30205_dev);
@@ -235,10 +235,10 @@ float hpi_hw_read_temp(void)
 
     // Convert to degree F
 
-    double temp_c = (double)temp_sample.val1 * 0.005;
-    double temp_f = (temp_c * 1.8) + 32.0;
+    *temp_c = (double)temp_sample.val1 / 1000;
+    *temp_f = (*temp_c * 1.8) + 32.0;
 
-    return temp_f;
+    return 0;
 }
 
 uint8_t hpi_hw_read_batt(void)
@@ -271,11 +271,6 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt)
 {
-    // LOG_DBG("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
-    /*settings_send_usb_enabled = false;
-    settings_send_ble_enabled = false;
-    settings_send_display_enabled = true;*/
-
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
     if (evt->value == 1)
     {
@@ -302,7 +297,7 @@ static void gpio_keys_cb_handler(struct input_event *evt)
     }
 #endif
 }
-// INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
+INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler);
 
 void hw_thread(void)
 {
@@ -361,7 +356,7 @@ void hw_thread(void)
         // return 0;
     }
 
-    int ret = pwm_set_pulse_dt(&bl_led_pwm, 3000);
+    int ret = pwm_set_pulse_dt(&bl_led_pwm, 6000);
     if (ret)
     {
         LOG_ERR("Error %d: failed to set pulse width\n", ret);
@@ -370,6 +365,9 @@ void hw_thread(void)
 #endif
 
     k_sem_give(&sem_ecg_bioz_thread_start);
+
+    float m_temp_f = 0;
+    float m_temp_c = 0;
 
     for (;;)
     {
@@ -383,8 +381,10 @@ void hw_thread(void)
         zbus_chan_pub(&batt_chan, &batt_s, K_SECONDS(1));
 
         // Read and publish temperature
+        hpi_hw_read_temp(&m_temp_f, &m_temp_c);
         struct hpi_temp_t temp = {
-            .temp_f = hpi_hw_read_temp()
+            .temp_f = m_temp_f,
+            .temp_c = m_temp_c,
         };
         zbus_chan_pub(&temp_chan, &temp, K_SECONDS(1));
 

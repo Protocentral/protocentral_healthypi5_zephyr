@@ -53,8 +53,9 @@ lv_style_t style_temp;
 lv_style_t style_header_black;
 lv_style_t style_header_red;
 lv_style_t style_header_green;
+lv_style_t style_scr_back;
 
-//lv_style_t style_welcome_scr_bg;
+// lv_style_t style_welcome_scr_bg;
 lv_style_t style_batt_sym;
 
 lv_style_t style_h1;
@@ -76,7 +77,9 @@ static int last_batt_refresh = 0;
 static uint16_t m_disp_hr = 0;
 static int last_hr_refresh = 0;
 
-static float m_disp_temp = 0;
+static float m_disp_temp_f = 0;
+static float m_disp_temp_c = 0;
+
 static int last_temp_refresh = 0;
 
 static uint8_t m_disp_spo2 = 0;
@@ -98,7 +101,9 @@ static lv_obj_t *label_hr;
 static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
-static lv_obj_t *label_temp;
+
+static lv_obj_t *label_temp_f;
+static lv_obj_t *label_temp_c;
 
 // Externs
 
@@ -172,7 +177,6 @@ void display_init_styles()
     lv_style_set_text_color(&style_info, lv_color_white());
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
 
-
     // lv_style_set_radius(&style, 5);
 
     // Home screen number style
@@ -203,28 +207,31 @@ void display_init_styles()
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
-static void hpi_disp_update_temp(float temp)
+static void hpi_disp_update_temp(float temp_f, float temp_c)
 {
-    if (curr_screen == SCR_HOME)
+    /*if (curr_screen == SCR_HOME)
     {
         hpi_scr_home_update_temp(temp);
     }
     else
+    {*/
+    if (label_temp_f == NULL)
+        return;
+
+    if (temp_f <= 0)
     {
-        if (label_temp == NULL)
-            return;
-
-        if (temp <= 0)
-        {
-            lv_label_set_text(label_temp, "---");
-            return;
-        }
-
-        char buf[32];
-        double temp_d = (double)(temp);
-        sprintf(buf, "%.1f", temp_d);
-        lv_label_set_text(label_temp, buf);
+        lv_label_set_text(label_temp_f, "---");
+        return;
     }
+
+    char buf[32];
+    // double temp_d = (double)(temp_f);
+    sprintf(buf, "%.1f", temp_f);
+    lv_label_set_text(label_temp_f, buf);
+    sprintf(buf, "%.1f", temp_c);
+    lv_label_set_text(label_temp_c, buf);
+
+    //}
 }
 
 void hpi_scr_update_hr(int hr)
@@ -317,7 +324,7 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
 {
     if (evt == HPI_SCR_EVENT_DOWN)
     {
-        printf("DOWN at %d\n", hpi_disp_get_curr_screen() );
+        printf("DOWN at %d\n", hpi_disp_get_curr_screen());
 
         if ((hpi_disp_get_curr_screen() + 1) == SCR_LIST_END)
         {
@@ -326,15 +333,15 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  + 1);
-            hpi_load_screen(hpi_disp_get_curr_screen()  + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen() + 1);
+            hpi_load_screen(hpi_disp_get_curr_screen() + 1, SCROLL_LEFT);
         }
     }
     else if (evt == HPI_SCR_EVENT_UP)
     {
-        printf("UP at %d\n", hpi_disp_get_curr_screen() );
+        printf("UP at %d\n", hpi_disp_get_curr_screen());
 
-        if ((hpi_disp_get_curr_screen()  - 1) == SCR_LIST_START)
+        if ((hpi_disp_get_curr_screen() - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
@@ -342,8 +349,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  - 1);
-            hpi_load_screen(hpi_disp_get_curr_screen()  - 1, SCROLL_RIGHT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen() - 1);
+            hpi_load_screen(hpi_disp_get_curr_screen() - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -359,6 +366,13 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_align(img1, LV_ALIGN_TOP_LEFT, 10, 7);
     lv_obj_set_size(img1, 104, 10);
     */
+
+    lv_style_init(&style_scr_back);
+    lv_style_set_bg_color(&style_scr_back, lv_color_black());
+    lv_obj_add_style(parent, &style_scr_back, 0);
+
+    lv_disp_set_bg_color(NULL, lv_color_black());
+
 
     lv_obj_t *header_bar = lv_obj_create(parent);
     lv_obj_set_size(header_bar, 480, 30);
@@ -508,22 +522,32 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
 
     // Temp Number label
-    label_temp = lv_label_create(parent);
-    lv_label_set_text(label_temp, "---");
-    lv_obj_align_to(label_temp, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 50, 0);
-    lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
+    label_temp_f = lv_label_create(parent);
+    lv_label_set_text(label_temp_f, "---");
+    lv_obj_align_to(label_temp_f, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 50, 0);
+    lv_obj_add_style(label_temp_f, &style_temp, LV_STATE_DEFAULT);
+
+    label_temp_c = lv_label_create(parent);
+    lv_label_set_text(label_temp_c, "---");
+    lv_obj_align_to(label_temp_c, label_temp_f, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_add_style(label_temp_c, &style_sub, LV_STATE_DEFAULT);
 
     // Temp label
     lv_obj_t *label_temp_title = lv_label_create(parent);
     lv_label_set_text(label_temp_title, "Temp");
-    lv_obj_align_to(label_temp_title, label_temp, LV_ALIGN_TOP_MID, 0, -15);
+    lv_obj_align_to(label_temp_title, label_temp_f, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
-    // Temp Sub deg C label
     lv_obj_t *label_temp_sub = lv_label_create(parent);
-    lv_label_set_text(label_temp_sub, "°C");
-    lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
+    lv_label_set_text(label_temp_sub, "°F");
+    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_OUT_RIGHT_MID, 30, 0);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
+
+    // Temp Sub deg C label
+    lv_obj_t *label_temp_sub_c = lv_label_create(parent);
+    lv_label_set_text(label_temp_sub_c, "°C");
+    lv_obj_align_to(label_temp_sub_c, label_temp_c, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+    lv_obj_add_style(label_temp_sub_c, &style_sub, LV_STATE_DEFAULT);
 
     lv_obj_t *label_menu = lv_label_create(parent);
     lv_label_set_text(label_menu, "Press side wheel UP/DOWN for other charts");
@@ -550,8 +574,8 @@ void hpi_load_screen(int m_screen, enum scroll_dir m_scroll_dir)
         draw_scr_ppg(SCROLL_DOWN);
         break;
     case SCR_HOME:
-       draw_scr_home(SCROLL_DOWN);
-       break;
+        draw_scr_home(SCROLL_DOWN);
+        break;
 
     default:
         break;
@@ -565,9 +589,9 @@ void disp_screen_event(lv_event_t *e)
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
     {
         lv_indev_wait_release(lv_indev_get_act());
-        printf("Left at %d\n", hpi_disp_get_curr_screen() );
+        printf("Left at %d\n", hpi_disp_get_curr_screen());
 
-        if ((hpi_disp_get_curr_screen()  + 1) == SCR_LIST_END)
+        if ((hpi_disp_get_curr_screen() + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
@@ -575,16 +599,16 @@ void disp_screen_event(lv_event_t *e)
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen()  + 1);
-            hpi_load_screen(hpi_disp_get_curr_screen()  + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", hpi_disp_get_curr_screen() + 1);
+            hpi_load_screen(hpi_disp_get_curr_screen() + 1, SCROLL_LEFT);
         }
     }
 
     if (event_code == LV_EVENT_GESTURE && lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_RIGHT)
     {
         lv_indev_wait_release(lv_indev_get_act());
-        printf("Right at %d\n", hpi_disp_get_curr_screen() );
-        if ((hpi_disp_get_curr_screen()  - 1) == SCR_LIST_START)
+        printf("Right at %d\n", hpi_disp_get_curr_screen());
+        if ((hpi_disp_get_curr_screen() - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END, SCROLL_RIGHT);
@@ -594,7 +618,7 @@ void disp_screen_event(lv_event_t *e)
         {
 
             printk("Loading screen %d\n", curr_screen - 1);
-            hpi_load_screen(hpi_disp_get_curr_screen()  - 1, SCROLL_RIGHT);
+            hpi_load_screen(hpi_disp_get_curr_screen() - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -694,7 +718,7 @@ void display_screens_thread(void)
     }
     else
     {
-        //hpi_load_screen(SCR_ECG, SCROLL_DOWN);
+        // hpi_load_screen(SCR_ECG, SCROLL_DOWN);
         hpi_load_screen(SCR_PPG, SCROLL_DOWN);
     }
 
@@ -703,11 +727,11 @@ void display_screens_thread(void)
 
         if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
-            if (hpi_disp_get_curr_screen()  == SCR_ECG)
+            if (hpi_disp_get_curr_screen() == SCR_ECG)
             {
                 hpi_ecg_disp_draw_plot_ecg(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.ecg_lead_off);
             }
-            else if (hpi_disp_get_curr_screen()  == SCR_RESP)
+            else if (hpi_disp_get_curr_screen() == SCR_RESP)
             {
                 hpi_resp_disp_draw_plot_resp(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, ecg_bioz_sensor_sample.bioz_lead_off);
             }
@@ -715,7 +739,7 @@ void display_screens_thread(void)
 
         if (k_msgq_get(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
-            if (hpi_disp_get_curr_screen()  == SCR_PPG)
+            if (hpi_disp_get_curr_screen() == SCR_PPG)
             {
                 hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_sample, ppg_sensor_sample.ppg_ir_sample, ppg_sensor_sample.ppg_lead_off);
             }
@@ -729,7 +753,7 @@ void display_screens_thread(void)
 
         if (k_uptime_get_32() - last_temp_refresh > HPI_DISP_TEMP_REFR_INT)
         {
-            hpi_disp_update_temp(m_disp_temp);
+            hpi_disp_update_temp(m_disp_temp_f, m_disp_temp_c);
             last_temp_refresh = k_uptime_get_32();
         }
 
@@ -795,7 +819,8 @@ ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
 static void disp_temp_listener(const struct zbus_channel *chan)
 {
     const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
-    m_disp_temp = hpi_temp->temp_f;
+    m_disp_temp_f = hpi_temp->temp_f;
+    m_disp_temp_c = hpi_temp->temp_c;
 }
 ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
 
@@ -803,7 +828,7 @@ static void disp_spo2_listener(const struct zbus_channel *chan)
 {
     const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
     m_disp_spo2 = hpi_spo2->spo2;
-    //hpi_scr_update_spo2(hpi_spo2->spo2);
+    // hpi_scr_update_spo2(hpi_spo2->spo2);
 }
 ZBUS_LISTENER_DEFINE(disp_spo2_lis, disp_spo2_listener);
 
@@ -811,7 +836,7 @@ static void disp_resp_rate_listener(const struct zbus_channel *chan)
 {
     const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
     m_disp_rr = hpi_resp_rate->resp_rate;
-    //hpi_scr_update_rr(hpi_resp_rate->resp_rate);
+    // hpi_scr_update_rr(hpi_resp_rate->resp_rate);
 }
 ZBUS_LISTENER_DEFINE(disp_resp_rate_lis, disp_resp_rate_listener);
 
