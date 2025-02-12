@@ -89,9 +89,9 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
         for (int i = 0; i < num_samples; i++)
         {
 
-            int16_t resp_filt_out;
-            resp_filt_out = resp_remove_dc_component(data_resp[i]);
-            int32_t data_resp_i = (int32_t) resp_filt_out; // / 10066); // in mV// (data_resp[i]);
+            //int16_t resp_filt_out;
+            //resp_filt_out = resp_remove_dc_component(data_resp[i]);
+            int32_t data_resp_i = (int32_t) (data_resp[i]/1000); // / 10066); // in mV// (data_resp[i]);
             /*  2^19	524288
                 BIOZ GAIN	40	V/V
                 CG_MAG	48	uA

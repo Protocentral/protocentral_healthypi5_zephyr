@@ -88,8 +88,9 @@ static int last_spo2_refresh = 0;
 static uint8_t m_disp_rr = 0;
 static int last_rr_refresh = 0;
 
-K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 100, 1);
-K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 100, 1);
+K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 4);
+K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 64, 4);
+
 K_MUTEX_DEFINE(mutex_curr_screen);
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
 
@@ -794,7 +795,7 @@ void display_screens_thread(void)
         }
         else
         {
-            k_sleep(K_MSEC(30));
+            k_sleep(K_MSEC(1));
         }
     }
 }

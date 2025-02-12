@@ -19,14 +19,13 @@ extern const struct device *const max30205_dev;
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
 #define PPG_SAMPLING_INTERVAL_MS 8
-#define ECG_SAMPLING_INTERVAL_MS 100
+#define ECG_SAMPLING_INTERVAL_MS 50
 
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 256, 1);
+K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
-K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 128, 1);
-
-RTIO_DEFINE(max30001_read_rtio_poll_ctx, 1, 1);
-RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 1, 1);
+RTIO_DEFINE(max30001_read_rtio_poll_ctx, 16, 16);
+RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 16, 16);
 
 SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), {SENSOR_CHAN_VOLTAGE});
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), {SENSOR_CHAN_RED});
@@ -217,7 +216,7 @@ static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
 
         ecg_bioz_sensor_sample.hr = edata->hr;
 
-        if(k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_MSEC(2))!=0)
+        if(k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_MSEC(1))!=0)
         {
             LOG_ERR("ECG/BioZ sample queue error");
             //k_msgq_purge(&q_ecg_bioz_sample);
