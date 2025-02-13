@@ -24,7 +24,9 @@ static lv_obj_t *label_hr;
 static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
+
 static lv_obj_t *label_temp_f;
+static lv_obj_t *label_temp_c;
 
 void draw_scr_home(enum scroll_dir m_scroll_dir)
 {
@@ -111,17 +113,28 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_align_to(label_temp_f, label_spo2, LV_ALIGN_OUT_BOTTOM_MID, 0, 100);
     lv_obj_add_style(label_temp_f, &style_temp, LV_STATE_DEFAULT);
 
+    label_temp_c = lv_label_create(scr_home);
+    lv_label_set_text(label_temp_c, "---");
+    lv_obj_align_to(label_temp_c, label_temp_f, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_add_style(label_temp_c, &style_sub, LV_STATE_DEFAULT);
+
     // Temp label
     lv_obj_t *label_temp_title = lv_label_create(scr_home);
     lv_label_set_text(label_temp_title, "Temp");
     lv_obj_align_to(label_temp_title, label_temp_f, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
-    // Temp Sub deg C label
     lv_obj_t *label_temp_sub = lv_label_create(scr_home);
-    lv_label_set_text(label_temp_sub, "°C");
-    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_BOTTOM_MID, 0, 10);
+    lv_label_set_text(label_temp_sub, "°F");
+    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_OUT_RIGHT_MID, 45, 0);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
+
+    // Temp Sub deg C label
+    lv_obj_t *label_temp_sub_c = lv_label_create(scr_home);
+    lv_label_set_text(label_temp_sub_c, "°C");
+    lv_obj_align_to(label_temp_sub_c, label_temp_c, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+    lv_obj_add_style(label_temp_sub_c, &style_sub, LV_STATE_DEFAULT);
+
 
     lv_obj_t *label_menu = lv_label_create(scr_home);
     lv_label_set_text(label_menu, "Use the Display mode firmware to view live charts");
@@ -132,23 +145,24 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     hpi_show_screen(scr_home, m_scroll_dir);
 }
 
-/*
-void hpi_scr_home_update_temp(int32_t temp)
+void hpi_scr_home_update_temp(float temp_f, float temp_c)
 {
     if (label_temp_f == NULL)
         return;
 
-    if (temp <= 0)
+    if (temp_c <= 0)
     {
         lv_label_set_text(label_temp_f, "---");
         return;
     }
 
     char buf[32];
-    double temp_d = (double)(temp / 100.00);
-    sprintf(buf, "%.1f", temp_d);
+    // double temp_d = (double)(temp_f);
+    sprintf(buf, "%.1f", temp_f);
     lv_label_set_text(label_temp_f, buf);
-}*/
+    sprintf(buf, "%.1f", temp_c);
+    lv_label_set_text(label_temp_c, buf);
+}
 
 void hpi_scr_home_update_hr(int hr)
 {

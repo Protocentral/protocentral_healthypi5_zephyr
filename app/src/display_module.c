@@ -210,29 +210,28 @@ void display_init_styles()
 
 static void hpi_disp_update_temp(float temp_f, float temp_c)
 {
-    /*if (curr_screen == SCR_HOME)
+    if (curr_screen == SCR_HOME)
     {
-        hpi_scr_home_update_temp(temp);
+        hpi_scr_home_update_temp(temp_f, temp_c);
     }
     else
-    {*/
-    if (label_temp_f == NULL)
-        return;
-
-    if (temp_f <= 0)
     {
-        lv_label_set_text(label_temp_f, "---");
-        return;
+        if (label_temp_f == NULL)
+            return;
+
+        if (temp_f <= 0)
+        {
+            lv_label_set_text(label_temp_f, "---");
+            return;
+        }
+
+        char buf[32];
+        // double temp_d = (double)(temp_f);
+        sprintf(buf, "%.1f", temp_f);
+        lv_label_set_text(label_temp_f, buf);
+        sprintf(buf, "%.1f", temp_c);
+        lv_label_set_text(label_temp_c, buf);
     }
-
-    char buf[32];
-    // double temp_d = (double)(temp_f);
-    sprintf(buf, "%.1f", temp_f);
-    lv_label_set_text(label_temp_f, buf);
-    sprintf(buf, "%.1f", temp_c);
-    lv_label_set_text(label_temp_c, buf);
-
-    //}
 }
 
 void hpi_scr_update_hr(int hr)
@@ -373,7 +372,6 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_add_style(parent, &style_scr_back, 0);
 
     lv_disp_set_bg_color(NULL, lv_color_black());
-
 
     lv_obj_t *header_bar = lv_obj_create(parent);
     lv_obj_set_size(header_bar, 480, 30);
