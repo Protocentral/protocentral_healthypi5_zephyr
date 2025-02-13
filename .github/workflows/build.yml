@@ -27,28 +27,28 @@ jobs:
         working-directory: healthypi5_zephyr
         run: |
           rm -rf *.uf2
-          west build -p auto -b healthypi5_rp2040 app  -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay;healthypi5_rp2040_sd.overlay'
+          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'          
           mv build/zephyr/zephyr.uf2 healthypi5_basic_ili9488.uf2
 
       - name: Build Basic firmware - ST7796
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app  -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-st7796.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay;healthypi5_rp2040_sd.overlay'
+          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'          
           mv build/zephyr/zephyr.uf2 healthypi5_basic_st7796.uf2 
 
       - name: Build display firmware for ILI9488
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app  -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=y -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay;healthypi5_rp2040_sd.overlay'
+          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=y -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'          
           mv build/zephyr/zephyr.uf2 healthypi5_display_ili9488.uf2
 
       - name: Build display firmware for ST7796
         working-directory: healthypi5_zephyr
         run: |
           west build -t pristine
-          west build -p auto -b healthypi5_rp2040 app -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-st7796.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=y -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay;healthypi5_rp2040_sd.overlay'
+          west build -p auto -b healthypi5 app -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=y -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'
           mv build/zephyr/zephyr.uf2 healthypi5_display_st7796.uf2
 
       - name: Upload release assets
