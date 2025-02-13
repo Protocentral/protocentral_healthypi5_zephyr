@@ -542,7 +542,6 @@ void data_thread(void)
         {
             if (settings_send_usb_enabled)
             {
-                // temp_serial = hpi_hw_read_temp();
                 // ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
             }
 
@@ -598,8 +597,13 @@ void data_thread(void)
 
                     if (settings_send_usb_enabled)
                     {
-                        spo2_serial = m_spo2;
+                        //spo2_serial = m_spo2;
                     }
+
+                    struct hpi_spo2_t spo2_chan_value = {
+                        .spo2 = m_spo2
+                    };
+                    zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_SECONDS(1));
                 }
 
                 if (validHeartRate)

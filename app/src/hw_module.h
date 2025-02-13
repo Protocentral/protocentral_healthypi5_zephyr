@@ -1,8 +1,6 @@
 #ifndef hw_module_h
 #define hw_module_h
 
-float hpi_hw_read_temp(void);
-
 void send_usb_cdc(const char *buf, size_t len);
 
 enum gpio_keypad_key

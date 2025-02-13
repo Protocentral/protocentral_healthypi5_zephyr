@@ -97,7 +97,7 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ecg_i = data_ecg[i];// in mV// (data_ecg[i]);
+            int32_t data_ecg_i = data_ecg[i]/1000;
 
             if (data_ecg_i < y_min_ecg)
             {
