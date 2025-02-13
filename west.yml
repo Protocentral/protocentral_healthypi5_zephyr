@@ -12,8 +12,8 @@ manifest:
       url-base: https://github.com/Protocentral
 
   projects:
-    - name: zephyr-healthypi5
-      remote: protocentral
+    - name: zephyr
+      remote: zephyrproject-rtos
       revision: v3.7-branch
       import: 
         # By using name-allowlist we can clone only the modules that are
