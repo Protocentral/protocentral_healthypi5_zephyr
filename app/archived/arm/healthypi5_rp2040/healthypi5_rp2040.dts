@@ -6,7 +6,7 @@
 #include <freq.h>
 
 #include <rpi_pico/rp2040.dtsi>
-#include "healthypi5-pinctrl.dtsi"
+#include "healthypi5_rp2040-pinctrl.dtsi"
 #include <zephyr/dt-bindings/pwm/pwm.h>
 
 #include <zephyr/dt-bindings/i2c/i2c.h>
@@ -20,8 +20,7 @@
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0; //&cdc_acm_uart0;
 		zephyr,code-partition = &code_partition;
-		//zephyr,bt-uart = &uart1;
-		zephyr,bt-hci = &bt_hci_uart;
+		zephyr,bt-uart = &uart1;
 	};
 
 	leds {
@@ -44,17 +43,14 @@
 		compatible = "gpio-keys";
 		label = "buttons";
 		button_up: sw1 {
-			label = "Button UP / SW1";
 			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_UP>;
 		};
 		button_ok: sw2 {
-			label = "Button OK / SW2";
 			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_ENTER>;
 		};
 		button_down: sw3 {
-			label = "Button DOWN / SW3";
 			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_DOWN>;
 		};
@@ -140,16 +136,11 @@
 };
 
 &uart1 {
-	current-speed = <230400>;
+	current-speed = <921600>;
 	status = "okay";
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
 	hw-flow-control;
-
-	bt_hci_uart: bt_hci_uart {  
-		compatible = "zephyr,bt-hci-uart";
-		status = "okay";
-	};
 };
 
 &gpio0 {
@@ -247,9 +238,8 @@
 		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
-			//disk-name = "sdhc0";
+			disk_name = "sdhc0";
 			status = "okay";
-
 		};
 	};
 };

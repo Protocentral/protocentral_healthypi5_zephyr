@@ -9,10 +9,12 @@
 #include <zephyr/bluetooth/services/bas.h>
 #include <zephyr/bluetooth/services/hrs.h>
 #include <zephyr/sys/ring_buffer.h>
+#include <zephyr/zbus/zbus.h>
 
 #include <zephyr/settings/settings.h>
 
 #include "cmd_module.h"
+#include "hpi_common_types.h"	
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 LOG_MODULE_REGISTER(ble_module);
@@ -87,7 +89,7 @@ static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t v
 	switch (value)
 	{
 	case BT_GATT_CCC_NOTIFY:
-		printk("ECG/RESP CCCD subscribed");
+		LOG_DBG("ECG/RESP CCCD subscribed");
 		break;
 
 	case BT_GATT_CCC_INDICATE:
@@ -95,11 +97,11 @@ static void ecg_resp_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t v
 		break;
 
 	case 0:
-		printk("ECG/RESP CCCD unsubscribed");
+		LOG_DBG("ECG/RESP CCCD unsubscribed");
 		break;
 
 	default:
-		printk("Error, CCCD has been set to an invalid value");
+		LOG_DBG("Error, CCCD has been set to an invalid value");
 	}
 }
 
@@ -109,7 +111,7 @@ static void cmd_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 	switch (value)
 	{
 	case BT_GATT_CCC_NOTIFY:
-		printk("CMD RX/TX CCCD subscribed");
+		LOG_DBG("CMD RX/TX CCCD subscribed");
 		break;
 
 	case BT_GATT_CCC_INDICATE:
@@ -117,11 +119,11 @@ static void cmd_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 		break;
 
 	case 0:
-		printk("CMD RX/TX CCCD unsubscribed");
+		LOG_DBG("CMD RX/TX CCCD unsubscribed");
 		break;
 
 	default:
-		printk("Error, CCCD has been set to an invalid value");
+		LOG_DBG("Error, CCCD has been set to an invalid value");
 	}
 }
 
@@ -129,14 +131,14 @@ static ssize_t on_receive_cmd(struct bt_conn *conn, const struct bt_gatt_attr *a
 {
 	const uint8_t *buffer = buf;
 
-	printk("Received CMD len %d \n", len);
+	LOG_DBG("Received CMD len %d \n", len);
 
-	for (uint8_t i = 0; i < len; i++)
+	/*for (uint8_t i = 0; i < len; i++)
 	{
 		in_data_buffer[i] = buffer[i];
 		printk("%02X", buffer[i]);
 	}
-	printk("\n");
+	printk("\n");*/
 
 	struct hpi_cmd_data_obj_t cmd_data_obj;
 	cmd_data_obj.pkt_type = 0x00;
@@ -276,7 +278,6 @@ void ble_ppg_notify(int16_t ppg_data)
 
 void ble_temp_notify(int16_t temp_val)
 {
-
 	uint16_t temp_val_uint16 = temp_val;
 
 	temp_val_uint16 = temp_val_uint16;
@@ -301,19 +302,18 @@ static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err)
 	{
-		printk("Connection failed (err 0x%02x)\n", err);
+		LOG_ERR("BLE Connection failed (err 0x%02x)", err);
 	}
 	else
 	{
-		printk("Connected\n");
-		// send_status_serial(BLE_STATUS_CONNECTED);
+		LOG_DBG("BLE Connected");
 		current_conn = bt_conn_ref(conn);
 	}
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-	printk("Disconnected (reason 0x%02x)\n", reason);
+	LOG_DBG("BLE Disconnected (reason 0x%02x)", reason);
 	// send_status_serial(BLE_STATUS_DISCONNECTED);
 	if (current_conn)
 	{
@@ -350,7 +350,7 @@ static void bt_ready(void)
 {
 	int err;
 
-	printk("Bluetooth initialized\n");
+	LOG_INF("Bluetooth initialized");
 
 	if (IS_ENABLED(CONFIG_SETTINGS))
 	{
@@ -360,11 +360,11 @@ static void bt_ready(void)
 	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
 	if (err)
 	{
-		printk("Advertising failed to start (err %d)\n", err);
+		LOG_ERR("Advertising failed to start (err %d)", err);
 		return;
 	}
 
-	printk("Advertising successfully started\n");
+	LOG_INF("BLE advertising started");
 }
 
 /*static void auth_passkey_confirm(struct bt_conn *conn, unsigned int passkey)
@@ -444,3 +444,38 @@ void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 	bt_gatt_notify(NULL, attr, data, len);
 	// printk("Response sent\n");
 }
+
+static void bt_temp_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+	ble_temp_notify(hpi_temp->temp_f*1000);
+}
+ZBUS_LISTENER_DEFINE(bt_temp_lis, bt_temp_listener);
+
+static void bt_batt_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_batt_status_t *hpi_batt = zbus_chan_const_msg(chan);
+	ble_bas_notify(hpi_batt->batt_level);
+}
+ZBUS_LISTENER_DEFINE(bt_batt_lis, bt_batt_listener);
+
+static void bt_hr_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
+	ble_hrs_notify(hpi_hr->hr);
+}
+ZBUS_LISTENER_DEFINE(bt_hr_lis, bt_hr_listener);
+
+static void bt_spo2_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
+	ble_spo2_notify(hpi_spo2->spo2);
+}
+ZBUS_LISTENER_DEFINE(bt_spo2_lis, bt_spo2_listener);
+
+static void bt_resp_rate_listener(const struct zbus_channel *chan)
+{
+	const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
+	ble_resp_rate_notify(hpi_resp_rate->resp_rate);
+}
+ZBUS_LISTENER_DEFINE(bt_resp_rate_lis, bt_resp_rate_listener);

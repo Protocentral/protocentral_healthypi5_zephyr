@@ -7,7 +7,7 @@
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 
 lv_obj_t *scr_ecg;
@@ -31,7 +31,6 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern uint8_t curr_screen;
 int counter_ecg = 0;
 
 #define DISP_WINDOW_SIZE_ECG 390
@@ -48,7 +47,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     lv_obj_set_size(chart_ecg, 460, 185);
     lv_obj_set_style_bg_color(chart_ecg, lv_color_black(), LV_STATE_DEFAULT);
 
-    lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
+    //lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_ecg, ECG_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_ecg, LV_CHART_AXIS_PRIMARY_Y, -200, 250);
     lv_chart_set_div_line_count(chart_ecg, 0, 0);
@@ -66,7 +65,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
     lv_obj_align(label_ecg_lead_off, LV_ALIGN_TOP_RIGHT, -20, 200);
     lv_obj_add_flag(label_ecg_lead_off, LV_OBJ_FLAG_HIDDEN);
 
-    curr_screen = SCR_ECG;
+    hpi_disp_set_curr_screen(SCR_ECG);
 
     hpi_show_screen(scr_ecg, m_scroll_dir);
 }
@@ -98,7 +97,7 @@ void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lea
     {
         for (int i = 0; i < num_samples; i++)
         {
-            int32_t data_ecg_i = data_ecg[i];// in mV// (data_ecg[i]);
+            int32_t data_ecg_i = data_ecg[i]/1000;
 
             if (data_ecg_i < y_min_ecg)
             {

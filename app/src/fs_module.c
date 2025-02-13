@@ -10,7 +10,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/settings/settings.h>
 
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "fs_module.h"
 #include "cmd_module.h"
 
@@ -152,12 +152,12 @@ static int mount_sd_fs()
 
     if(rc==0)
     {
-        printk("\nSuccessfully Mounted FS %s\n", sd_fs_mnt.mnt_point);
+        LOG_DBG("Mounted SD FS %s", sd_fs_mnt.mnt_point);
         sd_card_present = true;
     }
     else
     {
-        printk("\nFailed to mount FS %s\n", sd_fs_mnt.mnt_point);
+        LOG_ERR("Failed to mount SD FS %s", sd_fs_mnt.mnt_point);
         sd_card_present = false;
         return rc;
     }
@@ -168,17 +168,17 @@ static int mount_sd_fs()
         rc = fs_statvfs(sd_fs_mnt.mnt_point, &sbuf);
         if (rc < 0)
         {
-            printk("FAIL: statvfs: %d\n", rc);
+            LOG_ERR("FAIL: statvfs: %d\n", rc);
             return rc;
         }
 
-        printk("%s: bsize = %lu ; frsize = %lu ;"
-            " blocks = %lu ; bfree = %lu\n",
+        LOG_INF("%s: bsize = %lu ; frsize = %lu ;"
+            " blocks = %lu ; bfree = %lu",
             mp_sd->mnt_point,
             sbuf.f_bsize, sbuf.f_frsize,
             sbuf.f_blocks, sbuf.f_bfree);
 
-        rc = lsdir("/SD:");
+        //rc = lsdir("/SD:");
 
         return rc;
 

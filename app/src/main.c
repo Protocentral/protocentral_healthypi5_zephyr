@@ -16,14 +16,13 @@
 #include <app_version.h>
 
 #include "ble_module.h"
-// #include "tf/main_functions.h"
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 LOG_MODULE_REGISTER(healthypi5, LOG_LEVEL);
 
 int main(void)
 {
-	LOG_INF("\nHealthyPi 5 RP2040 started !! FW version: %d.%d.%d \n\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
+	LOG_INF("HealthyPi 5 started !! FW version: %d.%d.%d", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_PATCHLEVEL);
 
 	return 0;
 }

@@ -7,7 +7,7 @@
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 #include "resp_process.h"
 
@@ -31,8 +31,6 @@ extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
 
-extern uint8_t curr_screen;
-
 void draw_scr_resp(enum scroll_dir m_scroll_dir)
 {
     scr_resp = lv_obj_create(NULL);
@@ -45,7 +43,7 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
     lv_obj_set_size(chart_resp, 460, 185);
     lv_obj_set_style_bg_color(chart_resp, lv_color_black(), LV_STATE_DEFAULT);
 
-    lv_obj_set_style_size(chart_resp, 0, LV_PART_INDICATOR);
+    //lv_obj_set_style_size(chart_resp, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_resp, RESP_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_resp, LV_CHART_AXIS_PRIMARY_Y, 0, 8000);
     lv_chart_set_div_line_count(chart_resp, 0, 0);
@@ -58,7 +56,7 @@ void draw_scr_resp(enum scroll_dir m_scroll_dir)
     // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
     lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
 
-    curr_screen = SCR_RESP;
+    hpi_disp_set_curr_screen(SCR_RESP);
 
     hpi_show_screen(scr_resp, m_scroll_dir);
 }
@@ -91,9 +89,9 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
         for (int i = 0; i < num_samples; i++)
         {
 
-            int16_t resp_filt_out;
-            resp_filt_out = resp_remove_dc_component(data_resp[i]);
-            int32_t data_resp_i = (int32_t) resp_filt_out; // / 10066); // in mV// (data_resp[i]);
+            //int16_t resp_filt_out;
+            //resp_filt_out = resp_remove_dc_component(data_resp[i]);
+            int32_t data_resp_i = (int32_t) (data_resp[i]/1000); // / 10066); // in mV// (data_resp[i]);
             /*  2^19	524288
                 BIOZ GAIN	40	V/V
                 CG_MAG	48	uA

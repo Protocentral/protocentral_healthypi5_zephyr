@@ -16,11 +16,12 @@
 
 #include <zephyr/input/input.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/zbus/zbus.h>
 
 #include "max30001.h"
 #include "hw_module.h"
 #include "fs_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 
 #ifdef CONFIG_DISPLAY
 #include "display_module.h"
@@ -28,21 +29,10 @@
 
 #include "ble_module.h"
 
-LOG_MODULE_REGISTER(hw_module);
-char curr_string[40];
+LOG_MODULE_REGISTER(hw_module, LOG_LEVEL_INF);
 
-/*******EXTERNS******/
-extern struct k_msgq q_session_cmd_msg;
-
+ZBUS_CHAN_DECLARE(temp_chan, batt_chan);
 K_SEM_DEFINE(sem_hw_inited, 0, 1);
-
-/****END EXTERNS****/
-
-#define HW_THREAD_STACKSIZE 4096
-#define HW_THREAD_PRIORITY 7
-
-// Peripheral Device Pointers
-const struct device *fg_dev;
 
 // GPIO LEDs
 static const struct gpio_dt_spec led_green = GPIO_DT_SPEC_GET(DT_ALIAS(ledgreen), gpios);
@@ -61,11 +51,15 @@ K_SEM_DEFINE(sem_up_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_down_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
 
+K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
+
 // USB CDC UART
 #define RING_BUF_SIZE 1024
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
 
+// Peripheral Device Pointers
+const struct device *fg_dev;
 const struct device *const max30001_dev = DEVICE_DT_GET_ANY(maxim_max30001);
 const struct device *const afe4400_dev = DEVICE_DT_GET_ANY(ti_afe4400);
 const struct device *const max30205_dev = DEVICE_DT_GET_ANY(maxim_max30205);
@@ -76,7 +70,9 @@ static const struct pwm_dt_spec bl_led_pwm = PWM_DT_SPEC_GET(DT_ALIAS(bl_led_pwm
 #endif
 
 uint8_t global_batt_level = 0;
-static int32_t global_temp_val = 0;
+
+/*******EXTERNS******/
+extern struct k_msgq q_session_cmd_msg;
 
 /*bool settings_send_usb_enabled = true;
 bool settings_send_ble_enabled = true;
@@ -225,30 +221,24 @@ static void usb_init()
 
 #endif
 
-    printk("\nUSB Init complete\n\n");
+    LOG_INF("USB Init complete");
 }
 
-int16_t hpi_get_global_temp(void)
+int hpi_hw_read_temp(float* temp_f, float* temp_c)
 {
-    return global_temp_val;
-}
-
-int16_t hpi_hw_read_temp(void)
-{
-    int32_t i32_temp_val = 0;
-    int16_t temp_val = 0;
-
     struct sensor_value temp_sample;
     sensor_sample_fetch(max30205_dev);
     sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
-    // Convert to degree F
-    if (temp_sample.val1 > 0)
-    {
-        i32_temp_val = (temp_sample.val1 * 9 / 5) + 32000;
-        temp_val = (int16_t) (i32_temp_val / 10);
-    }
 
-    return temp_val;
+    if (temp_sample.val1 < 0)
+        return 0;
+
+    // Convert to degree F
+
+    *temp_c = (double)temp_sample.val1 / 1000;
+    *temp_f = (*temp_c * 1.8) + 32.0;
+
+    return 0;
 }
 
 uint8_t hpi_hw_read_batt(void)
@@ -268,11 +258,11 @@ uint8_t hpi_hw_read_batt(void)
 
     if (ret < 0)
     {
-        printk("Error: cannot get properties\n");
+        LOG_ERR("Error: cannot get properties\n");
     }
     else
     {
-        // printk("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
+        // LOG_DBG("Charge %d%% TTE: %d Voltage: %d \n", vals[2].relative_state_of_charge, vals[0].runtime_to_empty, (vals[3].voltage));
         batt_level = vals[2].relative_state_of_charge;
     }
 
@@ -281,11 +271,6 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt)
 {
-    printk("GPIO_KEY %s pressed, zephyr_code=%u, value=%d\n",evt->dev->name, evt->code, evt->value);
-    /*settings_send_usb_enabled = false;
-    settings_send_ble_enabled = false;
-    settings_send_display_enabled = true;*/
-
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
     if (evt->value == 1)
     {
@@ -293,17 +278,17 @@ static void gpio_keys_cb_handler(struct input_event *evt)
         {
         case INPUT_KEY_ENTER:
             LOG_INF("OK Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            // hpi_disp_change_event(HPI_SCR_EVENT_OK);
             k_sem_give(&sem_ok_key_pressed);
             break;
         case INPUT_KEY_UP:
             LOG_INF("UP Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            // hpi_disp_change_event(HPI_SCR_EVENT_UP);
             k_sem_give(&sem_up_key_pressed);
             break;
         case INPUT_KEY_DOWN:
             LOG_INF("DOWN Key Pressed");
-            //hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            // hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
             k_sem_give(&sem_down_key_pressed);
             break;
         default:
@@ -318,8 +303,7 @@ void hw_thread(void)
 {
     if (!device_is_ready(max30001_dev))
     {
-        printk("MAX30001 device not found! Rebooting !");
-        // sys_reboot(SYS_REBOOT_COLD);
+        LOG_ERR("MAX30001 device not found! Rebooting !");
     }
     else
     {
@@ -332,20 +316,20 @@ void hw_thread(void)
 
     if (!device_is_ready(afe4400_dev))
     {
-        printk("AFE4400 device not found!");
+        LOG_ERR("AFE4400 device not found!");
         // return;
     }
 
     if (!device_is_ready(max30205_dev))
     {
-        printk("MAX30205 device not found!");
+        LOG_ERR("MAX30205 device not found!");
         // return;
     }
 
     fg_dev = DEVICE_DT_GET_ANY(maxim_max17048);
     if (!device_is_ready(fg_dev))
     {
-        printk("No device found...\n");
+        LOG_ERR("Fuel Gauge device not found!");
     }
 
 #ifdef CONFIG_BT
@@ -357,7 +341,7 @@ void hw_thread(void)
 
     // init_settings();
 
-    printk("HW Thread started\n");
+    LOG_INF("HW Thread started");
 
     k_sem_give(&sem_hw_inited);
 
@@ -367,44 +351,49 @@ void hw_thread(void)
     // PWM for LCD Backlight
     if (!pwm_is_ready_dt(&bl_led_pwm))
     {
-        printk("Error: PWM device %s is not ready\n",
-               bl_led_pwm.dev->name);
+        LOG_ERR("Error: PWM device %s is not ready\n",
+                bl_led_pwm.dev->name);
         // return 0;
     }
 
-    int ret = pwm_set_pulse_dt(&bl_led_pwm, 3000);
+    int ret = pwm_set_pulse_dt(&bl_led_pwm, 6000);
     if (ret)
     {
-        printk("Error %d: failed to set pulse width\n", ret);
+        LOG_ERR("Error %d: failed to set pulse width\n", ret);
         // return 0;
     }
 #endif
+
+    k_sem_give(&sem_ecg_bioz_thread_start);
+
+    float m_temp_f = 0;
+    float m_temp_c = 0;
 
     for (;;)
     {
         // Sample slow changing sensors
         global_batt_level = hpi_hw_read_batt();
 
-        global_temp_val = hpi_hw_read_temp();
+        struct hpi_batt_status_t batt_s = {
+            .batt_level = (uint8_t) hpi_hw_read_batt(),
+            .batt_charging = 0,
+        };
+        zbus_chan_pub(&batt_chan, &batt_s, K_SECONDS(1));
 
-#ifdef CONFIG_DISPLAY
-        //if (settings_send_display_enabled)
-        //{
-        hpi_disp_update_batt_level(global_batt_level);
-        hpi_disp_update_temp(global_temp_val);
-        //}
-#endif
+        // Read and publish temperature
+        hpi_hw_read_temp(&m_temp_f, &m_temp_c);
+        struct hpi_temp_t temp = {
+            .temp_f = m_temp_f,
+            .temp_c = m_temp_c,
+        };
+        zbus_chan_pub(&temp_chan, &temp, K_SECONDS(1));
 
-#ifdef CONFIG_BT
-        //if (settings_send_ble_enabled)
-        //{
-        ble_bas_notify(global_batt_level);
-        ble_temp_notify(global_temp_val);
-        //}
-#endif
-
+        gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));
     }
 }
+
+#define HW_THREAD_STACKSIZE 4096
+#define HW_THREAD_PRIORITY 7
 
 K_THREAD_DEFINE(hw_thread_id, HW_THREAD_STACKSIZE, hw_thread, NULL, NULL, NULL, HW_THREAD_PRIORITY, 0, 0);

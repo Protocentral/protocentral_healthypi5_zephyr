@@ -45,10 +45,21 @@ static int max30001_decoder_decode(const uint8_t *buffer, enum sensor_channel ch
 								   size_t channel_idx, uint32_t *fit,
 								   uint16_t max_count, void *data_out)
 {
-	//const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buffer;
-	//const struct max30001_decoder_header *header = &edata->header;
+	const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buffer;
+	const struct max30001_decoder_header *header = &edata->header;
 
-	return 0;
+	if (*fit != 0)
+	{
+		return 0;
+	}
+
+	printk("D ");
+	//printk("Num samples: %u\n", edata->samples[0].ir_sample);
+
+	/*switch (channel)
+	{
+	
+	}*/
 }
 
 SENSOR_DECODER_API_DT_DEFINE() = {

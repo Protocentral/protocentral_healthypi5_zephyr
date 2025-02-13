@@ -1,1 +1,1 @@
-west build -p auto -b healthypi5_rp2040 app  -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay;healthypi5_rp2040_sd.overlay'
+west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-bt.conf;overlay-display-ili9488.conf;overlay-logger-sd.conf' -DCONFIG_HEALTHYPI_OP_MODE_DISPLAY=n -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'

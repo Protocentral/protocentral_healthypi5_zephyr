@@ -7,14 +7,14 @@ manifest:
 
   remotes:
     - name: zephyrproject-rtos
-      url-base: https://github.com/zephyrproject-rtos
+      url-base: https://github.com/Protocentral/zephyr-healthypi5
     - name: protocentral
       url-base: https://github.com/Protocentral
 
   projects:
-    - name: zephyr
-      remote: zephyrproject-rtos
-      revision: v3.6-branch
+    - name: zephyr-healthypi5
+      remote: protocentral
+      revision: v3.7-branch
       import: 
         # By using name-allowlist we can clone only the modules that are
         # strictly needed by the application.
@@ -33,6 +33,7 @@ manifest:
           - liblc3
           - net-tools
           - picolibc
+          - hal_espressif
           
 #    - name: max30001
 #      repo-path: protocentral_max30001_zephyr_driver

@@ -7,7 +7,7 @@
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 
 lv_obj_t *scr_ppg;
@@ -29,8 +29,6 @@ extern lv_style_t style_spo2;
 extern lv_style_t style_rr;
 extern lv_style_t style_temp;
 extern lv_style_t style_sub;
-
-extern uint8_t curr_screen;
 
 void draw_scr_ppg(enum scroll_dir m_scroll_dir)
 {
@@ -57,7 +55,7 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     // lv_obj_add_style(lbl_sig_type, &style_header_black, LV_STATE_DEFAULT);
     lv_obj_align(lbl_sig_type, LV_ALIGN_TOP_MID, 0, 35);
 
-    curr_screen = SCR_PPG;
+    hpi_disp_set_curr_screen(SCR_PPG);
 
     hpi_show_screen(scr_ppg, m_scroll_dir);
 }

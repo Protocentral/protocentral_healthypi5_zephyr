@@ -7,12 +7,10 @@
 
 #include "hw_module.h"
 #include "display_module.h"
-#include "sampling_module.h"
+#include "hpi_common_types.h"
 #include "data_module.h"
 
 lv_obj_t *scr_home;
-
-extern uint8_t curr_screen;
 
 extern lv_style_t style_sub;
 extern lv_style_t style_hr;
@@ -26,7 +24,7 @@ static lv_obj_t *label_hr;
 static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
-static lv_obj_t *label_temp;
+static lv_obj_t *label_temp_f;
 
 void draw_scr_home(enum scroll_dir m_scroll_dir)
 {
@@ -108,48 +106,49 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     */
 
     // Temp Number label
-    label_temp = lv_label_create(scr_home);
-    lv_label_set_text(label_temp, "---");
-    lv_obj_align_to(label_temp, label_spo2, LV_ALIGN_OUT_BOTTOM_MID, 0, 100);
-    lv_obj_add_style(label_temp, &style_temp, LV_STATE_DEFAULT);
+    label_temp_f = lv_label_create(scr_home);
+    lv_label_set_text(label_temp_f, "---");
+    lv_obj_align_to(label_temp_f, label_spo2, LV_ALIGN_OUT_BOTTOM_MID, 0, 100);
+    lv_obj_add_style(label_temp_f, &style_temp, LV_STATE_DEFAULT);
 
     // Temp label
     lv_obj_t *label_temp_title = lv_label_create(scr_home);
     lv_label_set_text(label_temp_title, "Temp");
-    lv_obj_align_to(label_temp_title, label_temp, LV_ALIGN_TOP_MID, 0, -15);
+    lv_obj_align_to(label_temp_title, label_temp_f, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
     // Temp Sub deg C label
     lv_obj_t *label_temp_sub = lv_label_create(scr_home);
     lv_label_set_text(label_temp_sub, "°C");
-    lv_obj_align_to(label_temp_sub, label_temp, LV_ALIGN_BOTTOM_MID, 0, 10);
+    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
     lv_obj_t *label_menu = lv_label_create(scr_home);
     lv_label_set_text(label_menu, "Use the Display mode firmware to view live charts");
     lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
 
-    curr_screen = SCR_HOME;
+    hpi_disp_set_curr_screen(SCR_HOME);
 
     hpi_show_screen(scr_home, m_scroll_dir);
 }
 
+/*
 void hpi_scr_home_update_temp(int32_t temp)
 {
-    if (label_temp == NULL)
+    if (label_temp_f == NULL)
         return;
 
     if (temp <= 0)
     {
-        lv_label_set_text(label_temp, "---");
+        lv_label_set_text(label_temp_f, "---");
         return;
     }
 
     char buf[32];
     double temp_d = (double)(temp / 100.00);
     sprintf(buf, "%.1f", temp_d);
-    lv_label_set_text(label_temp, buf);
-}
+    lv_label_set_text(label_temp_f, buf);
+}*/
 
 void hpi_scr_home_update_hr(int hr)
 {
