@@ -7,7 +7,7 @@ manifest:
 
   remotes:
     - name: zephyrproject-rtos
-      url-base: https://github.com/Protocentral/zephyr-healthypi5
+      url-base: https://github.com/zephyrproject-rtos
     - name: protocentral
       url-base: https://github.com/Protocentral
 
