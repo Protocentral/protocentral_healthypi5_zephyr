@@ -448,7 +448,7 @@ void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 static void bt_temp_listener(const struct zbus_channel *chan)
 {
     const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
-	ble_temp_notify(hpi_temp->temp_f*1000);
+	ble_temp_notify((hpi_temp->temp_c * 100));
 }
 ZBUS_LISTENER_DEFINE(bt_temp_lis, bt_temp_listener);
 
