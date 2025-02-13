@@ -503,14 +503,14 @@ void data_thread(void)
 
             if (settings_send_usb_enabled)
             {
-                hr_serial = ecg_bioz_sensor_sample.hr;
+                hr_serial = m_hr;
                 rr_serial = m_resp_rate;
-                //send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
+                send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
             {
-                // record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
+                record_session_add_ecg_point(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
             }
             // #endif
 
@@ -542,7 +542,7 @@ void data_thread(void)
         {
             if (settings_send_usb_enabled)
             {
-                // ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
+                ppg_buff_for_pkt(ppg_sensor_sample.ppg_red_sample);
             }
 
             // #ifdef CONFIG_BT
@@ -561,14 +561,13 @@ void data_thread(void)
                     {
                         k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
                     }
-                    // k_msgq_put(&q_plot_ppg, &ppg_sensor_sample, K_NO_WAIT);
                 }
             }
 #endif
 
             if (settings_log_data_enabled && sd_card_present)
             {
-                // record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
+                record_session_add_ppg_point(ppg_sensor_sample.ppg_ir_sample);
             }
 
             // Buffer the PPG data for SPO2 calculation
@@ -597,7 +596,7 @@ void data_thread(void)
 
                     if (settings_send_usb_enabled)
                     {
-                        //spo2_serial = m_spo2;
+                        spo2_serial = m_spo2;
                     }
 
                     struct hpi_spo2_t spo2_chan_value = {
