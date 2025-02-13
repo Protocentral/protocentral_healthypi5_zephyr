@@ -44,11 +44,9 @@ lv_obj_t *scr_charts_all;
 lv_obj_t *scr_charts_single;
 
 lv_style_t style_sub;
-lv_style_t style_hr;
-lv_style_t style_spo2;
-lv_style_t style_rr;
-lv_style_t style_pr;
-lv_style_t style_temp;
+
+lv_style_t style_number_big;
+lv_style_t style_number_medium;
 
 lv_style_t style_header_black;
 lv_style_t style_header_red;
@@ -126,25 +124,13 @@ void display_init_styles()
     lv_style_set_text_color(&style_sub, lv_color_white());
     lv_style_set_text_font(&style_sub, &lv_font_montserrat_16);
 
-    // HR Number label style
-    lv_style_init(&style_hr);
-    lv_style_set_text_color(&style_hr, lv_palette_main(LV_PALETTE_GREEN));
-    lv_style_set_text_font(&style_hr, &lv_font_montserrat_34);
+    lv_style_init(&style_number_big);
+    lv_style_set_text_color(&style_number_big, lv_color_white());
+    lv_style_set_text_font(&style_number_big, &lv_font_montserrat_42);
 
-    // SpO2 label style
-    lv_style_init(&style_spo2);
-    lv_style_set_text_color(&style_spo2, lv_palette_main(LV_PALETTE_YELLOW));
-    lv_style_set_text_font(&style_spo2, &lv_font_montserrat_34);
-
-    // RR label style
-    lv_style_init(&style_rr);
-    lv_style_set_text_color(&style_rr, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_text_font(&style_rr, &lv_font_montserrat_34);
-
-    // Temp label style
-    lv_style_init(&style_temp);
-    lv_style_set_text_color(&style_temp, lv_palette_main(LV_PALETTE_ORANGE));
-    lv_style_set_text_font(&style_temp, &lv_font_montserrat_34);
+    lv_style_init(&style_number_medium);
+    lv_style_set_text_color(&style_number_medium, lv_color_white());
+    lv_style_set_text_font(&style_number_medium, &lv_font_montserrat_34);
 
     // Icon welcome screen style
     lv_style_init(&style_icon);
@@ -177,13 +163,6 @@ void display_init_styles()
     lv_style_init(&style_info);
     lv_style_set_text_color(&style_info, lv_color_white());
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
-
-    // lv_style_set_radius(&style, 5);
-
-    // Home screen number style
-    lv_style_init(&style_pr);
-    lv_style_set_text_color(&style_pr, lv_palette_main(LV_PALETTE_RED));
-    lv_style_set_text_font(&style_pr, &lv_font_montserrat_42);
 
     /*
     // Screen background style
@@ -367,6 +346,8 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_obj_set_size(img1, 104, 10);
     */
 
+    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+
     lv_style_init(&style_scr_back);
     lv_style_set_bg_color(&style_scr_back, lv_color_black());
     lv_obj_add_style(parent, &style_scr_back, 0);
@@ -438,22 +419,55 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_style_set_border_width(&style, 0);
     lv_style_set_pad_all(&style, 0);
     lv_obj_add_style(parent, &style, 0);
-    */
+
+        /*Create a container with ROW flex direction*/
+    lv_obj_t *cont_row = lv_obj_create(parent);
+    lv_obj_set_size(cont_row, 480, 78);
+    lv_obj_set_pos(cont_row,10,225);
+    lv_obj_set_flex_flow(cont_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_bg_color(cont_row, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(cont_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(cont_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_color(cont_row, lv_color_black(), LV_PART_MAIN);
+
+    lv_obj_t *obj_hr_card = lv_obj_create(cont_row);
+    // lv_obj_add_style(obj_hr_card, &style, 0);
+    lv_obj_set_size(obj_hr_card, 100, LV_PCT(100));
+    lv_obj_set_style_bg_color(obj_hr_card, lv_palette_darken(LV_PALETTE_ORANGE, 4), LV_PART_MAIN);
+    lv_obj_clear_flag(obj_hr_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *obj_spo2_card = lv_obj_create(cont_row);
+    // lv_obj_add_style(obj_hr_card, &style, 0);
+    lv_obj_set_size(obj_spo2_card, 100, LV_PCT(100));
+    lv_obj_set_style_bg_color(obj_spo2_card, lv_palette_darken(LV_PALETTE_BLUE, 4), LV_PART_MAIN);
+    lv_obj_clear_flag(obj_spo2_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *obj_rr_card = lv_obj_create(cont_row);
+    // lv_obj_add_style(obj_hr_card, &style, 0);
+    lv_obj_set_size(obj_rr_card, 110, LV_PCT(100));
+    lv_obj_set_style_bg_color(obj_rr_card, lv_palette_darken(LV_PALETTE_GREEN, 4), LV_PART_MAIN);
+    lv_obj_clear_flag(obj_rr_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *obj_temp_card = lv_obj_create(cont_row);
+    // lv_obj_add_style(obj_hr_card, &style, 0);
+    lv_obj_set_size(obj_temp_card,120, LV_PCT(100));
+    lv_obj_set_style_bg_color(obj_temp_card, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
+    lv_obj_clear_flag(obj_temp_card, LV_OBJ_FLAG_SCROLLABLE);
 
     // HR Number label
-    label_hr = lv_label_create(parent);
+    label_hr = lv_label_create(obj_hr_card);
     lv_label_set_text(label_hr, "---");
-    lv_obj_align(label_hr, LV_ALIGN_LEFT_MID, 75, 100);
-    lv_obj_add_style(label_hr, &style_hr, LV_STATE_DEFAULT);
+    lv_obj_center(label_hr);
+    lv_obj_add_style(label_hr, &style_number_medium, LV_STATE_DEFAULT);
 
     // HR Title label
-    lv_obj_t *label_hr_title = lv_label_create(parent);
+    lv_obj_t *label_hr_title = lv_label_create(obj_hr_card);
     lv_label_set_text(label_hr_title, "HR");
     lv_obj_align_to(label_hr_title, label_hr, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_hr_title, &style_sub, LV_STATE_DEFAULT);
 
     // HR BPM Subscript label
-    lv_obj_t *label_hr_sub = lv_label_create(parent);
+    lv_obj_t *label_hr_sub = lv_label_create(obj_hr_card);
     lv_label_set_text(label_hr_sub, "bpm");
     lv_obj_align_to(label_hr_sub, label_hr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_hr_sub, &style_sub, LV_STATE_DEFAULT);
@@ -465,19 +479,20 @@ void draw_scr_home_footer(lv_obj_t *parent)
     // lv_obj_add_style(label_hr_status, &style_sub, LV_STATE_DEFAULT);
 
     // SPO2 Number label
-    label_spo2 = lv_label_create(parent);
+    label_spo2 = lv_label_create(obj_spo2_card);
     lv_label_set_text(label_spo2, "---");
-    lv_obj_align_to(label_spo2, label_hr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
-    lv_obj_add_style(label_spo2, &style_spo2, LV_STATE_DEFAULT);
+    //lv_obj_align_to(label_spo2, label_hr, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
+    lv_obj_center(label_spo2);
+    lv_obj_add_style(label_spo2, &style_number_medium, LV_STATE_DEFAULT);
 
     // SpO2 Title label
-    lv_obj_t *label_spo2_title = lv_label_create(parent);
+    lv_obj_t *label_spo2_title = lv_label_create(obj_spo2_card);
     lv_label_set_text(label_spo2_title, "SpO2");
     lv_obj_align_to(label_spo2_title, label_spo2, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_spo2_title, &style_sub, LV_STATE_DEFAULT);
 
     // SpO2 % label
-    lv_obj_t *label_spo2_sub = lv_label_create(parent);
+    lv_obj_t *label_spo2_sub = lv_label_create(obj_spo2_card);
     lv_label_set_text(label_spo2_sub, "%");
     lv_obj_align_to(label_spo2_sub, label_spo2, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_spo2_sub, &style_sub, LV_STATE_DEFAULT);
@@ -503,54 +518,54 @@ void draw_scr_home_footer(lv_obj_t *parent)
     */
 
     // RR Number label
-    label_rr = lv_label_create(parent);
+    label_rr = lv_label_create(obj_rr_card);
     lv_label_set_text(label_rr, "---");
-    lv_obj_align_to(label_rr, label_spo2, LV_ALIGN_OUT_RIGHT_TOP, 60, 0);
-    lv_obj_add_style(label_rr, &style_rr, LV_STATE_DEFAULT);
+    lv_obj_center(label_rr);
+    lv_obj_add_style(label_rr, &style_number_medium, LV_STATE_DEFAULT);
 
     // RR Title label
-    lv_obj_t *label_rr_title = lv_label_create(parent);
+    lv_obj_t *label_rr_title = lv_label_create(obj_rr_card);
     lv_label_set_text(label_rr_title, "Resp Rate");
-    lv_obj_align_to(label_rr_title, label_rr, LV_ALIGN_TOP_MID, 0, -15);
+    lv_obj_align_to(label_rr_title, label_rr, LV_ALIGN_TOP_MID, -5, -15);
     lv_obj_add_style(label_rr_title, &style_sub, LV_STATE_DEFAULT);
 
     // RR Sub BPM label
-    lv_obj_t *label_rr_sub = lv_label_create(parent);
+    lv_obj_t *label_rr_sub = lv_label_create(obj_rr_card);
     lv_label_set_text(label_rr_sub, "bpm");
     lv_obj_align_to(label_rr_sub, label_rr, LV_ALIGN_BOTTOM_MID, 0, 10);
     lv_obj_add_style(label_rr_sub, &style_sub, LV_STATE_DEFAULT);
 
     // Temp Number label
-    label_temp_f = lv_label_create(parent);
+    label_temp_f = lv_label_create(obj_temp_card);
     lv_label_set_text(label_temp_f, "---");
-    lv_obj_align_to(label_temp_f, label_rr, LV_ALIGN_OUT_RIGHT_TOP, 50, 0);
-    lv_obj_add_style(label_temp_f, &style_temp, LV_STATE_DEFAULT);
+    lv_obj_center(label_temp_f);
+    lv_obj_add_style(label_temp_f, &style_number_medium, LV_STATE_DEFAULT);
 
-    label_temp_c = lv_label_create(parent);
+    label_temp_c = lv_label_create(obj_temp_card);
     lv_label_set_text(label_temp_c, "---");
     lv_obj_align_to(label_temp_c, label_temp_f, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
     lv_obj_add_style(label_temp_c, &style_sub, LV_STATE_DEFAULT);
 
     // Temp label
-    lv_obj_t *label_temp_title = lv_label_create(parent);
+    lv_obj_t *label_temp_title = lv_label_create(obj_temp_card);
     lv_label_set_text(label_temp_title, "Temp");
     lv_obj_align_to(label_temp_title, label_temp_f, LV_ALIGN_TOP_MID, 0, -15);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
-    lv_obj_t *label_temp_sub = lv_label_create(parent);
+    lv_obj_t *label_temp_sub = lv_label_create(obj_temp_card);
     lv_label_set_text(label_temp_sub, "°F");
-    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_OUT_RIGHT_MID, 30, 0);
+    lv_obj_align_to(label_temp_sub, label_temp_f, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
     lv_obj_add_style(label_temp_sub, &style_sub, LV_STATE_DEFAULT);
 
     // Temp Sub deg C label
-    lv_obj_t *label_temp_sub_c = lv_label_create(parent);
+    lv_obj_t *label_temp_sub_c = lv_label_create(obj_temp_card);
     lv_label_set_text(label_temp_sub_c, "°C");
-    lv_obj_align_to(label_temp_sub_c, label_temp_c, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+    lv_obj_align_to(label_temp_sub_c, label_temp_c, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
     lv_obj_add_style(label_temp_sub_c, &style_sub, LV_STATE_DEFAULT);
 
     lv_obj_t *label_menu = lv_label_create(parent);
     lv_label_set_text(label_menu, "Press side wheel UP/DOWN for other charts");
-    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -2);
 }
 
 void down_key_event_handler()

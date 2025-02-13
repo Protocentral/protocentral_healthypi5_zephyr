@@ -46,6 +46,7 @@ void draw_scr_ecg(enum scroll_dir m_scroll_dir)
 
     lv_obj_set_size(chart_ecg, 460, 185);
     lv_obj_set_style_bg_color(chart_ecg, lv_color_black(), LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(chart_ecg, 0, LV_PART_MAIN);
 
     //lv_obj_set_style_size(chart_ecg, 0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_ecg, ECG_DISP_WINDOW_SIZE);
