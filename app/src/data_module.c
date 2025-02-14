@@ -17,7 +17,7 @@
 #include "hpi_common_types.h"
 #include "display_module.h"
 
-LOG_MODULE_REGISTER(data_module, CONFIG_SENSOR_LOG_LEVEL);
+LOG_MODULE_REGISTER(data_module, LOG_LEVEL_DBG);
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
@@ -123,6 +123,8 @@ extern struct k_msgq q_ppg_sample;
 
 extern struct k_msgq q_plot_ecg_bioz;
 extern struct k_msgq q_plot_ppg;
+
+extern struct k_msgq q_hpi_data_sample;
 
 #define NUM_TAPS 10  /* Number of taps in the FIR filter (length of the moving average window) */
 #define BLOCK_SIZE 4 /* Number of samples processed per block */
@@ -435,6 +437,8 @@ void data_thread(void)
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
+    struct hpi_sensor_data_point_t hpi_sensor_data_point;
+
     // record_init_session_log();
 
     uint32_t irBuffer[500];  // infrared LED sensor data
@@ -456,7 +460,7 @@ void data_thread(void)
     bufferLength = BUFFER_SIZE;
 
     // Initialize red and IR buffers with first 100 samples
-    while (init_buffer_count < BUFFER_SIZE)
+    /*while (init_buffer_count < BUFFER_SIZE)
     {
         if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_FOREVER) == 0)
         {
@@ -465,15 +469,24 @@ void data_thread(void)
             redBuffer[init_buffer_count] = ppg_sensor_sample.ppg_red_sample;
             init_buffer_count++;
         }
-    }
+    }*/
 
     LOG_INF("Data Thread starting");
 
     for (;;)
     {
+        if(k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
+        {
+            printk("R");
+            if (settings_send_usb_enabled)
+            {
+                //send_ecg_bioz_data_ov3_format(hpi_sensor_data_point.ecg_sample,1, hpi_sensor_data_point.bioz_sample,1,
+            }
+        }
+
         // Get Sample from ECG / BioZ sampling queue
-        if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
-        // if(0)
+        //if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        if(0)
         {
             int16_t resp_i16_buf[4];
             int16_t resp_i16_filt_out[4];
@@ -505,7 +518,7 @@ void data_thread(void)
             {
                 hr_serial = m_hr;
                 rr_serial = m_resp_rate;
-                send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
+                //send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
@@ -537,8 +550,8 @@ void data_thread(void)
         }
 
         /* Get Sample from PPG sampling queue */
-        // if(0)
-        if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
+        if(0)
+        //if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
             if (settings_send_usb_enabled)
             {
@@ -628,4 +641,4 @@ void data_thread(void)
 #define DATA_THREAD_STACKSIZE 6144
 #define DATA_THREAD_PRIORITY 7
 
-K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 0);

@@ -30,6 +30,22 @@ struct hpi_ecg_bioz_sensor_data_t
     bool _bioZSkipSample;
 };
 
+struct hpi_sensor_data_point_t
+{
+    int32_t ecg_sample;
+    int32_t bioz_sample;
+
+    uint8_t hr;
+    uint8_t rtor;
+    uint8_t ecg_lead_off;
+    uint8_t bioz_lead_off;
+
+    bool _bioZSkipSample;
+
+    int32_t ppg_sample_red;
+    int32_t ppg_sample_ir;
+};
+
 struct hpi_ppg_sensor_data_t
 {
     int32_t ppg_red_sample;
