@@ -435,24 +435,28 @@ void draw_scr_home_footer(lv_obj_t *parent)
     lv_obj_set_size(obj_hr_card, 100, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_hr_card, lv_palette_darken(LV_PALETTE_ORANGE, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_hr_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(obj_hr_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_spo2_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
     lv_obj_set_size(obj_spo2_card, 100, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_spo2_card, lv_palette_darken(LV_PALETTE_BLUE, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_spo2_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(obj_spo2_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_rr_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
     lv_obj_set_size(obj_rr_card, 110, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_rr_card, lv_palette_darken(LV_PALETTE_GREEN, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_rr_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(obj_rr_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_temp_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
     lv_obj_set_size(obj_temp_card,120, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_temp_card, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
     lv_obj_clear_flag(obj_temp_card, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(obj_temp_card, 0, LV_PART_MAIN);
 
     // HR Number label
     label_hr = lv_label_create(obj_hr_card);
