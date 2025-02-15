@@ -477,7 +477,7 @@ void data_thread(void)
     {
         if(k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
-            printk("R");
+            //printk("R");
             if (settings_send_usb_enabled)
             {
                 //send_ecg_bioz_data_ov3_format(hpi_sensor_data_point.ecg_sample,1, hpi_sensor_data_point.bioz_sample,1,

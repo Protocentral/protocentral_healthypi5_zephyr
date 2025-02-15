@@ -90,3 +90,5 @@ void hpi_scr_update_pr(int pr);
 //void draw_scr_chart_resp(void);
 void draw_header(lv_obj_t *parent, bool showFWVersion);
 void draw_footer(lv_obj_t *parent);
+
+void draw_scr_welcome(void);

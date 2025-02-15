@@ -53,7 +53,7 @@ lv_style_t style_header_red;
 lv_style_t style_header_green;
 lv_style_t style_scr_back;
 
-// lv_style_t style_welcome_scr_bg;
+
 lv_style_t style_batt_sym;
 
 lv_style_t style_h1;
@@ -164,26 +164,6 @@ void display_init_styles()
     lv_style_set_text_color(&style_info, lv_color_white());
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
 
-    /*
-    // Screen background style
-    lv_style_init(&style_welcome_scr_bg);
-
-    Make a gradient
-    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
-    lv_style_set_border_width(&style_welcome_scr_bg, 0);
-
-    static lv_grad_dsc_t grad;
-    grad.dir = LV_GRAD_DIR_HOR;
-    grad.stops_count = 2;
-    grad.stops[0].color = lv_color_hex(0x003a57); // lv_palette_lighten(LV_PALETTE_GREY, 1);
-    grad.stops[1].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
-
-    //Shift the gradient to the bottom
-    grad.stops[0].frac = 128;
-    grad.stops[1].frac = 192;
-
-    lv_style_set_bg_color(&style_welcome_scr_bg, lv_color_black());
-    */
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
@@ -737,7 +717,8 @@ void display_screens_thread(void)
     else
     {
         // hpi_load_screen(SCR_ECG, SCROLL_DOWN);
-        hpi_load_screen(SCR_PPG, SCROLL_DOWN);
+        //hpi_load_screen(SCR_PPG, SCROLL_DOWN);
+        draw_scr_welcome();
     }
 
     while (1)

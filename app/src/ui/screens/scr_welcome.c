@@ -14,7 +14,7 @@
 
 static lv_obj_t *scr_welcome;
 
-//extern lv_style_t style_welcome_scr_bg;
+// extern lv_style_t style_welcome_scr_bg;
 extern lv_style_t style_h1;
 extern lv_style_t style_h2;
 extern lv_style_t style_info;
@@ -27,18 +27,28 @@ static void anim_x_cb(void *var, int32_t v)
 
 void draw_scr_welcome(void)
 {
+    lv_style_t style_welcome_scr_bg;
+
+    // Screen background style
+    lv_style_init(&style_welcome_scr_bg);
+
+    
+    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
+    lv_style_set_border_width(&style_welcome_scr_bg, 0);
+
     static lv_grad_dsc_t grad;
-    grad.dir = LV_GRAD_DIR_VER;
+    grad.dir = LV_GRAD_DIR_HOR;
     grad.stops_count = 2;
-    grad.stops[1].color = lv_color_hex(0x165369); // lv_palette_lighten(LV_PALETTE_GREY, 1);
-    grad.stops[0].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
+    grad.stops[0].color = lv_color_hex(0x003a57); // lv_palette_lighten(LV_PALETTE_GREY, 1);
+    grad.stops[1].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
 
-    /*Shift the gradient to the bottom*/
+    // Shift the gradient to the bottom
     grad.stops[0].frac = 128;
-    grad.stops[1].frac = 255;
+    grad.stops[1].frac = 192;
 
-    // lv_style_set_bg_color(&style_scr_back, lv_color_black());
+    // lv_style_set_bg_color(&style_welcome_scr_bg, lv_color_black());
     lv_style_set_bg_grad(&style_welcome_scr_bg, &grad);
+
 
     lv_obj_t *scr_welcome = lv_obj_create(NULL);
     lv_obj_add_style(scr_welcome, &style_welcome_scr_bg, 0);
@@ -74,14 +84,14 @@ void draw_scr_welcome(void)
     lv_obj_align_to(label_icon2, label_icon1, LV_ALIGN_OUT_RIGHT_MID, 250, 0);
 
     lv_obj_t *label_info1 = lv_label_create(scr_welcome);
-    lv_label_set_text(label_info1, "HealthyPi is designed to adapt to your application.\n\n Download and \"drop\" your preferred firmware \nfrom the following website");
+    lv_label_set_text(label_info1, "HealthyPi is designed to adapt to your application.\n\n Download and \"drop\" your preferred firmware \nfrom the following location");
     lv_obj_set_style_text_align(label_info1, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_add_style(label_info1, &style_info, 0);
     lv_obj_align(label_info1, LV_ALIGN_CENTER, 0, 30);
     // lv_obj_align_to(label_info1, label_icon, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
 
     lv_obj_t *label_info2 = lv_label_create(scr_welcome);
-    lv_label_set_text(label_info2, "protocentral.com/healthypi");
+    lv_label_set_text(label_info2, "healthypi.protocentral.com");
     lv_obj_add_style(label_info2, &style_h2, 0);
     // lv_obj_center(label_hpi);
     // lv_obj_align(label_info2, LV_ALIGN_CENTER, 0, 90);
