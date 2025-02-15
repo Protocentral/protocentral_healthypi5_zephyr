@@ -21,7 +21,7 @@ extern const struct device *const max30205_dev;
 #define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 50
 
-#define UNIFIED_SAMPLING_INTERVAL_MS 8
+#define UNIFIED_SAMPLING_INTERVAL_MS 4
 
 K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 256, 1);
 K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
@@ -134,53 +134,6 @@ static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
     }
 }*/
 
-void ppg_sample_trigger_thread(void)
-{
-     int ret;
-
-    uint8_t ppg_buf[64];
-
-    LOG_INF("PPG Sampling Trigger Thread starting\n");
-
-    for (;;)
-    {
-        //sensor_read_async_mempool(&afe4400_iodev, &afe4400_read_rtio_ctx, NULL);
-        //sensor_processing_with_callback(&afe4400_read_rtio_ctx, sensor_ppg_process_cb);
-
-        ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
-        if(ret < 0)
-        {
-            LOG_ERR("Error reading from AFE4400");
-            continue;
-        }
-        sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
-        k_sleep(K_MSEC(PPG_SAMPLING_INTERVAL_MS));
-    }
-}
-
-void ecg_bioz_sample_trigger_thread(void)
-{
-    uint8_t ecg_bioz_buf[512];
-    int ret;
-
-    k_sem_take(&sem_ecg_bioz_thread_start, K_FOREVER);
-
-    LOG_INF("ECG/ BioZ Sampling Trigger Thread starting");
-
-    for (;;)
-    {
-        ret = sensor_read(&max30001_iodev, &max30001_read_rtio_poll_ctx, ecg_bioz_buf, sizeof(ecg_bioz_buf));
-        if(ret < 0)
-        {
-            LOG_ERR("Error reading from MAX30001");
-            continue;
-        }
-        sensor_ecg_bioz_decode(ecg_bioz_buf, sizeof(ecg_bioz_buf));
-
-        k_sleep(K_MSEC(ECG_SAMPLING_INTERVAL_MS));
-    }
-}
-
 void hpi_sensor_read_all_thread(void)
 {
     int ret;
@@ -198,6 +151,7 @@ void hpi_sensor_read_all_thread(void)
             LOG_ERR("Error reading from MAX30001");
             continue;
         }
+    
         sensor_ecg_bioz_decode(ecg_bioz_buf, sizeof(ecg_bioz_buf));
 
         ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));

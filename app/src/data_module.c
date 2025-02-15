@@ -68,6 +68,11 @@ const uint8_t hpi_ov3_ecg_bioz_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CM
 const uint8_t hpi_ov3_ppg_packet_header[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, HPI_OV3_DATA_PPG_LEN, 0, CES_CMDIF_TYPE_PPG_DATA};
 const uint8_t hpi_ov3_packet_footer[2] = {0, CES_CMDIF_PKT_STOP};
 
+#define DATA_LEN 22
+uint8_t DataPacket[DATA_LEN];
+const char DataPacketFooter[2] = {0, CES_CMDIF_PKT_STOP};
+const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, DATA_LEN, 0, CES_CMDIF_TYPE_DATA};
+
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
@@ -201,6 +206,61 @@ void send_ecg_bioz_data_ov3_format(int32_t *ecg_data, int32_t ecg_sample_count, 
         send_usb_cdc(hpi_ov3_ecg_bioz_packet_header, 5);
         send_usb_cdc(hpi_ov3_ecg_bioz_data, pkt_ecg_bioz_pos_counter);
         send_usb_cdc(hpi_ov3_packet_footer, 2);
+    }
+
+    if (settings_send_rpi_uart_enabled)
+    {
+        // send_rpi_uart(DataPacketHeader, 5);
+        // send_rpi_uart(DataPacket, DATA_LEN);
+        // send_rpi_uart(DataPacketFooter, 2);
+    }
+}
+
+void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t raw_ir, int32_t temp, uint8_t hr,
+              uint8_t rr, uint8_t spo2, bool _bioZSkipSample)
+{
+
+    DataPacket[0] = ecg_sample;
+    DataPacket[1] = ecg_sample >> 8;
+    DataPacket[2] = ecg_sample >> 16;
+    DataPacket[3] = ecg_sample >> 24;
+
+    DataPacket[4] = bioz_sample;
+    DataPacket[5] = bioz_sample >> 8;
+    DataPacket[6] = bioz_sample >> 16;
+    DataPacket[7] = bioz_sample >> 24;
+
+    if (_bioZSkipSample == false)
+    {
+        DataPacket[8] = 0x00;
+    }
+    else
+    {
+        DataPacket[8] = 0xFF;
+    }
+
+    DataPacket[9] = raw_red;
+    DataPacket[10] = raw_red >> 8;
+    DataPacket[11] = raw_red >> 16;
+    DataPacket[12] = raw_red >> 24;
+
+    DataPacket[13] = raw_ir;
+    DataPacket[14] = raw_ir >> 8;
+    DataPacket[15] = raw_ir >> 16;
+    DataPacket[16] = raw_ir >> 24;
+
+    DataPacket[17] = temp;
+    DataPacket[18] = temp >> 8;
+
+    DataPacket[19] = spo2;
+    DataPacket[20] = hr;
+    DataPacket[21] = rr;
+
+    if (settings_send_usb_enabled)
+    {
+        send_usb_cdc(DataPacketHeader, 5);
+        send_usb_cdc(DataPacket, DATA_LEN);
+        send_usb_cdc(DataPacketFooter, 2);
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -475,18 +535,24 @@ void data_thread(void)
 
     for (;;)
     {
-        if(k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
+        if (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
-            //printk("R");
+            // printk("R");
             if (settings_send_usb_enabled)
             {
-                //send_ecg_bioz_data_ov3_format(hpi_sensor_data_point.ecg_sample,1, hpi_sensor_data_point.bioz_sample,1,
+                sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red, hpi_sensor_data_point.ppg_sample_ir,
+                         0, 0, 0, 0, 0);
+                
+
+                // send_ecg_bioz_data_ov3_format(hpi_sensor_data_point.ecg_sample,1, hpi_sensor_data_point.bioz_sample,1,
             }
+
+
         }
 
         // Get Sample from ECG / BioZ sampling queue
-        //if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
-        if(0)
+        // if (k_msgq_get(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        if (0)
         {
             int16_t resp_i16_buf[4];
             int16_t resp_i16_filt_out[4];
@@ -505,20 +571,20 @@ void data_thread(void)
 
             if (settings_send_ble_enabled)
             {
-               
+
                 ble_ecg_notify(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples);
                 ble_bioz_notify(ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples);
 
                 // Move HR notify to ZBus
                 // ble_hrs_notify(ecg_bioz_sensor_sample.hr);
-                //ble_resp_rate_notify(globalRespirationRate);
+                // ble_resp_rate_notify(globalRespirationRate);
             }
 
             if (settings_send_usb_enabled)
             {
                 hr_serial = m_hr;
                 rr_serial = m_resp_rate;
-                //send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
+                // send_ecg_bioz_data_ov3_format(ecg_bioz_sensor_sample.ecg_samples, ecg_bioz_sensor_sample.ecg_num_samples, ecg_bioz_sensor_sample.bioz_samples, ecg_bioz_sensor_sample.bioz_num_samples, hr_serial, rr_serial);
             }
 
             if (settings_log_data_enabled && sd_card_present)
@@ -535,23 +601,21 @@ void data_thread(void)
             }
 
 #endif
-            //hpi_scr_update_rr(globalRespirationRate);
-            //hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
+            // hpi_scr_update_rr(globalRespirationRate);
+            // hpi_scr_update_hr(ecg_bioz_sensor_sample.hr);
 
             struct hpi_resp_rate_t resp_rate_chan_value = {
-                .resp_rate = m_resp_rate
-            };
+                .resp_rate = m_resp_rate};
             zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_SECONDS(1));
-            
+
             struct hpi_hr_t hr_chan_value = {
-                .hr = ecg_bioz_sensor_sample.hr
-            };
+                .hr = ecg_bioz_sensor_sample.hr};
             zbus_chan_pub(&hr_chan, &hr_chan_value, K_SECONDS(1));
         }
 
         /* Get Sample from PPG sampling queue */
-        if(0)
-        //if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
+        if (0)
+        // if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_NO_WAIT) == 0)
         {
             if (settings_send_usb_enabled)
             {
@@ -613,8 +677,7 @@ void data_thread(void)
                     }
 
                     struct hpi_spo2_t spo2_chan_value = {
-                        .spo2 = m_spo2
-                    };
+                        .spo2 = m_spo2};
                     zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_SECONDS(1));
                 }
 

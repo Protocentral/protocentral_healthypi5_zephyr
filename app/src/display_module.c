@@ -716,9 +716,8 @@ void display_screens_thread(void)
     }
     else
     {
-        // hpi_load_screen(SCR_ECG, SCROLL_DOWN);
-        //hpi_load_screen(SCR_PPG, SCROLL_DOWN);
-        draw_scr_welcome();
+        hpi_load_screen(SCR_PPG, SCROLL_DOWN);
+        //draw_scr_welcome();
     }
 
     while (1)
@@ -743,19 +742,24 @@ void display_screens_thread(void)
                 hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_sample, ppg_sensor_sample.ppg_ir_sample, ppg_sensor_sample.ppg_lead_off);
             }
         }
-
+        
+        /*
         if (k_uptime_get_32() - last_batt_refresh > HPI_DISP_BATT_REFR_INT)
         {
             hpi_disp_update_batt_level(m_disp_batt_level);
             last_batt_refresh = k_uptime_get_32();
         }
+        */
 
+        
+        /*
         if (k_uptime_get_32() - last_temp_refresh > HPI_DISP_TEMP_REFR_INT)
         {
             hpi_disp_update_temp(m_disp_temp_f, m_disp_temp_c);
             last_temp_refresh = k_uptime_get_32();
         }
 
+        /*
         if (k_uptime_get_32() - last_hr_refresh > HPI_DISP_HR_REFR_INT)
         {
             hpi_scr_update_hr(m_disp_hr);
@@ -772,7 +776,7 @@ void display_screens_thread(void)
         {
             hpi_scr_update_rr(m_disp_rr);
             last_rr_refresh = k_uptime_get_32();
-        }
+        }*/
 
         // Check for key presses
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
@@ -793,7 +797,7 @@ void display_screens_thread(void)
         }
         else
         {
-            k_sleep(K_MSEC(1));
+            k_sleep(K_MSEC(30));
         }
     }
 }

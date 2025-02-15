@@ -502,7 +502,7 @@ static int max30001_chip_init(const struct device *dev)
     }
 
     // ECG Configuration
-    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b10;             // 128 SPS
+    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b01;// 256 SPS 0b10;             // 128 SPS
     data->chip_cfg.reg_cnfg_ecg.bit.gain = config->ecg_gain; // From DTS
     data->chip_cfg.reg_cnfg_ecg.bit.dlpf = 0b01;             // 40 Hz
     data->chip_cfg.reg_cnfg_ecg.bit.dhpf = 0b01;             // 0.5 Hz
@@ -573,8 +573,8 @@ static int max30001_chip_init(const struct device *dev)
 
     //_max30001RegWrite(dev, MNGR_INT, 0x190000); // EFIT=4, BFIT=2
     //_max30001RegWrite(dev, MNGR_INT, 0x7B0000); // EFIT=16, BFIT=8
-    _max30001RegWrite(dev, MNGR_INT, 0x3B0000); // EFIT=8, BFIT=4
-    //_max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
+    //_max30001RegWrite(dev, MNGR_INT, 0x3B0000); // EFIT=8, BFIT=4
+    _max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
     //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
     k_sleep(K_MSEC(100));
 
