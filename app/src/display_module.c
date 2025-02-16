@@ -812,7 +812,7 @@ void display_screens_thread(void)
         }
         else
         {
-            k_sleep(K_MSEC(1));
+            k_sleep(K_MSEC(30));
         }
     }
 }
