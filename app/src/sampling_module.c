@@ -21,11 +21,11 @@ extern const struct device *const max30205_dev;
 #define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 50
 
-K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 256, 1);
+K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 1);
 K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
 
-RTIO_DEFINE(max30001_read_rtio_poll_ctx, 16, 16);
-RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 16, 16);
+RTIO_DEFINE(max30001_read_rtio_poll_ctx, 1, 1);
+RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 1, 1);
 
 SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), {SENSOR_CHAN_VOLTAGE});
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), {SENSOR_CHAN_RED});
@@ -143,5 +143,5 @@ void ecg_bioz_sample_trigger_thread(void)
 
 #define ECG_SAMPLING_THREAD_PRIORITY 7
 
-K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
+//K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
 K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 1024, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);

@@ -352,7 +352,7 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
     lv_style_set_bg_color(&style_scr_back, lv_color_black());
     lv_obj_add_style(parent, &style_scr_back, 0);
 
-    lv_disp_set_bg_color(NULL, lv_color_black());
+    //lv_disp_set_bg_color(NULL, lv_color_black());
 
     lv_obj_t *header_bar = lv_obj_create(parent);
     lv_obj_set_size(header_bar, 480, 30);
