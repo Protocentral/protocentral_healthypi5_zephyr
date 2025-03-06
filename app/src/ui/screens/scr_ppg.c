@@ -43,11 +43,11 @@ void draw_scr_ppg(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_bg_color(chart_ppg, lv_color_black(), LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(chart_ppg, 0, LV_PART_MAIN);
 
-    //lv_obj_set_style_size(chart_ppg, 0, LV_PART_INDICATOR);
+    lv_obj_set_style_size(chart_ppg, 0,0, LV_PART_INDICATOR);
     lv_chart_set_point_count(chart_ppg, PPG_DISP_WINDOW_SIZE);
     lv_chart_set_range(chart_ppg, LV_CHART_AXIS_PRIMARY_Y, -200, 250);
     lv_chart_set_div_line_count(chart_ppg, 0, 0);
-    lv_chart_set_update_mode(chart_ppg, LV_CHART_UPDATE_MODE_CIRCULAR);
+    lv_chart_set_update_mode(chart_ppg, LV_CHART_UPDATE_MODE_SHIFT);
 
     ser_ppg = lv_chart_add_series(chart_ppg, lv_palette_main(LV_PALETTE_YELLOW), LV_CHART_AXIS_PRIMARY_Y);
 
@@ -100,7 +100,7 @@ void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool 
         lv_chart_set_next_value(chart_ppg, ser_ppg, (int16_t)data_ppg_red);
         hpi_ppg_disp_add_samples(1);
 
-        hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
+        //hpi_ppg_disp_do_set_scale(PPG_DISP_WINDOW_SIZE);
     }
 
     if (ppg_lead_off == true)

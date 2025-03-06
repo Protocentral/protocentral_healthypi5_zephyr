@@ -35,7 +35,7 @@ const struct device *display_dev;
 #ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
 static enum hpi_disp_op_mode m_op_mode = OP_MODE_DISPLAY;
 #else
-static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
+static enum hpi_disp_op_mode m_op_mode =  OP_MODE_BASIC;
 #endif
 
 // LVGL Screens
@@ -88,6 +88,8 @@ static int last_rr_refresh = 0;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 4);
 K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 64, 4);
+
+K_MSGQ_DEFINE(q_hpi_plot_all_sample, sizeof(struct hpi_sensor_data_point_t), 64, 1);
 
 K_MUTEX_DEFINE(mutex_curr_screen);
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
@@ -683,6 +685,8 @@ void display_screens_thread(void)
     struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
     struct hpi_ppg_sensor_data_t ppg_sensor_sample;
 
+    struct hpi_sensor_data_point_t sensor_all_data_point;
+
     k_sem_take(&sem_hw_inited, K_FOREVER);
 
     display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
@@ -723,7 +727,7 @@ void display_screens_thread(void)
     while (1)
     {
 
-        if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
+        /*if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
             if (hpi_disp_get_curr_screen() == SCR_ECG)
             {
@@ -741,6 +745,22 @@ void display_screens_thread(void)
             {
                 hpi_ppg_disp_draw_plot_ppg(ppg_sensor_sample.ppg_red_sample, ppg_sensor_sample.ppg_ir_sample, ppg_sensor_sample.ppg_lead_off);
             }
+        }*/
+
+        if(k_msgq_get(&q_hpi_plot_all_sample, &sensor_all_data_point, K_NO_WAIT) == 0)
+        {
+            //LOG_DBG("All sens");
+            printk("PP ");
+            hpi_ppg_disp_draw_plot_ppg(sensor_all_data_point.ppg_sample_red, sensor_all_data_point.ppg_sample_ir, 0);
+            /*if (hpi_disp_get_curr_screen() == SCR_HOME)
+            {
+                hpi_scr_home_update_hr(sensor_all_data_point.hr);
+                hpi_scr_home_update_pr(sensor_all_data_point.pr);
+                hpi_scr_home_update_spo2(sensor_all_data_point.spo2);
+                hpi_scr_home_update_rr(sensor_all_data_point.rr);
+                hpi_scr_home_update_temp(sensor_all_data_point.temp_f, sensor_all_data_point.temp_c);
+                
+            }*/
         }
         
         /*
@@ -793,12 +813,15 @@ void display_screens_thread(void)
 
         if (m_op_mode == OP_MODE_BASIC)
         {
-            k_sleep(K_MSEC(100));
+            //k_sleep(K_MSEC(100));
         }
         else
         {
-            k_sleep(K_MSEC(30));
+            //k_sleep(K_MSEC(30));
         }
+        //k_msleep(30);
+        k_sleep(K_MSEC(100));
+
     }
 }
 

@@ -130,6 +130,7 @@ extern struct k_msgq q_plot_ecg_bioz;
 extern struct k_msgq q_plot_ppg;
 
 extern struct k_msgq q_hpi_data_sample;
+extern struct k_msgq q_hpi_plot_all_sample;
 
 #define NUM_TAPS 10  /* Number of taps in the FIR filter (length of the moving average window) */
 #define BLOCK_SIZE 4 /* Number of samples processed per block */
@@ -542,12 +543,19 @@ void data_thread(void)
             {
                 sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red, hpi_sensor_data_point.ppg_sample_ir,
                          0, 0, 0, 0, 0);
-                
 
                 // send_ecg_bioz_data_ov3_format(hpi_sensor_data_point.ecg_sample,1, hpi_sensor_data_point.bioz_sample,1,
             }
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+            if (settings_plot_enabled)
+            {
+                if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
+                {
 
-
+                    k_msgq_put(&q_hpi_plot_all_sample, &hpi_sensor_data_point, K_NO_WAIT);
+                }
+            }
+#endif
         }
 
         // Get Sample from ECG / BioZ sampling queue
