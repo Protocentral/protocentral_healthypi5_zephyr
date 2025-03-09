@@ -75,8 +75,8 @@ static int last_batt_refresh = 0;
 static uint16_t m_disp_hr = 0;
 static int last_hr_refresh = 0;
 
-static float m_disp_temp_f = 0;
-static float m_disp_temp_c = 0;
+static double m_disp_temp_f = 0;
+static double m_disp_temp_c = 0;
 
 static int last_temp_refresh = 0;
 
@@ -187,7 +187,7 @@ void display_init_styles()
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
-static void hpi_disp_update_temp(float temp_f, float temp_c)
+static void hpi_disp_update_temp(double temp_f, double temp_c)
 {
     if (curr_screen == SCR_HOME)
     {
@@ -837,8 +837,8 @@ ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
 static void disp_temp_listener(const struct zbus_channel *chan)
 {
     const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
-    m_disp_temp_f = hpi_temp->temp_f;
-    m_disp_temp_c = hpi_temp->temp_c;
+    m_disp_temp_f = (double) hpi_temp->temp_f;
+    m_disp_temp_c = (double) hpi_temp->temp_c;
 }
 ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
 

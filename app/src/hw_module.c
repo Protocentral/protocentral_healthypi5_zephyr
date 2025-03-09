@@ -269,7 +269,7 @@ uint8_t hpi_hw_read_batt(void)
     return batt_level;
 }
 
-static void gpio_keys_cb_handler(struct input_event *evt)
+static void gpio_keys_cb_handler(struct input_event *evt, void* user_data)
 {
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
     if (evt->value == 1)

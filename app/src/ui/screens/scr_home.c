@@ -157,7 +157,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     hpi_show_screen(scr_home, m_scroll_dir);
 }
 
-void hpi_scr_home_update_temp(float temp_f, float temp_c)
+void hpi_scr_home_update_temp(double temp_f, double temp_c)
 {
     if (label_temp_f == NULL)
         return;

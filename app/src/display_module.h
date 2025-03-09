@@ -56,7 +56,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir);
 void hpi_scr_home_update_spo2(int spo2);
 void hpi_scr_home_update_pr(int pr);
 void hpi_scr_home_update_rr(int rr);
-void hpi_scr_home_update_temp(float temp_f, float temp_c);
+void hpi_scr_home_update_temp(double temp_f, double temp_c);
 void hpi_scr_home_update_hr(int hr);
 
 int hpi_disp_get_op_mode();
