@@ -11,7 +11,7 @@
 // #include "display_screens.h"
 LOG_MODULE_REGISTER(sampling_module, CONFIG_SENSOR_LOG_LEVEL);
 
-//extern const struct device *const max30001_dev;
+// extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 extern const struct device *const max30205_dev;
 
@@ -68,8 +68,8 @@ static void sensor_ppg_decode(uint8_t *buf, uint32_t buf_len)
 static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
 {
     const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
-    
-    //printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
+
+    // printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
     uint8_t n_samples_ecg = edata->num_samples_ecg;
     uint8_t n_samples_bioz = edata->num_samples_bioz;
 
@@ -134,41 +134,83 @@ static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
     }
 }*/
 
+
+void work_sample_handler(struct k_work *work)
+{
+    uint8_t ecg_bioz_buf[512];
+    uint8_t ppg_buf[64];
+
+    int ret = sensor_read(&max30001_iodev, &max30001_read_rtio_poll_ctx, ecg_bioz_buf, sizeof(ecg_bioz_buf));
+    if (ret < 0)
+    {
+        LOG_ERR("Error reading from MAX30001");
+        //continue;
+    }
+
+    sensor_ecg_bioz_decode(ecg_bioz_buf, sizeof(ecg_bioz_buf));
+
+    ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
+    if (ret < 0)
+    {
+        LOG_ERR("Error reading from AFE4400");
+        //continue;
+    }
+    sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
+
+    if (k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) != 0)
+    {
+        LOG_ERR("Unified sample queue error");
+        // k_msgq_purge(&q_ecg_bioz_sample);
+    }
+}
+
+K_WORK_DEFINE(work_sample, work_sample_handler);
+
+void sample_all_handler(struct k_timer *dummy)
+{
+    k_work_submit(&work_sample);
+}
+
+K_TIMER_DEFINE(tmr_sensor_sample_all, sample_all_handler, NULL);
+
 void hpi_sensor_read_all_thread(void)
 {
     int ret;
-    uint8_t ecg_bioz_buf[512];
-    uint8_t ppg_buf[64];
+    //uint8_t ecg_bioz_buf[512];
+    //uint8_t ppg_buf[64];
 
     k_sem_take(&sem_ecg_bioz_thread_start, K_FOREVER);
     LOG_INF("Sensor Read All Thread starting");
 
+    k_timer_start(&tmr_sensor_sample_all, K_MSEC(UNIFIED_SAMPLING_INTERVAL_MS), K_MSEC(UNIFIED_SAMPLING_INTERVAL_MS));
+
     for (;;)
     {
-        ret = sensor_read(&max30001_iodev, &max30001_read_rtio_poll_ctx, ecg_bioz_buf, sizeof(ecg_bioz_buf));
-        if(ret < 0)
+        /*ret = sensor_read(&max30001_iodev, &max30001_read_rtio_poll_ctx, ecg_bioz_buf, sizeof(ecg_bioz_buf));
+        if (ret < 0)
         {
             LOG_ERR("Error reading from MAX30001");
             continue;
         }
-    
+
         sensor_ecg_bioz_decode(ecg_bioz_buf, sizeof(ecg_bioz_buf));
 
         ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
-        if(ret < 0)
+        if (ret < 0)
         {
             LOG_ERR("Error reading from AFE4400");
             continue;
         }
         sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
 
-        if(k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT)!=0)
+        if (k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) != 0)
         {
             LOG_ERR("Unified sample queue error");
-            //k_msgq_purge(&q_ecg_bioz_sample);
-        }
+            // k_msgq_purge(&q_ecg_bioz_sample);
+        }*/
 
-        k_sleep(K_MSEC(UNIFIED_SAMPLING_INTERVAL_MS));
+
+        k_msleep(1000);
     }
 }
 
@@ -176,5 +218,5 @@ void hpi_sensor_read_all_thread(void)
 
 K_THREAD_DEFINE(hpi_sensor_read_all_thread_id, 4096, hpi_sensor_read_all_thread, NULL, NULL, NULL, UNIFIED_SAMPLING_THREAD_PRIORITY, 0, 1000);
 
-//K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
-//K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 1024, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
+// K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
+// K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 1024, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);

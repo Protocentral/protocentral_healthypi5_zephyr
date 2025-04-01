@@ -7,8 +7,12 @@ void ble_spo2_notify(uint16_t spo2_val);
 void ble_temp_notify(int16_t temp_val);
 void ble_resp_rate_notify(uint16_t resp_rate);
 
-void ble_ecg_notify(int32_t *ecg_data, uint8_t len);
+void ble_ecg_notify_single(int32_t ecg_data);
 void ble_ppg_notify(int16_t ppg_data);
+void ble_bioz_notify_single(int32_t resp_data);
+
+void ble_ecg_notify(int32_t *ecg_data, uint8_t len);
 void ble_bioz_notify(int32_t *resp_data, uint8_t len);
+
 void healthypi5_service_send_data(const uint8_t *data, uint16_t len);
 

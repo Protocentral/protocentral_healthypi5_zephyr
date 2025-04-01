@@ -29,9 +29,6 @@ LOG_MODULE_REGISTER(cmd_module, LOG_LEVEL_DBG);
 #define FILE_TRANSFER_BLE_PACKET_SIZE 64 // (16*7)
 #define CMDIF_BLE_UART_MAX_PKT_SIZE 128  // Max Packet Size in bytes
 
-K_SEM_DEFINE(sem_ble_connected, 0, 1);
-K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
-
 K_MSGQ_DEFINE(q_cmd_msg, sizeof(struct hpi_cmd_data_obj_t), 16, 1);
 
 // static const struct device *const esp_uart_dev = DEVICE_DT_GET(ESP_UART_DEVICE_NODE);

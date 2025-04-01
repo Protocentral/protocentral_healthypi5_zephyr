@@ -17,4 +17,11 @@ struct hpi_computed_data_t {
     uint8_t spo2_valid;
 };
 
+enum hpi_stream_modes {
+    HPI_STREAM_MODE_BLE,
+    HPI_STREAM_MODE_USB,
+    HPI_STREAM_MODE_RPI_UART,
+    HPI_STREAM_MODE_PLOT,
+};
+
 void flush_current_session_logs(void);
