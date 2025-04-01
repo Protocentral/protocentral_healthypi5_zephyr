@@ -23,11 +23,8 @@ extern const struct device *const max30205_dev;
 
 #define UNIFIED_SAMPLING_INTERVAL_MS 4
 
-K_MSGQ_DEFINE(q_ecg_bioz_sample, sizeof(struct hpi_ecg_bioz_sensor_data_t), 256, 1);
-K_MSGQ_DEFINE(q_ppg_sample, sizeof(struct hpi_ppg_sensor_data_t), 64, 1);
-
 // Unified data point queue
-K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 128, 1);
+K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 256, 1);
 
 RTIO_DEFINE(max30001_read_rtio_poll_ctx, 16, 16);
 RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 16, 16);

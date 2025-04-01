@@ -23,7 +23,8 @@ LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
 #define HPI_DISP_TEMP_REFR_INT 1000
 #define HPI_DISP_HR_REFR_INT 1000
 #define HPI_DISP_SPO2_REFR_INT 1000
-#define HPI_DISP_RR_REFR_INT 1000
+
+#define HPI_DISP_RR_REFR_INT 4000
 
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
@@ -790,13 +791,13 @@ void display_screens_thread(void)
         {
             hpi_scr_update_spo2(m_disp_spo2);
             last_spo2_refresh = k_uptime_get_32();
-        }
+        }*/
 
         if (k_uptime_get_32() - last_rr_refresh > HPI_DISP_RR_REFR_INT)
         {
             hpi_scr_update_rr(m_disp_rr);
             last_rr_refresh = k_uptime_get_32();
-        }*/
+        }
 
         // Check for key presses
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)

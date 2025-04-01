@@ -157,6 +157,8 @@ ZBUS_CHAN_DECLARE(resp_rate_chan);
 static enum hpi_stream_modes m_stream_mode = HPI_STREAM_MODE_USB;
 K_MUTEX_DEFINE(mutex_stream_mode);
 
+ZBUS_CHAN_DECLARE(resp_rate_chan);
+
 void hpi_data_set_stream_mode(enum hpi_stream_modes mode)
 {
     k_mutex_lock(&mutex_stream_mode, K_FOREVER);
@@ -550,11 +552,17 @@ void data_thread(void)
 #define BLE_ECG_BUFFER_SIZE 8
 #define BLE_ECG_BUFFER_SIZE 4
 
+#define RESP_FILT_BUFFER_SIZE 4
+
     int32_t ble_ecg_buffer[BLE_ECG_BUFFER_SIZE];
     int32_t ble_bioz_buffer[BLE_ECG_BUFFER_SIZE];
 
     uint8_t ecg_buffer_count = 0;
     uint8_t bioz_buffer_count = 0;
+
+    int16_t resp_i16_buf[RESP_FILT_BUFFER_SIZE];
+    int16_t resp_i16_filt_out[RESP_FILT_BUFFER_SIZE];
+    int16_t resp_filt_buffer_count = 0;
 
     LOG_INF("Data Thread starting");
 
@@ -562,6 +570,28 @@ void data_thread(void)
     {
         if (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
+            if (resp_filt_buffer_count < RESP_FILT_BUFFER_SIZE)
+            {
+                resp_i16_buf[resp_filt_buffer_count++] = (int16_t)(hpi_sensor_data_point.bioz_sample >> 4);
+            }
+            else
+            {
+                // if (hpi_sensor_data_point.bioz_sample != 0)
+                resp_process_sample(resp_i16_buf, resp_i16_filt_out);
+                resp_algo_process(resp_i16_filt_out, &m_resp_rate);
+
+                struct hpi_resp_rate_t resp_rate_chan_value = {
+                    .resp_rate = m_resp_rate};
+                zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_SECONDS(1));
+
+                resp_filt_buffer_count = 0;
+            }
+
+            /*for (int i = 0; i < 4; i++)
+            {
+                resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
+            }*/
+
             if (m_stream_mode == HPI_STREAM_MODE_USB)
             {
                 sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red,
@@ -622,7 +652,7 @@ void data_thread(void)
             hpi_data_set_stream_mode(HPI_STREAM_MODE_USB);
         }
 
-        k_sleep(K_MSEC(2));
+        k_sleep(K_MSEC(1));
     }
 }
 
