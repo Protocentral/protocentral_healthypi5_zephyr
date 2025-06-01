@@ -11,3 +11,5 @@
 /twister-out*
 
 __pycache__/
+CMakeFiles
+CMakeCache.txt
