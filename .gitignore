@@ -13,3 +13,4 @@
 __pycache__/
 CMakeFiles
 CMakeCache.txt
+.github/copilot-instructions.md
