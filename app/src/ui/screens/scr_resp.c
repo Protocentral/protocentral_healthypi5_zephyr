@@ -120,3 +120,11 @@ void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp
         // printk("resp Lead Off\n");
     }
 }
+
+
+// Stub update function for Respiration detail screen  
+// TODO: Implement detailed respiration screen similar to ECG screen
+void hpi_scr_resp_update(void)
+{
+    // Placeholder - will be implemented with detailed respiration view
+}

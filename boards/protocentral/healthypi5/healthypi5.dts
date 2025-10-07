@@ -62,7 +62,7 @@
 
 	xtal_clk: xtal-clk {
 		compatible = "fixed-clock";
-		clock-frequency = <12000000>;
+		clock-frequency = <13300000>;
 		#clock-cells = <0>;
 	};
 

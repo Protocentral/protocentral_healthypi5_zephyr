@@ -11,3 +11,4 @@
 /twister-out*
 
 __pycache__/
+.github/copilot-instructions.md

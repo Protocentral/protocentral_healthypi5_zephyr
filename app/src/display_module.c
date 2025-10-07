@@ -14,6 +14,7 @@
 #include "display_module.h"
 #include "hpi_common_types.h"
 #include "data_module.h"
+#include "vital_stats.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
@@ -26,6 +27,13 @@ LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
 
 #define HPI_DISP_RR_REFR_INT 4000
 
+// Downsampling ratio for waveform plots
+// ECG: 128 Hz → 64 Hz (2:1 downsample)
+// PPG: ~100 Hz → 50 Hz (2:1 downsample)  
+// Resp: 128 Hz → 64 Hz (2:1 downsample)
+// Balance between performance and visual smoothness
+#define PLOT_DOWNSAMPLE_RATIO 2
+
 lv_obj_t *btn_start_session;
 lv_obj_t *btn_return;
 
@@ -33,11 +41,8 @@ extern uint8_t m_key_pressed;
 
 const struct device *display_dev;
 
-#ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
-static enum hpi_disp_op_mode m_op_mode = OP_MODE_DISPLAY;
-#else
-static enum hpi_disp_op_mode m_op_mode =  OP_MODE_BASIC;
-#endif
+// Default to BASIC operation mode at runtime. Build scripts no longer override this.
+static enum hpi_disp_op_mode m_op_mode = OP_MODE_BASIC;
 
 // LVGL Screens
 lv_obj_t *scr_menu;
@@ -65,15 +70,14 @@ lv_style_t style_icon;
 // static lv_obj_t *roller_session_select;
 // static lv_obj_t *label_current_mode;
 
-static lv_obj_t *label_batt_level;
-static lv_obj_t *label_batt_level_val;
-// static lv_obj_t *label_sym_ble;
+// Label declarations moved to centralized section below (line ~130)
+// to avoid duplicates and ensure proper screen transition handling
 
 static uint8_t m_disp_batt_level = 0;
 static bool m_disp_batt_charging = false;
 static int last_batt_refresh = 0;
 
-static uint16_t m_disp_hr = 0;
+uint16_t m_disp_hr = 0;  // Non-static - accessed by detail screens
 static int last_hr_refresh = 0;
 
 static float m_disp_temp_f = 0;
@@ -95,17 +99,50 @@ K_MSGQ_DEFINE(q_hpi_plot_all_sample, sizeof(struct hpi_sensor_data_point_t), 64,
 K_MUTEX_DEFINE(mutex_curr_screen);
 K_SEM_DEFINE(sem_disp_inited, 0, 1);
 
+// Async screen change pattern (from healthypi-move-fw)
+static int g_screen = SCR_HOME;
+static enum scroll_dir g_scroll_dir = SCROLL_DOWN;
+static uint32_t g_arg1 = 0;
+static uint32_t g_arg2 = 0;
+static uint32_t g_arg3 = 0;
+static uint32_t g_arg4 = 0;
+K_SEM_DEFINE(sem_change_screen, 0, 1);
+
+// Screen transition state flag to prevent race conditions
+static bool screen_transitioning = false;
+
 bool display_inited = false;
 static uint8_t curr_screen = SCR_ECG;
 
-// GUI Labels
+// Function table types for screen management
+typedef void (*screen_draw_func_t)(enum scroll_dir);
+typedef void (*screen_gesture_down_func_t)(void);
+
+typedef struct
+{
+    screen_draw_func_t draw;
+    screen_gesture_down_func_t gesture_down;
+} screen_func_table_entry_t;
+
+// GUI Labels - Centralized label management for thread safety
+// Header labels (used on all screens)
+static lv_obj_t *label_batt_level;
+static lv_obj_t *label_batt_level_val;
+
+// Footer labels (used on waveform screens: ECG, PPG, RESP)
 static lv_obj_t *label_hr;
 static lv_obj_t *label_pr;
 static lv_obj_t *label_spo2;
 static lv_obj_t *label_rr;
-
 static lv_obj_t *label_temp_f;
 static lv_obj_t *label_temp_c;
+
+// Home screen labels (used only on home screen)
+lv_obj_t *g_label_home_hr = NULL;
+lv_obj_t *g_label_home_spo2 = NULL;
+lv_obj_t *g_label_home_rr = NULL;
+lv_obj_t *g_label_home_temp_f = NULL;
+lv_obj_t *g_label_home_temp_c = NULL;
 
 // Externs
 
@@ -118,6 +155,12 @@ extern struct k_msgq q_computed_val;
 int hpi_disp_get_op_mode()
 {
     return m_op_mode;
+}
+
+bool hpi_disp_is_plot_screen_active(void)
+{
+    int screen = hpi_disp_get_curr_screen();
+    return (screen == SCR_ECG || screen == SCR_PPG || screen == SCR_RESP);
 }
 
 void display_init_styles()
@@ -178,12 +221,13 @@ static void hpi_disp_update_temp(float temp_f, float temp_c)
     }
     else
     {
-        if (label_temp_f == NULL)
+        if (label_temp_f == NULL || label_temp_c == NULL)
             return;
 
         if (temp_f <= 0)
         {
             lv_label_set_text(label_temp_f, "---");
+            lv_label_set_text(label_temp_c, "---");
             return;
         }
 
@@ -287,23 +331,39 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
     if (evt == HPI_SCR_EVENT_DOWN)
     {
         printf("DOWN at %d\n", hpi_disp_get_curr_screen());
-
-        if ((hpi_disp_get_curr_screen() + 1) == SCR_LIST_END)
+        
+        int curr_screen = hpi_disp_get_curr_screen();
+        
+        // Handle special screens (SCR_HOME, SCR_SPLASH) - wrap to first list screen
+        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        {
+            printk("From special screen to first list screen\n");
+            hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
+        }
+        else if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen() + 1);
-            hpi_load_screen(hpi_disp_get_curr_screen() + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", curr_screen + 1);
+            hpi_load_screen(curr_screen + 1, SCROLL_LEFT);
         }
     }
     else if (evt == HPI_SCR_EVENT_UP)
     {
         printf("UP at %d\n", hpi_disp_get_curr_screen());
-
-        if ((hpi_disp_get_curr_screen() - 1) == SCR_LIST_START)
+        
+        int curr_screen = hpi_disp_get_curr_screen();
+        
+        // Handle special screens (SCR_HOME, SCR_SPLASH) - wrap to last list screen
+        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        {
+            printk("From special screen to last list screen\n");
+            hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
+        }
+        else if ((curr_screen - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
@@ -311,8 +371,8 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen() - 1);
-            hpi_load_screen(hpi_disp_get_curr_screen() - 1, SCROLL_RIGHT);
+            printk("Loading screen %d\n", curr_screen - 1);
+            hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -395,6 +455,9 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
 
 void draw_scr_home_footer(lv_obj_t *parent)
 {
+    // NOTE: Do NOT clear labels to NULL here - causes race condition with periodic updates
+    // Labels will be overwritten when created below
+
     /*static lv_style_t style;
     lv_style_init(&style);
     lv_style_set_bg_color(&style, lv_color_black());
@@ -405,38 +468,38 @@ void draw_scr_home_footer(lv_obj_t *parent)
 
         /*Create a container with ROW flex direction*/
     lv_obj_t *cont_row = lv_obj_create(parent);
-    lv_obj_set_size(cont_row, 480, 78);
-    lv_obj_set_pos(cont_row,10,225);
+    lv_obj_set_size(cont_row, 480, 95);
+    lv_obj_set_pos(cont_row, 0, 225);
     lv_obj_set_flex_flow(cont_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_style_bg_color(cont_row, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_pad_all(cont_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(cont_row, 2, LV_PART_MAIN);
     lv_obj_set_style_border_width(cont_row, 0, LV_PART_MAIN);
     lv_obj_set_style_border_color(cont_row, lv_color_black(), LV_PART_MAIN);
 
     lv_obj_t *obj_hr_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
-    lv_obj_set_size(obj_hr_card, 100, LV_PCT(100));
+    lv_obj_set_size(obj_hr_card, 115, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_hr_card, lv_palette_darken(LV_PALETTE_ORANGE, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_hr_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(obj_hr_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_spo2_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
-    lv_obj_set_size(obj_spo2_card, 100, LV_PCT(100));
+    lv_obj_set_size(obj_spo2_card, 115, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_spo2_card, lv_palette_darken(LV_PALETTE_BLUE, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_spo2_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(obj_spo2_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_rr_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
-    lv_obj_set_size(obj_rr_card, 110, LV_PCT(100));
+    lv_obj_set_size(obj_rr_card, 115, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_rr_card, lv_palette_darken(LV_PALETTE_GREEN, 4), LV_PART_MAIN);
     lv_obj_clear_flag(obj_rr_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(obj_rr_card, 0, LV_PART_MAIN);
 
     lv_obj_t *obj_temp_card = lv_obj_create(cont_row);
     // lv_obj_add_style(obj_hr_card, &style, 0);
-    lv_obj_set_size(obj_temp_card,120, LV_PCT(100));
+    lv_obj_set_size(obj_temp_card, 125, LV_PCT(100));
     lv_obj_set_style_bg_color(obj_temp_card, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
     lv_obj_clear_flag(obj_temp_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(obj_temp_card, 0, LV_PART_MAIN);
@@ -563,23 +626,29 @@ void down_key_event_handler()
 
 void hpi_load_screen(int m_screen, enum scroll_dir m_scroll_dir)
 {
-    switch (m_screen)
-    {
-    case SCR_ECG:
-        draw_scr_ecg(SCROLL_DOWN);
-        break;
-    case SCR_RESP:
-        draw_scr_resp(SCROLL_DOWN);
-        break;
-    case SCR_PPG:
-        draw_scr_ppg(SCROLL_DOWN);
-        break;
-    case SCR_HOME:
-        draw_scr_home(SCROLL_DOWN);
-        break;
+    // Async screen change pattern - signal request, don't execute directly
+    // Allow both the paged screens (between SCR_LIST_START and SCR_LIST_END)
+    // as well as special screens like SCR_SPLASH and SCR_HOME which live
+    // outside that contiguous range.
+    bool is_valid = (m_screen >= SCR_LIST_START && m_screen < SCR_LIST_END) ||
+                    (m_screen == SCR_HOME) ||
+                    (m_screen == SCR_SPLASH);
 
-    default:
-        break;
+    if (is_valid)
+    {
+        LOG_DBG("Requesting screen change to %d", m_screen);
+        g_screen = m_screen;
+        g_scroll_dir = m_scroll_dir;
+        g_arg1 = 0;
+        g_arg2 = 0;
+        g_arg3 = 0;
+        g_arg4 = 0;
+
+        k_sem_give(&sem_change_screen);
+    }
+    else
+    {
+        LOG_ERR("Invalid screen ID: %d", m_screen);
     }
 }
 
@@ -591,8 +660,16 @@ void disp_screen_event(lv_event_t *e)
     {
         lv_indev_wait_release(lv_indev_get_act());
         printf("Left at %d\n", hpi_disp_get_curr_screen());
-
-        if ((hpi_disp_get_curr_screen() + 1) == SCR_LIST_END)
+        
+        int curr_screen = hpi_disp_get_curr_screen();
+        
+        // Handle special screens - wrap to first list screen
+        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        {
+            printk("From special screen to first list screen\n");
+            hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
+        }
+        else if ((curr_screen + 1) == SCR_LIST_END)
         {
             printk("End of list\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
@@ -600,8 +677,8 @@ void disp_screen_event(lv_event_t *e)
         }
         else
         {
-            printk("Loading screen %d\n", hpi_disp_get_curr_screen() + 1);
-            hpi_load_screen(hpi_disp_get_curr_screen() + 1, SCROLL_LEFT);
+            printk("Loading screen %d\n", curr_screen + 1);
+            hpi_load_screen(curr_screen + 1, SCROLL_LEFT);
         }
     }
 
@@ -609,17 +686,26 @@ void disp_screen_event(lv_event_t *e)
     {
         lv_indev_wait_release(lv_indev_get_act());
         printf("Right at %d\n", hpi_disp_get_curr_screen());
-        if ((hpi_disp_get_curr_screen() - 1) == SCR_LIST_START)
+        
+        int curr_screen = hpi_disp_get_curr_screen();
+        
+        // Handle special screens - wrap to last list screen
+        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        {
+            printk("From special screen to last list screen\n");
+            hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
+        }
+        else if ((curr_screen - 1) == SCR_LIST_START)
         {
             printk("Start of list\n");
-            hpi_load_screen(SCR_LIST_END, SCROLL_RIGHT);
+            /* Wrap to last valid list screen */
+            hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
             // return;
         }
         else
         {
-
             printk("Loading screen %d\n", curr_screen - 1);
-            hpi_load_screen(hpi_disp_get_curr_screen() - 1, SCROLL_RIGHT);
+            hpi_load_screen(curr_screen - 1, SCROLL_RIGHT);
         }
     }
 }
@@ -628,11 +714,19 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
 {
     lv_obj_add_event_cb(parent, disp_screen_event, LV_EVENT_GESTURE, NULL);
 
+    // Get reference to old screen before loading new one
+    lv_obj_t *old_screen = lv_scr_act();
+    
+    // Load new screen with auto-delete enabled
     if (m_scroll_dir == SCROLL_LEFT)
         lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
     else
         lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-    // lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_MOVE_RIGHT, SCREEN_TRANS_TIME, 0, true);
+    
+    // Explicitly clean up old screen if it still exists and isn't the default
+    if (old_screen != NULL && old_screen != parent && lv_obj_is_valid(old_screen)) {
+        lv_obj_del(old_screen);
+    }
 }
 
 void hpi_disp_update_batt_level(int batt_level)
@@ -666,6 +760,12 @@ void hpi_disp_update_batt_level(int batt_level)
     }
 }
 
+// Forward declarations for screen draw functions
+void draw_scr_home(enum scroll_dir m_scroll_dir);
+void draw_scr_ecg(enum scroll_dir m_scroll_dir);
+void draw_scr_ppg(enum scroll_dir m_scroll_dir);
+void draw_scr_resp(enum scroll_dir m_scroll_dir);
+
 void hpi_disp_set_curr_screen(int screen)
 {
     k_mutex_lock(&mutex_curr_screen, K_FOREVER);
@@ -680,6 +780,14 @@ int hpi_disp_get_curr_screen(void)
     k_mutex_unlock(&mutex_curr_screen);
     return screen;
 }
+
+// Function table mapping screen IDs to draw/gesture functions
+static const screen_func_table_entry_t screen_func_table[] = {
+    [SCR_ECG] = {draw_scr_ecg, NULL},
+    [SCR_PPG] = {draw_scr_ppg, NULL},
+    [SCR_RESP] = {draw_scr_resp, NULL},
+    [SCR_HOME] = {draw_scr_home, NULL},
+};
 
 void display_screens_thread(void)
 {
@@ -709,6 +817,9 @@ void display_screens_thread(void)
     display_blanking_off(display_dev);
 
     LOG_INF("Display screens inited");
+
+    // Initialize vital stats tracking module
+    vital_stats_init();
 
     // draw_scr_ecg(SCROLL_DOWN);
     // draw_scr_resp(SCROLL_DOWN);
@@ -748,20 +859,32 @@ void display_screens_thread(void)
             }
         }*/
 
-        if(k_msgq_get(&q_hpi_plot_all_sample, &sensor_all_data_point, K_NO_WAIT) == 0)
-        {
-            //LOG_DBG("All sens");
-            printk("PP ");
-            hpi_ppg_disp_draw_plot_ppg(sensor_all_data_point.ppg_sample_red, sensor_all_data_point.ppg_sample_ir, 0);
-            /*if (hpi_disp_get_curr_screen() == SCR_HOME)
-            {
-                hpi_scr_home_update_hr(sensor_all_data_point.hr);
-                hpi_scr_home_update_pr(sensor_all_data_point.pr);
-                hpi_scr_home_update_spo2(sensor_all_data_point.spo2);
-                hpi_scr_home_update_rr(sensor_all_data_point.rr);
-                hpi_scr_home_update_temp(sensor_all_data_point.temp_f, sensor_all_data_point.temp_c);
-                
-            }*/
+        // CRITICAL: Process lv_task_handler() FIRST to handle screen changes immediately
+        lv_task_handler();
+
+        /*
+         * REAL-TIME PLOTTING DISABLED
+         * RP2040 + SPI display cannot handle real-time waveform rendering at 128 Hz.
+         * Hardware limitations:
+         * - M0+ CPU @ 133 MHz (no GPU acceleration)
+         * - SPI display bandwidth ~10-20 MHz
+         * - LVGL software rendering takes ~50ms per chart update
+         * - Maximum achievable: ~20 Hz, Required: 128 Hz
+         * 
+         * For waveform viewing, use USB streaming to PC-based display.
+         * Display shows vital signs only (HR, SpO2, RR, Temp).
+         */
+        
+        // Drain plot queue ONLY when on plot screens to prevent overflow
+        // This ensures zero interference with USB/BLE streaming when on Home screen
+        if (hpi_disp_is_plot_screen_active()) {
+            struct hpi_sensor_data_point_t sensor_all_data_point;
+            for (int i = 0; i < 64; i++) {
+                if (k_msgq_get(&q_hpi_plot_all_sample, &sensor_all_data_point, K_NO_WAIT) != 0) {
+                    break;  // Queue empty
+                }
+                // Sample discarded - plotting disabled
+            }
         }
         
         /*
@@ -772,31 +895,124 @@ void display_screens_thread(void)
         }
         */
 
-        
-        /*
-        if (k_uptime_get_32() - last_temp_refresh > HPI_DISP_TEMP_REFR_INT)
+        // Process async screen change requests FIRST (from healthypi-move-fw pattern)
+        // CRITICAL: Must be before periodic updates to prevent use-after-free
+        if (k_sem_take(&sem_change_screen, K_NO_WAIT) == 0)
         {
-            hpi_disp_update_temp(m_disp_temp_f, m_disp_temp_c);
-            last_temp_refresh = k_uptime_get_32();
+            LOG_DBG("Processing screen change request: %d", g_screen);
+            
+            // Log LVGL memory status before screen change
+            lv_mem_monitor_t mem_mon;
+            lv_mem_monitor(&mem_mon);
+            LOG_DBG("LVGL Memory before change: %d%% used, %u bytes free", 
+                    mem_mon.used_pct, mem_mon.free_size);
+            
+            screen_transitioning = true;  // Block periodic updates during transition
+            
+            // Invalidate ALL label pointers IMMEDIATELY before screen destruction
+            // This prevents ANY updates during screen transition/destruction
+            // Header labels (recreated by draw_header)
+            label_batt_level = NULL;
+            label_batt_level_val = NULL;
+            
+            // Footer labels (recreated by draw_scr_home_footer on waveform screens)
+            label_hr = NULL;
+            label_spo2 = NULL;
+            label_rr = NULL;
+            label_temp_f = NULL;
+            label_temp_c = NULL;
+            label_pr = NULL;
+            
+            // Home screen labels (recreated by draw_scr_home)
+            g_label_home_hr = NULL;
+            g_label_home_spo2 = NULL;
+            g_label_home_rr = NULL;
+            g_label_home_temp_f = NULL;
+            g_label_home_temp_c = NULL;
+            
+            bool valid_change = (g_screen >= SCR_LIST_START && g_screen < SCR_LIST_END) ||
+                                (g_screen == SCR_HOME) ||
+                                (g_screen == SCR_SPLASH);
+
+            if (g_screen == SCR_SPLASH)
+            {
+                /* Special-case splash/welcome screen */
+                draw_scr_welcome();
+            }
+            else if (valid_change && screen_func_table[g_screen].draw)
+            {
+                screen_func_table[g_screen].draw(g_scroll_dir);
+                
+                // Force LVGL to process all pending operations (layouts, animations)
+                // This ensures the screen is fully rendered before resuming updates
+                lv_task_handler();
+                
+                // Small safety margin to ensure screen fully initialized
+                // Prevents race condition where label pointers are set but objects not committed
+                k_msleep(10);
+                
+                // Log memory after screen change
+                lv_mem_monitor(&mem_mon);
+                LOG_DBG("LVGL Memory after change: %d%% used, %u bytes free", 
+                        mem_mon.used_pct, mem_mon.free_size);
+                
+                screen_transitioning = false;  // Re-enable periodic updates
+                
+                // Skip periodic updates this iteration - let new screen settle
+                // This prevents trying to update labels that were just created
+                continue;
+            }
+            else
+            {
+                LOG_ERR("Invalid screen in change request: %d", g_screen);
+                screen_transitioning = false;
+            }
         }
 
-        /*
-        if (k_uptime_get_32() - last_hr_refresh > HPI_DISP_HR_REFR_INT)
+        // Periodic vital signs updates (only when not transitioning screens)
+        if (!screen_transitioning)
         {
-            hpi_scr_update_hr(m_disp_hr);
-            last_hr_refresh = k_uptime_get_32();
-        }
+            if (k_uptime_get_32() - last_temp_refresh > HPI_DISP_TEMP_REFR_INT)
+            {
+                hpi_disp_update_temp(m_disp_temp_f, m_disp_temp_c);
+                last_temp_refresh = k_uptime_get_32();
+            }
 
-        if (k_uptime_get_32() - last_spo2_refresh > HPI_DISP_SPO2_REFR_INT)
-        {
-            hpi_scr_update_spo2(m_disp_spo2);
-            last_spo2_refresh = k_uptime_get_32();
-        }*/
+            if (k_uptime_get_32() - last_hr_refresh > HPI_DISP_HR_REFR_INT)
+            {
+                hpi_scr_update_hr(m_disp_hr);
+                last_hr_refresh = k_uptime_get_32();
+                
+                // Update detail screens when active
+                int curr = hpi_disp_get_curr_screen();
+                if (curr == SCR_ECG) {
+                    hpi_scr_ecg_update();
+                }
+            }
 
-        if (k_uptime_get_32() - last_rr_refresh > HPI_DISP_RR_REFR_INT)
-        {
-            hpi_scr_update_rr(m_disp_rr);
-            last_rr_refresh = k_uptime_get_32();
+            if (k_uptime_get_32() - last_spo2_refresh > HPI_DISP_SPO2_REFR_INT)
+            {
+                hpi_scr_update_spo2(m_disp_spo2);
+                last_spo2_refresh = k_uptime_get_32();
+                
+                // Update detail screens when active
+                int curr = hpi_disp_get_curr_screen();
+                if (curr == SCR_PPG) {
+                    hpi_scr_ppg_update();
+                }
+            }
+
+            if (k_uptime_get_32() - last_rr_refresh > HPI_DISP_RR_REFR_INT)
+            {
+                hpi_scr_update_rr(m_disp_rr);
+                last_rr_refresh = k_uptime_get_32();
+                
+                // Update detail screens when active
+                int curr = hpi_disp_get_curr_screen();
+                if (curr == SCR_RESP) {
+                    hpi_scr_resp_update();
+                }
+            }
         }
 
         // Check for key presses
@@ -810,18 +1026,10 @@ void display_screens_thread(void)
             hpi_disp_change_event(HPI_SCR_EVENT_UP);
         }
 
-        lv_task_handler();
+        // lv_task_handler() now called at TOP of loop for better responsiveness
 
-        if (m_op_mode == OP_MODE_BASIC)
-        {
-            //k_sleep(K_MSEC(100));
-        }
-        else
-        {
-            //k_sleep(K_MSEC(30));
-        }
-        //k_msleep(30);
-        k_sleep(K_MSEC(100));
+        // Sleep for responsiveness without wasting CPU (plotting disabled)
+        k_sleep(K_MSEC(20));  // Moderate sleep - responsive to button presses and vital sign updates
 
     }
 }
@@ -840,6 +1048,9 @@ static void disp_hr_listener(const struct zbus_channel *chan)
 {
     const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
     m_disp_hr = hpi_hr->hr;
+    
+    // Update vital stats history
+    vital_stats_update_hr(hpi_hr->hr);
 }
 ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
 
@@ -848,6 +1059,9 @@ static void disp_temp_listener(const struct zbus_channel *chan)
     const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
     m_disp_temp_f = hpi_temp->temp_f;
     m_disp_temp_c = hpi_temp->temp_c;
+    
+    // Update vital stats history
+    vital_stats_update_temp((float)hpi_temp->temp_f);
 }
 ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
 
@@ -855,6 +1069,9 @@ static void disp_spo2_listener(const struct zbus_channel *chan)
 {
     const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
     m_disp_spo2 = hpi_spo2->spo2;
+    
+    // Update vital stats history
+    vital_stats_update_spo2(hpi_spo2->spo2);
     // hpi_scr_update_spo2(hpi_spo2->spo2);
 }
 ZBUS_LISTENER_DEFINE(disp_spo2_lis, disp_spo2_listener);
@@ -863,6 +1080,9 @@ static void disp_resp_rate_listener(const struct zbus_channel *chan)
 {
     const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
     m_disp_rr = hpi_resp_rate->resp_rate;
+    
+    // Update vital stats history
+    vital_stats_update_rr((uint8_t)hpi_resp_rate->resp_rate);
     // hpi_scr_update_rr(hpi_resp_rate->resp_rate);
 }
 ZBUS_LISTENER_DEFINE(disp_resp_rate_lis, disp_resp_rate_listener);

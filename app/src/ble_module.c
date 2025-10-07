@@ -279,7 +279,14 @@ void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(ecg_data[i] >> 24);
 	}
 
-	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
+	// Check return value to prevent blocking data thread
+	// Returns -ENOMEM if BLE buffers full - drop packet instead of blocking
+	int ret = bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
+	
+	if (ret < 0 && ret != -ENOTCONN) {
+		// BLE stack busy - packet dropped (prevents data thread stall)
+		// Better to drop occasional packet than stall entire stream
+	}
 }
 
 void ble_bioz_notify(int32_t *resp_data, uint8_t len)
@@ -294,7 +301,13 @@ void ble_bioz_notify(int32_t *resp_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(resp_data[i] >> 24);
 	}
 
-	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
+	// Check return value to prevent blocking data thread
+	// Returns -ENOMEM if BLE buffers full - drop packet instead of blocking
+	int ret = bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
+	
+	if (ret < 0 && ret != -ENOTCONN) {
+		// BLE stack busy - packet dropped (prevents data thread stall)
+	}
 }
 
 void ble_ppg_notify(int16_t ppg_data)

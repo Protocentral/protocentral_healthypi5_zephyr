@@ -378,7 +378,8 @@ void hw_thread(void)
             .batt_level = (uint8_t) hpi_hw_read_batt(),
             .batt_charging = 0,
         };
-        zbus_chan_pub(&batt_chan, &batt_s, K_SECONDS(1));
+        // Use K_NO_WAIT to prevent blocking threads
+        zbus_chan_pub(&batt_chan, &batt_s, K_NO_WAIT);
 
         // Read and publish temperature
         hpi_hw_read_temp(&m_temp_f, &m_temp_c);
@@ -386,7 +387,8 @@ void hw_thread(void)
             .temp_f = m_temp_f,
             .temp_c = m_temp_c,
         };
-        zbus_chan_pub(&temp_chan, &temp, K_SECONDS(1));
+        // Use K_NO_WAIT to prevent blocking threads
+        zbus_chan_pub(&temp_chan, &temp, K_NO_WAIT);
 
         gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));

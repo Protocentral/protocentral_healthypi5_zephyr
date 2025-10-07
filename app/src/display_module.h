@@ -45,9 +45,9 @@ enum hpi_disp_op_mode
 
 #define SAMPLE_RATE 128
 
-#define ECG_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
-#define RESP_DISP_WINDOW_SIZE 512 // SAMPLE_RATE * 4
-#define PPG_DISP_WINDOW_SIZE 128 // SAMPLE_RATE * 4
+#define ECG_DISP_WINDOW_SIZE 256 // ~2 seconds at 128 Hz sample rate (optimized for performance)
+#define RESP_DISP_WINDOW_SIZE 256 // ~2 seconds at 128 Hz sample rate
+#define PPG_DISP_WINDOW_SIZE 100 // ~1 second at 100 Hz sample rate
 
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
@@ -60,14 +60,17 @@ void hpi_scr_home_update_temp(float temp_f, float temp_c);
 void hpi_scr_home_update_hr(int hr);
 
 int hpi_disp_get_op_mode();
+bool hpi_disp_is_plot_screen_active(void);
 
 // ECG Screen functions
 void draw_scr_ecg(enum scroll_dir m_scroll_dir);
 void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
+void hpi_scr_ecg_update(void);
 
 // Resp Screen functions
 void draw_scr_resp(enum scroll_dir m_scroll_dir);
 void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
+void hpi_scr_resp_update(void);
 
 // Display helper functions
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
@@ -85,6 +88,7 @@ int hpi_disp_get_curr_screen(void);
 // PPG Screen functions
 void draw_scr_ppg(enum scroll_dir m_scroll_dir);
 void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool ppg_lead_off);
+void hpi_scr_ppg_update(void);
 void hpi_scr_update_pr(int pr);
 
 //void draw_scr_chart_resp(void);

@@ -21,6 +21,9 @@ FILE(GLOB display_sources src/display/*.c src/images/*.c src/ui/*.c src/ui/scree
 
 target_sources(app PRIVATE ${app_sources} ${display_sources})
 
+# Add vital stats module
+target_sources(app PRIVATE src/vital_stats.c)
+
 # Add display module only if enabled
 #target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE ${display_sources})
 

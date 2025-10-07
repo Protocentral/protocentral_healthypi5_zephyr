@@ -76,7 +76,7 @@ const char DataPacketHeader[5] = {CES_CMDIF_PKT_START_1, CES_CMDIF_PKT_START_2, 
 uint8_t hpi_ov3_ecg_bioz_data[HPI_OV3_DATA_ECG_BIOZ_LEN];
 uint8_t hpi_ov3_ppg_data[HPI_OV3_DATA_PPG_LEN];
 
-// #ifdef CONFIG_HEALTHYPI_OP_MODE_DISPLAY
+// NOTE: OP mode is now selected at runtime via m_op_mode; compile-time flag removed
 /*static bool settings_send_usb_enabled = false;
 static bool settings_send_ble_enabled = false;
 static bool settings_plot_enabled = true;
@@ -529,28 +529,19 @@ void data_thread(void)
     int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
 
     uint32_t spo2_time_count = 0;
+    
+    // Initialize buffers
+    bufferLength = BUFFER_SIZE;
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+        irBuffer[i] = 0;
+        redBuffer[i] = 0;
+    }
 
     /* Initialize the FIR filter */
     arm_fir_init_f32(&sFIR, NUM_TAPS, firCoeffs, firState, BLOCK_SIZE);
 
-    int32_t init_buffer_count = 0;
-
-    bufferLength = BUFFER_SIZE;
-
-    // Initialize red and IR buffers with first 100 samples
-    /*while (init_buffer_count < BUFFER_SIZE)
-    {
-        if (k_msgq_get(&q_ppg_sample, &ppg_sensor_sample, K_FOREVER) == 0)
-        {
-
-            irBuffer[init_buffer_count] = ppg_sensor_sample.ppg_ir_sample;
-            redBuffer[init_buffer_count] = ppg_sensor_sample.ppg_red_sample;
-            init_buffer_count++;
-        }
-    }*/
-
+// BLE buffer size: 8 samples = 62ms at 128 Hz (matches typical BLE connection intervals)
 #define BLE_ECG_BUFFER_SIZE 8
-#define BLE_ECG_BUFFER_SIZE 4
 
 #define RESP_FILT_BUFFER_SIZE 4
 
@@ -568,8 +559,48 @@ void data_thread(void)
 
     for (;;)
     {
-        if (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
+        // Process ALL available samples before sleeping (critical for performance)
+        int samples_processed = 0;
+        
+        while (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
+            samples_processed++;
+            
+            // Buffer PPG data for SPO2/HR calculation
+            if (spo2_time_count < FreqS)
+            {
+                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = hpi_sensor_data_point.ppg_sample_ir;
+                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = hpi_sensor_data_point.ppg_sample_red;
+                spo2_time_count++;
+            }
+            else
+            {
+                // Buffer is full, calculate SPO2 and HR
+                spo2_time_count = 0;
+                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
+                
+                if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100)
+                {
+                    spo2_serial = m_spo2;
+                    struct hpi_spo2_t spo2_chan_value = {.spo2 = m_spo2};
+                    zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_NO_WAIT);
+                }
+                
+                if (validHeartRate && m_hr > 30 && m_hr < 220)
+                {
+                    hr_serial = m_hr;
+                    struct hpi_hr_t hr_chan_value = {.hr = m_hr};
+                    zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                }
+                
+                // Shift buffer for next calculation
+                for (int i = FreqS; i < BUFFER_SIZE; i++)
+                {
+                    redBuffer[i - FreqS] = redBuffer[i];
+                    irBuffer[i - FreqS] = irBuffer[i];
+                }
+            }
+            
             if (resp_filt_buffer_count < RESP_FILT_BUFFER_SIZE)
             {
                 resp_i16_buf[resp_filt_buffer_count++] = (int16_t)(hpi_sensor_data_point.bioz_sample >> 4);
@@ -582,7 +613,8 @@ void data_thread(void)
 
                 struct hpi_resp_rate_t resp_rate_chan_value = {
                     .resp_rate = m_resp_rate};
-                zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_SECONDS(1));
+                // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
+                zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
 
                 resp_filt_buffer_count = 0;
             }
@@ -629,17 +661,19 @@ void data_thread(void)
             }
             else if (m_stream_mode == HPI_STREAM_MODE_PLOT)
             {
-#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-                if (settings_plot_enabled)
-                {
-                    if (hpi_disp_get_op_mode() == OP_MODE_DISPLAY)
-                    {
-
-                        k_msgq_put(&q_hpi_plot_all_sample, &hpi_sensor_data_point, K_NO_WAIT);
-                    }
-                }
-#endif
+                // Plot mode - no USB/BLE streaming, only display plotting
+                // Plot data is handled below by automatic screen detection
             }
+
+            // Automatic plot updates: Always send to plot queue when display enabled 
+            // and on a waveform screen, regardless of streaming mode (USB/BLE/Plot)
+            // This implements Phase 3 Option A: plots auto-pause/resume based on screen
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+            if (settings_plot_enabled && hpi_disp_is_plot_screen_active())
+            {
+                k_msgq_put(&q_hpi_plot_all_sample, &hpi_sensor_data_point, K_NO_WAIT);
+            }
+#endif
         }
 
         if (k_sem_take(&sem_ble_connected, K_NO_WAIT) == 0)
@@ -652,11 +686,17 @@ void data_thread(void)
             hpi_data_set_stream_mode(HPI_STREAM_MODE_USB);
         }
 
-        k_sleep(K_MSEC(1));
+        // Only sleep if no samples were processed (queue was empty)
+        // This ensures we process samples as fast as they arrive
+        if (samples_processed == 0) {
+            k_sleep(K_USEC(500));  // 500us sleep when idle (was 1ms)
+        } else {
+            k_yield();  // Just yield to other threads, don't sleep
+        }
     }
 }
 
 #define DATA_THREAD_STACKSIZE 6144
-#define DATA_THREAD_PRIORITY 7
+#define DATA_THREAD_PRIORITY 6
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 0);

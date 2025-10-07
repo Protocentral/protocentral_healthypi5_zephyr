@@ -1,0 +1,1 @@
+west build -p auto -b healthypi5 app -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'
