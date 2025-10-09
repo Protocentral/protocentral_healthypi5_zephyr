@@ -87,7 +87,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_t *icon_hr = lv_label_create(obj_hr_card);
     lv_label_set_text(icon_hr, "♥");  // Heart symbol
     lv_obj_align(icon_hr, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_set_style_text_font(icon_hr, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_add_style(icon_hr, &style_text_20, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(icon_hr, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
 
     // HR Title
@@ -112,7 +112,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_t *icon_spo2 = lv_label_create(obj_spo2_card);
     lv_label_set_text(icon_spo2, "O2");
     lv_obj_align(icon_spo2, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_set_style_text_font(icon_spo2, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_add_style(icon_spo2, &style_text_20, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(icon_spo2, lv_palette_main(LV_PALETTE_BLUE), LV_STATE_DEFAULT);
 
     // SpO2 Title
@@ -137,7 +137,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_t *icon_rr = lv_label_create(obj_rr_card);
     lv_label_set_text(icon_rr, LV_SYMBOL_LOOP);
     lv_obj_align(icon_rr, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_set_style_text_font(icon_rr, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_add_style(icon_rr, &style_text_20, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(icon_rr, lv_palette_main(LV_PALETTE_GREEN), LV_STATE_DEFAULT);
 
     // RR Title
@@ -162,7 +162,7 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_t *icon_temp = lv_label_create(obj_temp_card);
     lv_label_set_text(icon_temp, "T°");
     lv_obj_align(icon_temp, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_set_style_text_font(icon_temp, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_add_style(icon_temp, &style_text_20, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(icon_temp, lv_palette_main(LV_PALETTE_RED), LV_STATE_DEFAULT);
 
     // Temp Title
@@ -218,10 +218,16 @@ void hpi_scr_home_update_temp(float temp_f, float temp_c)
         return;
     }
 
+    // Manual float formatting (no FP printf support)
     char buf[16];
-    sprintf(buf, "%.1f", temp_f);
+    int temp_f_int = (int)temp_f;
+    int temp_f_dec = (int)((temp_f - temp_f_int) * 10);
+    sprintf(buf, "%d.%d", temp_f_int, temp_f_dec);
     lv_label_set_text(g_label_home_temp_f, buf);
-    sprintf(buf, "%.1f", temp_c);
+    
+    int temp_c_int = (int)temp_c;
+    int temp_c_dec = (int)((temp_c - temp_c_int) * 10);
+    sprintf(buf, "%d.%d", temp_c_int, temp_c_dec);
     lv_label_set_text(g_label_home_temp_c, buf);
 }
 

@@ -46,6 +46,10 @@ SD Card Driver          | Completed | :white_check_mark:    |
 USB CDC Driver          | Completed | :white_check_mark: |
 Data Logging module     | Completed |  :white_check_mark: |
 RP2040 <> ESP32C3 communication | Completed | :white_check_mark: |
+**Vital Statistics Tracking** | **Completed** | :white_check_mark: |
+**SpO2/HR Algorithm**   | **Completed** | :white_check_mark: |
+**Detail Screens (HR)** | **Completed** | :white_check_mark: |
+**RAM Optimization**    | **Completed** | :white_check_mark: |
 USB MSC Driver          | In Progress     | :hourglass: |
 OTA updates             | In Progress     | :hourglass: |
 
@@ -60,11 +64,29 @@ west init -m https://github.com/protocentral/healthypi5_zephyr --mr main hpi5-wo
 cd hpi5-workspace
 west update
 ```
+#### Standard Build (Recommended)
+Use the provided build scripts for display-specific configurations:
 
-You can then build the firmware by running the following commands.
+```bash
+# For ILI9488 display variant
+./make_ili9488.sh
 
+# For ST7796 display variant  
+./make_st7796.sh
+
+# Clean build
+./clean.sh
 ```
-west build -b healthypi5_rp2040 healthypi5_zephyr/app
+
+#### Manual Build Commands
+```bash
+# ILI9488 Display
+west build -b healthypi5 app -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'
+
+# ST7796 Display
+west build -b healthypi5 app -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'
+
+# Flash to device
 west flash
 ```
 

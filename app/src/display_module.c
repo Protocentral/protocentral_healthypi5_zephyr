@@ -59,13 +59,20 @@ lv_style_t style_header_red;
 lv_style_t style_header_green;
 lv_style_t style_scr_back;
 
-
 lv_style_t style_batt_sym;
 
 lv_style_t style_h1;
 lv_style_t style_h2;
 lv_style_t style_info;
 lv_style_t style_icon;
+
+// Font styles for detail screens
+lv_style_t style_text_14;     // montserrat_14 - chart titles, stats, small text
+lv_style_t style_text_16;     // montserrat_16 - units, regular text
+lv_style_t style_text_20;     // montserrat_20 - medium values
+lv_style_t style_text_24;     // montserrat_24 - icons
+lv_style_t style_text_28;     // montserrat_28 - large values
+lv_style_t style_text_42;     // montserrat_42 - extra large values
 
 // static lv_obj_t *roller_session_select;
 // static lv_obj_t *label_current_mode;
@@ -80,15 +87,15 @@ static int last_batt_refresh = 0;
 uint16_t m_disp_hr = 0;  // Non-static - accessed by detail screens
 static int last_hr_refresh = 0;
 
-static float m_disp_temp_f = 0;
-static float m_disp_temp_c = 0;
+float m_disp_temp_f = 0;  // Non-static - accessed by detail screens
+float m_disp_temp_c = 0;  // Non-static - accessed by detail screens
 
 static int last_temp_refresh = 0;
 
-static uint8_t m_disp_spo2 = 0;
+uint8_t m_disp_spo2 = 0;  // Non-static - accessed by detail screens
 static int last_spo2_refresh = 0;
 
-static uint8_t m_disp_rr = 0;
+uint8_t m_disp_rr = 0;  // Non-static - accessed by detail screens
 static int last_rr_refresh = 0;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 4);
@@ -112,7 +119,7 @@ K_SEM_DEFINE(sem_change_screen, 0, 1);
 static bool screen_transitioning = false;
 
 bool display_inited = false;
-static uint8_t curr_screen = SCR_ECG;
+static uint8_t curr_screen = SCR_HR;
 
 // Function table types for screen management
 typedef void (*screen_draw_func_t)(enum scroll_dir);
@@ -160,7 +167,7 @@ int hpi_disp_get_op_mode()
 bool hpi_disp_is_plot_screen_active(void)
 {
     int screen = hpi_disp_get_curr_screen();
-    return (screen == SCR_ECG || screen == SCR_PPG || screen == SCR_RESP);
+    return false;  // No plot screens anymore, only detail screens with charts
 }
 
 void display_init_styles()
@@ -209,6 +216,31 @@ void display_init_styles()
     lv_style_init(&style_info);
     lv_style_set_text_color(&style_info, lv_color_white());
     lv_style_set_text_font(&style_info, &lv_font_montserrat_16);
+
+    // Font styles for detail screens - neutral white color
+    lv_style_init(&style_text_14);
+    lv_style_set_text_color(&style_text_14, lv_color_white());
+    lv_style_set_text_font(&style_text_14, &lv_font_montserrat_14);
+
+    lv_style_init(&style_text_16);
+    lv_style_set_text_color(&style_text_16, lv_color_white());
+    lv_style_set_text_font(&style_text_16, &lv_font_montserrat_16);
+
+    lv_style_init(&style_text_20);
+    lv_style_set_text_color(&style_text_20, lv_color_white());
+    lv_style_set_text_font(&style_text_20, &lv_font_montserrat_20);
+
+    lv_style_init(&style_text_24);
+    lv_style_set_text_color(&style_text_24, lv_color_white());
+    lv_style_set_text_font(&style_text_24, &lv_font_montserrat_24);
+
+    lv_style_init(&style_text_28);
+    lv_style_set_text_color(&style_text_28, lv_color_white());
+    lv_style_set_text_font(&style_text_28, &lv_font_montserrat_28);
+
+    lv_style_init(&style_text_42);
+    lv_style_set_text_color(&style_text_42, lv_color_white());
+    lv_style_set_text_font(&style_text_42, &lv_font_montserrat_42);
 
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
@@ -334,15 +366,15 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         
         int curr_screen = hpi_disp_get_curr_screen();
         
-        // Handle special screens (SCR_HOME, SCR_SPLASH) - wrap to first list screen
-        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        // Handle special splash screen - wrap to first list screen
+        if (curr_screen == SCR_SPLASH)
         {
-            printk("From special screen to first list screen\n");
+            printk("From splash screen to first list screen\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else if ((curr_screen + 1) == SCR_LIST_END)
         {
-            printk("End of list\n");
+            printk("End of list, wrap to beginning\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else
@@ -357,17 +389,16 @@ void hpi_disp_change_event(enum hpi_scr_event evt)
         
         int curr_screen = hpi_disp_get_curr_screen();
         
-        // Handle special screens (SCR_HOME, SCR_SPLASH) - wrap to last list screen
-        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        // Handle special splash screen - wrap to last list screen
+        if (curr_screen == SCR_SPLASH)
         {
-            printk("From special screen to last list screen\n");
+            printk("From splash screen to last list screen\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
         }
         else if ((curr_screen - 1) == SCR_LIST_START)
         {
-            printk("Start of list\n");
+            printk("Start of list, wrap to end\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
-            // return;
         }
         else
         {
@@ -663,17 +694,16 @@ void disp_screen_event(lv_event_t *e)
         
         int curr_screen = hpi_disp_get_curr_screen();
         
-        // Handle special screens - wrap to first list screen
-        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        // Handle special splash screen - wrap to first list screen
+        if (curr_screen == SCR_SPLASH)
         {
-            printk("From special screen to first list screen\n");
+            printk("From splash screen to first list screen\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
         }
         else if ((curr_screen + 1) == SCR_LIST_END)
         {
-            printk("End of list\n");
+            printk("End of list, wrap to beginning\n");
             hpi_load_screen(SCR_LIST_START + 1, SCROLL_LEFT);
-            // return;
         }
         else
         {
@@ -689,18 +719,17 @@ void disp_screen_event(lv_event_t *e)
         
         int curr_screen = hpi_disp_get_curr_screen();
         
-        // Handle special screens - wrap to last list screen
-        if (curr_screen == SCR_HOME || curr_screen == SCR_SPLASH)
+        // Handle special splash screen - wrap to last list screen
+        if (curr_screen == SCR_SPLASH)
         {
-            printk("From special screen to last list screen\n");
+            printk("From splash screen to last list screen\n");
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
         }
         else if ((curr_screen - 1) == SCR_LIST_START)
         {
-            printk("Start of list\n");
+            printk("Start of list, wrap to end\n");
             /* Wrap to last valid list screen */
             hpi_load_screen(SCR_LIST_END - 1, SCROLL_RIGHT);
-            // return;
         }
         else
         {
@@ -762,9 +791,11 @@ void hpi_disp_update_batt_level(int batt_level)
 
 // Forward declarations for screen draw functions
 void draw_scr_home(enum scroll_dir m_scroll_dir);
-void draw_scr_ecg(enum scroll_dir m_scroll_dir);
-void draw_scr_ppg(enum scroll_dir m_scroll_dir);
-void draw_scr_resp(enum scroll_dir m_scroll_dir);
+void draw_scr_all_trends(enum scroll_dir m_scroll_dir);
+void draw_scr_hr(enum scroll_dir m_scroll_dir);
+void draw_scr_spo2(enum scroll_dir m_scroll_dir);
+void draw_scr_rr(enum scroll_dir m_scroll_dir);
+void draw_scr_temp(enum scroll_dir m_scroll_dir);
 
 void hpi_disp_set_curr_screen(int screen)
 {
@@ -783,10 +814,12 @@ int hpi_disp_get_curr_screen(void)
 
 // Function table mapping screen IDs to draw/gesture functions
 static const screen_func_table_entry_t screen_func_table[] = {
-    [SCR_ECG] = {draw_scr_ecg, NULL},
-    [SCR_PPG] = {draw_scr_ppg, NULL},
-    [SCR_RESP] = {draw_scr_resp, NULL},
     [SCR_HOME] = {draw_scr_home, NULL},
+    [SCR_ALL_TRENDS] = {draw_scr_all_trends, NULL},
+    [SCR_HR] = {draw_scr_hr, NULL},
+    [SCR_SPO2] = {draw_scr_spo2, NULL},
+    [SCR_RR] = {draw_scr_rr, NULL},
+    [SCR_TEMP] = {draw_scr_temp, NULL},
 };
 
 void display_screens_thread(void)
@@ -832,7 +865,7 @@ void display_screens_thread(void)
     }
     else
     {
-        hpi_load_screen(SCR_PPG, SCROLL_DOWN);
+        hpi_load_screen(SCR_HR, SCROLL_DOWN);  // Load HR detail screen in display mode
         //draw_scr_welcome();
     }
 
@@ -976,6 +1009,14 @@ void display_screens_thread(void)
             {
                 hpi_disp_update_temp(m_disp_temp_f, m_disp_temp_c);
                 last_temp_refresh = k_uptime_get_32();
+                
+                // Update detail screens when active
+                int curr = hpi_disp_get_curr_screen();
+                if (curr == SCR_TEMP) {
+                    update_scr_temp();
+                } else if (curr == SCR_ALL_TRENDS) {
+                    update_scr_all_trends();
+                }
             }
 
             if (k_uptime_get_32() - last_hr_refresh > HPI_DISP_HR_REFR_INT)
@@ -985,8 +1026,10 @@ void display_screens_thread(void)
                 
                 // Update detail screens when active
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_ECG) {
-                    hpi_scr_ecg_update();
+                if (curr == SCR_HR) {
+                    update_scr_hr();
+                } else if (curr == SCR_ALL_TRENDS) {
+                    update_scr_all_trends();
                 }
             }
 
@@ -997,8 +1040,10 @@ void display_screens_thread(void)
                 
                 // Update detail screens when active
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_PPG) {
-                    hpi_scr_ppg_update();
+                if (curr == SCR_SPO2) {
+                    update_scr_spo2();
+                } else if (curr == SCR_ALL_TRENDS) {
+                    update_scr_all_trends();
                 }
             }
 
@@ -1009,8 +1054,10 @@ void display_screens_thread(void)
                 
                 // Update detail screens when active
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_RESP) {
-                    hpi_scr_resp_update();
+                if (curr == SCR_RR) {
+                    update_scr_rr();
+                } else if (curr == SCR_ALL_TRENDS) {
+                    update_scr_all_trends();
                 }
             }
         }

@@ -519,14 +519,38 @@ void data_thread(void)
 
     // record_init_session_log();
 
-    uint32_t irBuffer[500];  // infrared LED sensor data
-    uint32_t redBuffer[500]; // red LED sensor data
+    // Phase 1 Optimization: Use external buffers from spo2_process.c to avoid 4KB duplication
+    // CRITICAL FIX: Changed to uint32_t to match PPG sensor data type (was causing algorithm errors!)
+    // Original code had duplicate uint32_t irBuffer[500] and redBuffer[500] here (4KB wasted!)
+    // Now we use the an_x and an_y buffers directly - NO CAST NEEDED (same type)
+    // Memory savings: 4KB (2KB per buffer)
+    extern uint32_t an_x[BUFFER_SIZE]; // Declared in spo2_process.c
+    extern uint32_t an_y[BUFFER_SIZE];
+    uint32_t *irBuffer = an_x;   // Direct pointer assignment, no cast needed
+    uint32_t *redBuffer = an_y;  // Direct pointer assignment, no cast needed
 
     int32_t bufferLength;  // data length
     int32_t m_spo2;        // SPO2 value
     int8_t validSPO2;      // indicator to show if the SPO2 calculation is valid
     int32_t m_hr;          // heart rate value
     int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
+
+    // Phase 1: Add quality metrics
+    spo2_quality_metrics_t quality_metrics = {0};
+
+    // HR Smoothing Filter - Moving average to reduce fluctuations
+    #define HR_FILTER_SIZE 5  // Average over 5 readings (10 seconds at 2-second updates)
+    static int32_t hr_history[HR_FILTER_SIZE] = {0};
+    static uint8_t hr_history_idx = 0;
+    static uint8_t hr_history_count = 0;
+    static int32_t hr_filtered = 0;
+
+    // SpO2 Smoothing Filter - Moving average (SpO2 changes very slowly)
+    #define SPO2_FILTER_SIZE 8  // Average over 8 readings (16 seconds) - SpO2 changes slowly
+    static int32_t spo2_history[SPO2_FILTER_SIZE] = {0};
+    static uint8_t spo2_history_idx = 0;
+    static uint8_t spo2_history_count = 0;
+    static int32_t spo2_filtered = 0;
 
     uint32_t spo2_time_count = 0;
     
@@ -536,6 +560,12 @@ void data_thread(void)
         irBuffer[i] = 0;
         redBuffer[i] = 0;
     }
+
+    // Manual float formatting (no FP printf support)
+    int buffer_seconds = BUFFER_SIZE / FreqS;
+    int buffer_dec = ((BUFFER_SIZE % FreqS) * 10) / FreqS;
+    LOG_INF("Data thread starting - SpO2 buffer size: %d samples (%d.%d seconds), Memory saved: 4KB",
+            BUFFER_SIZE, buffer_seconds, buffer_dec);
 
     /* Initialize the FIR filter */
     arm_fir_init_f32(&sFIR, NUM_TAPS, firCoeffs, firState, BLOCK_SIZE);
@@ -569,28 +599,121 @@ void data_thread(void)
             // Buffer PPG data for SPO2/HR calculation
             if (spo2_time_count < FreqS)
             {
-                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = hpi_sensor_data_point.ppg_sample_ir;
-                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = hpi_sensor_data_point.ppg_sample_red;
+                // CRITICAL: AFE4400 outputs SIGNED int32_t (two's complement)
+                // Maxim algorithm expects UNSIGNED uint32_t
+                // Negative values indicate signal issues, but we clamp to 0 for algorithm stability
+                int32_t ir_signed = hpi_sensor_data_point.ppg_sample_ir;
+                int32_t red_signed = hpi_sensor_data_point.ppg_sample_red;
+                
+                // Debug logging disabled to prevent terminal flooding
+                // if (spo2_time_count == 0 && samples_processed == 1) {
+                //     LOG_DBG("PPG Raw: IR=%d, Red=%d", ir_signed, red_signed);
+                // }
+                
+                // Convert signed to unsigned: negative values become 0
+                irBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = (ir_signed < 0) ? 0 : (uint32_t)ir_signed;
+                redBuffer[BUFFER_SIZE - FreqS + spo2_time_count] = (red_signed < 0) ? 0 : (uint32_t)red_signed;
                 spo2_time_count++;
             }
             else
             {
-                // Buffer is full, calculate SPO2 and HR
+                // Buffer is full, calculate SPO2 and HR with quality metrics (Phase 1)
                 spo2_time_count = 0;
-                maxim_heart_rate_and_oxygen_saturation(irBuffer, bufferLength, redBuffer, &m_spo2, &validSPO2, &m_hr, &validHeartRate);
+                maxim_heart_rate_and_oxygen_saturation_with_quality(irBuffer, bufferLength, redBuffer, 
+                    &m_spo2, &validSPO2, &m_hr, &validHeartRate, &quality_metrics);
                 
-                if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100)
+                // Log quality metrics for debugging
+                if (validSPO2 || validHeartRate) {
+                    LOG_DBG("SpO2: %d%% (valid:%d), HR: %d bpm (valid:%d), PI: %d.%d%%, Conf: %d%%, Valid: %d",
+                            m_spo2, validSPO2, m_hr, validHeartRate,
+                            quality_metrics.perfusion_ir / 100, quality_metrics.perfusion_ir % 100,
+                            quality_metrics.confidence, quality_metrics.valid);
+                }
+                
+                // Publish SpO2 with enhanced validation and smoothing filter
+                if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100 && 
+                    quality_metrics.confidence >= 50) // Minimum confidence threshold
                 {
-                    spo2_serial = m_spo2;
-                    struct hpi_spo2_t spo2_chan_value = {.spo2 = m_spo2};
+                    // Outlier rejection: SpO2 changes slowly, reject >5% jumps
+                    bool is_spo2_outlier = false;
+                    if (spo2_history_count > 0 && spo2_filtered > 0) {
+                        int32_t spo2_delta = (m_spo2 > spo2_filtered) ? (m_spo2 - spo2_filtered) : (spo2_filtered - m_spo2);
+                        if (spo2_delta > 5) {  // SpO2 shouldn't jump >5% normally
+                            is_spo2_outlier = true;
+                            LOG_WRN("SpO2 outlier detected: %d%% (filtered: %d%%, delta: %d)", 
+                                    m_spo2, spo2_filtered, spo2_delta);
+                        }
+                    }
+                    
+                    // Only add to history if not an extreme outlier
+                    if (!is_spo2_outlier || spo2_history_count == 0) {
+                        // Add to history buffer for moving average filter
+                        spo2_history[spo2_history_idx] = m_spo2;
+                        spo2_history_idx = (spo2_history_idx + 1) % SPO2_FILTER_SIZE;
+                        if (spo2_history_count < SPO2_FILTER_SIZE) {
+                            spo2_history_count++;
+                        }
+                        
+                        // Calculate filtered SpO2 (moving average)
+                        int32_t spo2_sum = 0;
+                        for (int i = 0; i < spo2_history_count; i++) {
+                            spo2_sum += spo2_history[i];
+                        }
+                        spo2_filtered = spo2_sum / spo2_history_count;
+                    }
+                    // If outlier, keep using previous filtered value
+                    
+                    // Use filtered value for serial and display
+                    spo2_serial = spo2_filtered;
+                    struct hpi_spo2_t spo2_chan_value = {.spo2 = spo2_filtered};
                     zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_NO_WAIT);
                 }
                 
-                if (validHeartRate && m_hr > 30 && m_hr < 220)
+                // Publish HR with enhanced validation and smoothing filter
+                // Enhanced quality gating: Reject readings with poor signal quality
+                // Testing showed PI=0% readings give wildly inaccurate HR (36-101 bpm vs 67 bpm actual)
+                // Primary filter is perfusion index (PI ≥ 1%) as it correlates strongly with accuracy
+                if (validHeartRate && m_hr > 30 && m_hr < 220 &&
+                    quality_metrics.perfusion_ir >= 100)  // Require PI ≥ 1.0% (primary quality gate)
                 {
-                    hr_serial = m_hr;
-                    struct hpi_hr_t hr_chan_value = {.hr = m_hr};
+                    // Outlier rejection: If HR changes by more than 30 bpm from filtered value, 
+                    // treat it as suspicious and reduce its weight
+                    bool is_outlier = false;
+                    if (hr_history_count > 0 && hr_filtered > 0) {
+                        int32_t hr_delta = (m_hr > hr_filtered) ? (m_hr - hr_filtered) : (hr_filtered - m_hr);
+                        if (hr_delta > 30) {
+                            is_outlier = true;
+                            LOG_WRN("HR outlier detected: %d bpm (filtered: %d bpm, delta: %d)", 
+                                    m_hr, hr_filtered, hr_delta);
+                        }
+                    }
+                    
+                    // Only add to history if not an extreme outlier
+                    if (!is_outlier || hr_history_count == 0) {
+                        // Add to history buffer for moving average filter
+                        hr_history[hr_history_idx] = m_hr;
+                        hr_history_idx = (hr_history_idx + 1) % HR_FILTER_SIZE;
+                        if (hr_history_count < HR_FILTER_SIZE) {
+                            hr_history_count++;
+                        }
+                        
+                        // Calculate filtered HR (moving average)
+                        int32_t hr_sum = 0;
+                        for (int i = 0; i < hr_history_count; i++) {
+                            hr_sum += hr_history[i];
+                        }
+                        hr_filtered = hr_sum / hr_history_count;
+                    }
+                    // If outlier, keep using previous filtered value
+                    
+                    // Use filtered value for serial and display
+                    hr_serial = hr_filtered;
+                    struct hpi_hr_t hr_chan_value = {.hr = hr_filtered};
                     zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                }
+                else if (validHeartRate && quality_metrics.perfusion_ir < 100) {
+                    LOG_DBG("HR rejected: %d bpm (PI=%d.%02d%%, low perfusion)",
+                            m_hr, quality_metrics.perfusion_ir / 100, quality_metrics.perfusion_ir % 100);
                 }
                 
                 // Shift buffer for next calculation

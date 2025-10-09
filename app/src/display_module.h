@@ -21,18 +21,19 @@ enum hpi_disp_screens
 {
     SCR_LIST_START,
 
-    //SCR_HOME,
-    SCR_ECG,
-    SCR_PPG,
-    SCR_RESP,
+    SCR_HOME,
+    SCR_ALL_TRENDS,
+    SCR_HR,
+    SCR_SPO2,
+    SCR_RR,
+    SCR_TEMP,
 
     SCR_LIST_END
 };
 
 enum hpi_disp_screens_spl
 {
-    SCR_SPLASH=51,
-    SCR_HOME
+    SCR_SPLASH=51
 };
 
 enum hpi_disp_op_mode
@@ -62,15 +63,25 @@ void hpi_scr_home_update_hr(int hr);
 int hpi_disp_get_op_mode();
 bool hpi_disp_is_plot_screen_active(void);
 
-// ECG Screen functions
-void draw_scr_ecg(enum scroll_dir m_scroll_dir);
-void hpi_ecg_disp_draw_plot_ecg(int32_t *data_ecg, int num_samples, bool ecg_lead_off);
-void hpi_scr_ecg_update(void);
+// HR Screen functions
+void draw_scr_hr(enum scroll_dir m_scroll_dir);
+void update_scr_hr(void);
 
-// Resp Screen functions
-void draw_scr_resp(enum scroll_dir m_scroll_dir);
-void hpi_resp_disp_draw_plot_resp(int32_t *data_resp, int num_samples, bool resp_lead_off);
-void hpi_scr_resp_update(void);
+// SpO2 Screen functions
+void draw_scr_spo2(enum scroll_dir m_scroll_dir);
+void update_scr_spo2(void);
+
+// RR Screen functions
+void draw_scr_rr(enum scroll_dir m_scroll_dir);
+void update_scr_rr(void);
+
+// Temperature Screen functions
+void draw_scr_temp(enum scroll_dir m_scroll_dir);
+void update_scr_temp(void);
+
+// All Trends Screen functions
+void draw_scr_all_trends(enum scroll_dir m_scroll_dir);
+void update_scr_all_trends(void);
 
 // Display helper functions
 void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir);
@@ -85,14 +96,27 @@ void hpi_scr_update_spo2(int spo2);
 void hpi_disp_set_curr_screen(int screen);
 int hpi_disp_get_curr_screen(void);
 
-// PPG Screen functions
-void draw_scr_ppg(enum scroll_dir m_scroll_dir);
-void hpi_ppg_disp_draw_plot_ppg(int32_t data_ppg_red, int32_t data_ppg_ir, bool ppg_lead_off);
-void hpi_scr_ppg_update(void);
-void hpi_scr_update_pr(int pr);
-
-//void draw_scr_chart_resp(void);
 void draw_header(lv_obj_t *parent, bool showFWVersion);
 void draw_footer(lv_obj_t *parent);
 
 void draw_scr_welcome(void);
+
+// Style declarations - extern for use in screen files
+extern lv_style_t style_sub;
+extern lv_style_t style_number_big;
+extern lv_style_t style_number_medium;
+extern lv_style_t style_header_black;
+extern lv_style_t style_header_red;
+extern lv_style_t style_header_green;
+extern lv_style_t style_h1;
+extern lv_style_t style_h2;
+extern lv_style_t style_info;
+extern lv_style_t style_icon;
+
+// Font styles for detail screens
+extern lv_style_t style_text_14;     // montserrat_14 - chart titles, stats, small text
+extern lv_style_t style_text_16;     // montserrat_16 - units, regular text
+extern lv_style_t style_text_20;     // montserrat_20 - medium values
+extern lv_style_t style_text_24;     // montserrat_24 - icons
+extern lv_style_t style_text_28;     // montserrat_28 - large values
+extern lv_style_t style_text_42;     // montserrat_42 - extra large values

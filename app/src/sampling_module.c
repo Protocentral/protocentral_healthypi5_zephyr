@@ -131,9 +131,15 @@ static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
     }
 }*/
 
+static bool sensors_ready = false;  // Flag to prevent timer callbacks before sensors are initialized
 
 void work_sample_handler(struct k_work *work)
 {
+    // CRITICAL: Don't process if sensors aren't ready yet (prevents boot crash)
+    if (!sensors_ready) {
+        return;
+    }
+    
     uint8_t ecg_bioz_buf[512];
     uint8_t ppg_buf[64];
 
@@ -179,6 +185,9 @@ void hpi_sensor_read_all_thread(void)
     k_sem_take(&sem_ecg_bioz_thread_start, K_FOREVER);
     LOG_INF("Sensor Read All Thread starting");
 
+    // Mark sensors as ready BEFORE starting timer to prevent null pointer crashes
+    sensors_ready = true;
+    
     k_timer_start(&tmr_sensor_sample_all, K_MSEC(UNIFIED_SAMPLING_INTERVAL_MS), K_MSEC(UNIFIED_SAMPLING_INTERVAL_MS));
 
     for (;;)
