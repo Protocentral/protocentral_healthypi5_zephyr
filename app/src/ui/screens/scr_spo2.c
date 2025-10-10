@@ -187,6 +187,8 @@ void update_scr_spo2(void)
 
     // Update current SpO2 value
     uint8_t current_spo2 = m_disp_spo2;
+    LOG_DBG("SpO2 Screen Update - m_disp_spo2=%d", current_spo2);
+    
     if (current_spo2 > 0 && current_spo2 <= 100) {
         lv_label_set_text_fmt(label_spo2_current, "%d", current_spo2);
         
@@ -201,6 +203,8 @@ void update_scr_spo2(void)
     uint8_t spo2_min = vital_stats_get_spo2_min();
     uint8_t spo2_max = vital_stats_get_spo2_max();
     uint8_t spo2_avg = vital_stats_get_spo2_avg();
+
+    LOG_DBG("SpO2 Stats - Min: %d, Max: %d, Avg: %d", spo2_min, spo2_max, spo2_avg);
 
     if (spo2_min > 0) {
         lv_label_set_text_fmt(label_stats_text, 

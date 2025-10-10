@@ -660,6 +660,25 @@ void data_thread(void)
                             quality_metrics.confidence, quality_metrics.valid);
                 }
                 
+                // Reset SpO2 filter if perfusion is lost (probe removed/poor contact)
+                // This allows the filter to quickly adapt to new readings when probe is reapplied
+                static uint8_t low_perfusion_counter = 0;
+                if (quality_metrics.perfusion_ir < 50) {  // PI < 0.5%
+                    low_perfusion_counter++;
+                    if (low_perfusion_counter >= 3) {  // 3 consecutive low readings (~1.5 seconds)
+                        if (spo2_history_count > 0) {
+                            LOG_INF("SpO2 filter reset due to low perfusion (PI=%d.%02d%%)", 
+                                    quality_metrics.perfusion_ir / 100, quality_metrics.perfusion_ir % 100);
+                            spo2_history_count = 0;
+                            spo2_history_idx = 0;
+                            spo2_filtered = 0;
+                        }
+                        low_perfusion_counter = 0;  // Reset counter
+                    }
+                } else {
+                    low_perfusion_counter = 0;  // Reset counter on good perfusion
+                }
+                
                 // Publish SpO2 with enhanced validation and smoothing filter
                 if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100 && 
                     quality_metrics.confidence >= 50) // Minimum confidence threshold

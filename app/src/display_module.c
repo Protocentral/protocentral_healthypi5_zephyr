@@ -888,6 +888,8 @@ static void disp_spo2_listener(const struct zbus_channel *chan)
     const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
     m_disp_spo2 = hpi_spo2->spo2;
     
+    LOG_DBG("SpO2 ZBUS update: %d", hpi_spo2->spo2);
+    
     // Update vital stats history
     vital_stats_update_spo2(hpi_spo2->spo2);
     // hpi_scr_update_spo2(hpi_spo2->spo2);
