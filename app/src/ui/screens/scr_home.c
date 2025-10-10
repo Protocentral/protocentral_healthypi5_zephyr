@@ -18,6 +18,7 @@ extern lv_style_t style_number_medium;
 
 // GUI Labels - managed by display_module.c
 extern lv_obj_t *g_label_home_hr;
+extern lv_obj_t *g_label_home_hr_source;  // HR source indicator
 extern lv_obj_t *g_label_home_spo2;
 extern lv_obj_t *g_label_home_rr;
 extern lv_obj_t *g_label_home_temp_f;
@@ -30,13 +31,13 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     
     // Optimized 2x2 grid layout for 480x320 - larger cards with better spacing
     static lv_coord_t col_dsc[] = {235, 235, LV_GRID_TEMPLATE_LAST};
-    static lv_coord_t row_dsc[] = {140, 140, LV_GRID_TEMPLATE_LAST};
+    static lv_coord_t row_dsc[] = {130, 130, LV_GRID_TEMPLATE_LAST};
 
     /*Create main container with grid*/
     lv_obj_t *cont_home = lv_obj_create(scr_home);
     lv_obj_set_style_grid_column_dsc_array(cont_home, col_dsc, 0);
     lv_obj_set_style_grid_row_dsc_array(cont_home, row_dsc, 0);
-    lv_obj_set_size(cont_home, 480, 290);
+    lv_obj_set_size(cont_home, 480, 270);
     lv_obj_set_pos(cont_home, 0, 30);
     lv_obj_set_layout(cont_home, LV_LAYOUT_GRID);
     lv_obj_set_style_bg_color(cont_home, lv_color_black(), LV_PART_MAIN);
@@ -48,9 +49,9 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
 
     // Card 1: Heart Rate (top-left)
     lv_obj_t *obj_hr_card = lv_obj_create(cont_home);
-    lv_obj_set_style_bg_color(obj_hr_card, lv_palette_darken(LV_PALETTE_ORANGE, 4), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(obj_hr_card, lv_palette_darken(LV_PALETTE_CYAN, 4), LV_PART_MAIN);
     lv_obj_set_style_border_width(obj_hr_card, 2, LV_PART_MAIN);
-    lv_obj_set_style_border_color(obj_hr_card, lv_palette_main(LV_PALETTE_ORANGE), LV_PART_MAIN);
+    lv_obj_set_style_border_color(obj_hr_card, lv_palette_main(LV_PALETTE_CYAN), LV_PART_MAIN);
     lv_obj_set_style_radius(obj_hr_card, 10, LV_PART_MAIN);
     lv_obj_clear_flag(obj_hr_card, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -83,123 +84,142 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_set_grid_cell(obj_rr_card, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
     lv_obj_set_grid_cell(obj_temp_card, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
 
-    // HR Icon
-    lv_obj_t *icon_hr = lv_label_create(obj_hr_card);
-    lv_label_set_text(icon_hr, "♥");  // Heart symbol
-    lv_obj_align(icon_hr, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_add_style(icon_hr, &style_text_20, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(icon_hr, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
+    // HR Icon - using heart image (35px for consistency)
+    lv_obj_t *img_hr = lv_img_create(obj_hr_card);
+    lv_img_set_src(img_hr, &img_heart_35);
+    lv_obj_align(img_hr, LV_ALIGN_TOP_LEFT, 8, 8);
+    lv_obj_set_style_img_recolor(img_hr, lv_palette_main(LV_PALETTE_CYAN), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_hr, LV_OPA_COVER, LV_PART_MAIN);
 
     // HR Title
     lv_obj_t *label_hr_title = lv_label_create(obj_hr_card);
     lv_label_set_text(label_hr_title, "Heart Rate");
-    lv_obj_align(label_hr_title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_obj_align(label_hr_title, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_style(label_hr_title, &style_sub, LV_STATE_DEFAULT);
 
     // HR Value
     g_label_home_hr = lv_label_create(obj_hr_card);
     lv_label_set_text(g_label_home_hr, "--");
-    lv_obj_center(g_label_home_hr);
+    lv_obj_align(g_label_home_hr, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_style(g_label_home_hr, &style_number_big, LV_STATE_DEFAULT);
 
     // HR Unit
     lv_obj_t *label_hr_unit = lv_label_create(obj_hr_card);
     lv_label_set_text(label_hr_unit, "bpm");
-    lv_obj_align(label_hr_unit, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_align(label_hr_unit, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_add_style(label_hr_unit, &style_sub, LV_STATE_DEFAULT);
 
-    // SpO2 Icon
-    lv_obj_t *icon_spo2 = lv_label_create(obj_spo2_card);
-    lv_label_set_text(icon_spo2, "O2");
-    lv_obj_align(icon_spo2, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_add_style(icon_spo2, &style_text_20, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(icon_spo2, lv_palette_main(LV_PALETTE_BLUE), LV_STATE_DEFAULT);
+    // SpO2 Icon - using SpO2 image (35px for consistency)
+    lv_obj_t *img_spo2 = lv_img_create(obj_spo2_card);
+    lv_img_set_src(img_spo2, &icon_spo2_35);
+    lv_obj_align(img_spo2, LV_ALIGN_TOP_LEFT, 8, 8);
+    lv_obj_set_style_img_recolor(img_spo2, lv_palette_main(LV_PALETTE_BLUE), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_spo2, LV_OPA_COVER, LV_PART_MAIN);
 
     // SpO2 Title
     lv_obj_t *label_spo2_title = lv_label_create(obj_spo2_card);
     lv_label_set_text(label_spo2_title, "SpO2");
-    lv_obj_align(label_spo2_title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_obj_align(label_spo2_title, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_style(label_spo2_title, &style_sub, LV_STATE_DEFAULT);
 
     // SpO2 Value
     g_label_home_spo2 = lv_label_create(obj_spo2_card);
     lv_label_set_text(g_label_home_spo2, "--");
-    lv_obj_center(g_label_home_spo2);
+    lv_obj_align(g_label_home_spo2, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_style(g_label_home_spo2, &style_number_big, LV_STATE_DEFAULT);
 
     // SpO2 Unit
     lv_obj_t *label_spo2_unit = lv_label_create(obj_spo2_card);
     lv_label_set_text(label_spo2_unit, "%");
-    lv_obj_align(label_spo2_unit, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_align(label_spo2_unit, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_add_style(label_spo2_unit, &style_sub, LV_STATE_DEFAULT);
 
-    // RR Icon
-    lv_obj_t *icon_rr = lv_label_create(obj_rr_card);
-    lv_label_set_text(icon_rr, LV_SYMBOL_LOOP);
-    lv_obj_align(icon_rr, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_add_style(icon_rr, &style_text_20, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(icon_rr, lv_palette_main(LV_PALETTE_GREEN), LV_STATE_DEFAULT);
+    // RR Icon - using respiration image (35px for consistency)
+    lv_obj_t *img_rr = lv_img_create(obj_rr_card);
+    lv_img_set_src(img_rr, &img_resp_35);
+    lv_obj_align(img_rr, LV_ALIGN_TOP_LEFT, 8, 8);
+    lv_obj_set_style_img_recolor(img_rr, lv_palette_main(LV_PALETTE_GREEN), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_rr, LV_OPA_COVER, LV_PART_MAIN);
 
     // RR Title
     lv_obj_t *label_rr_title = lv_label_create(obj_rr_card);
     lv_label_set_text(label_rr_title, "Resp Rate");
-    lv_obj_align(label_rr_title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_obj_align(label_rr_title, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_style(label_rr_title, &style_sub, LV_STATE_DEFAULT);
 
     // RR Value
     g_label_home_rr = lv_label_create(obj_rr_card);
     lv_label_set_text(g_label_home_rr, "--");
-    lv_obj_center(g_label_home_rr);
+    lv_obj_align(g_label_home_rr, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_style(g_label_home_rr, &style_number_big, LV_STATE_DEFAULT);
 
     // RR Unit
     lv_obj_t *label_rr_unit = lv_label_create(obj_rr_card);
     lv_label_set_text(label_rr_unit, "bpm");
-    lv_obj_align(label_rr_unit, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_align(label_rr_unit, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_add_style(label_rr_unit, &style_sub, LV_STATE_DEFAULT);
 
-    // Temp Icon
-    lv_obj_t *icon_temp = lv_label_create(obj_temp_card);
-    lv_label_set_text(icon_temp, "T°");
-    lv_obj_align(icon_temp, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_add_style(icon_temp, &style_text_20, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(icon_temp, lv_palette_main(LV_PALETTE_RED), LV_STATE_DEFAULT);
+    // Temp Icon - using 35px temperature image for consistency
+    lv_obj_t *img_temp = lv_img_create(obj_temp_card);
+    lv_img_set_src(img_temp, &img_temp_45);
+    lv_obj_align(img_temp, LV_ALIGN_TOP_LEFT, 8, 4);
+    lv_obj_set_style_img_recolor(img_temp, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_temp, LV_OPA_COVER, LV_PART_MAIN);
 
     // Temp Title
     lv_obj_t *label_temp_title = lv_label_create(obj_temp_card);
-    lv_label_set_text(label_temp_title, "Temperature");
-    lv_obj_align(label_temp_title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_label_set_text(label_temp_title, "Temp");
+    lv_obj_align(label_temp_title, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_style(label_temp_title, &style_sub, LV_STATE_DEFAULT);
 
-    // Temp Value (°F)
-    g_label_home_temp_f = lv_label_create(obj_temp_card);
+    // Temperature Fahrenheit container - centered with more space from title
+    lv_obj_t *cont_temp_f = lv_obj_create(obj_temp_card);
+    lv_obj_set_size(cont_temp_f, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(cont_temp_f, LV_ALIGN_CENTER, 0, 5);
+    lv_obj_set_flex_flow(cont_temp_f, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont_temp_f, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(cont_temp_f, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(cont_temp_f, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(cont_temp_f, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(cont_temp_f, 4, LV_PART_MAIN);
+
+    // Temp Value (°F) - main value
+    g_label_home_temp_f = lv_label_create(cont_temp_f);
     lv_label_set_text(g_label_home_temp_f, "--");
-    lv_obj_align(g_label_home_temp_f, LV_ALIGN_CENTER, 0, -5);
     lv_obj_add_style(g_label_home_temp_f, &style_number_big, LV_STATE_DEFAULT);
 
     // Temp °F Unit
-    lv_obj_t *label_temp_unit_f = lv_label_create(obj_temp_card);
+    lv_obj_t *label_temp_unit_f = lv_label_create(cont_temp_f);
     lv_label_set_text(label_temp_unit_f, "°F");
-    lv_obj_align_to(label_temp_unit_f, g_label_home_temp_f, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
     lv_obj_add_style(label_temp_unit_f, &style_sub, LV_STATE_DEFAULT);
 
+    // Temperature Celsius container - bottom
+    lv_obj_t *cont_temp_c = lv_obj_create(obj_temp_card);
+    lv_obj_set_size(cont_temp_c, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(cont_temp_c, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_flex_flow(cont_temp_c, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(cont_temp_c, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(cont_temp_c, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(cont_temp_c, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(cont_temp_c, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(cont_temp_c, 3, LV_PART_MAIN);
+
     // Temp Value (°C) - smaller below
-    g_label_home_temp_c = lv_label_create(obj_temp_card);
+    g_label_home_temp_c = lv_label_create(cont_temp_c);
     lv_label_set_text(g_label_home_temp_c, "--");
-    lv_obj_align(g_label_home_temp_c, LV_ALIGN_BOTTOM_MID, -10, -10);
     lv_obj_add_style(g_label_home_temp_c, &style_sub, LV_STATE_DEFAULT);
 
     // Temp °C Unit
-    lv_obj_t *label_temp_unit_c = lv_label_create(obj_temp_card);
+    lv_obj_t *label_temp_unit_c = lv_label_create(cont_temp_c);
     lv_label_set_text(label_temp_unit_c, "°C");
-    lv_obj_align_to(label_temp_unit_c, g_label_home_temp_c, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
     lv_obj_add_style(label_temp_unit_c, &style_sub, LV_STATE_DEFAULT);
 
-    // Bottom navigation hint
+    // Bottom navigation hint - with proper spacing from cards
     lv_obj_t *label_menu = lv_label_create(scr_home);
-    lv_label_set_text(label_menu, "Press side buttons to navigate");
-    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -2);
-    lv_obj_set_style_text_color(label_menu, lv_color_hex(0x808080), LV_STATE_DEFAULT);
+    lv_label_set_text(label_menu, "Use UP/DOWN to navigate screens");
+    lv_obj_align(label_menu, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_style_text_color(label_menu, lv_color_hex(0xA0A0A0), LV_STATE_DEFAULT);  // Slightly brighter for visibility
+    lv_obj_set_style_text_font(label_menu, &lv_font_montserrat_12, LV_STATE_DEFAULT);
 
     hpi_disp_set_curr_screen(SCR_HOME);
 
@@ -239,6 +259,22 @@ void hpi_scr_home_update_hr(int hr)
     char buf[16];
     sprintf(buf, "%d", hr);
     lv_label_set_text(g_label_home_hr, buf);
+
+    // Update HR source indicator
+    if (g_label_home_hr_source != NULL)
+    {
+        enum hpi_hr_source source = hpi_data_get_hr_source();
+        if (source == HR_SOURCE_ECG)
+        {
+            lv_label_set_text(g_label_home_hr_source, "Src:ECG");
+            lv_obj_set_style_text_color(g_label_home_hr_source, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
+        }
+        else  // HR_SOURCE_PPG
+        {
+            lv_label_set_text(g_label_home_hr_source, "Src:PPG");
+            lv_obj_set_style_text_color(g_label_home_hr_source, lv_palette_main(LV_PALETTE_CYAN), LV_STATE_DEFAULT);
+        }
+    }
 }
 
 void hpi_scr_home_update_spo2(int spo2)

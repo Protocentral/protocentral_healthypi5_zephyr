@@ -4,6 +4,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
@@ -11,10 +12,14 @@
 #include <zephyr/settings/settings.h>
 
 #include "hpi_common_types.h"
+#include "settings_module.h"
 
 LOG_MODULE_REGISTER(settings_module);
 
 extern struct fs_mount_t *mp;
+extern bool sd_card_present;
+
+#define SETTINGS_FILE_PATH "/SD:/hpi_settings.txt"
 
 /* Default values are assigned to settings values consuments
  * All of them will be overwritten if storage contain proper key-values
@@ -140,4 +145,82 @@ void init_settings()
     printk("\nsave <hpi/beta/voltage> key directly: ");
     rc = settings_save_one("hpi/beta/voltage", (const void *)&val_s32,
                            sizeof(val_s32));
+}
+
+/**
+ * Save HR source to filesystem
+ * Format: "hr_source=0" or "hr_source=1" in /SD:/hpi_settings.txt
+ */
+void settings_save_hr_source(enum hpi_hr_source source)
+{
+    if (!sd_card_present) {
+        LOG_WRN("SD card not present, cannot save HR source setting");
+        return;
+    }
+
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+    
+    int rc = fs_open(&file, SETTINGS_FILE_PATH, FS_O_CREATE | FS_O_WRITE | FS_O_TRUNC);
+    if (rc < 0) {
+        LOG_ERR("Failed to open settings file for writing: %d", rc);
+        return;
+    }
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "hr_source=%d\n", (int)source);
+    
+    ssize_t written = fs_write(&file, buf, strlen(buf));
+    if (written < 0) {
+        LOG_ERR("Failed to write HR source to file: %d", (int)written);
+    } else {
+        LOG_INF("Saved HR source: %s", source == HR_SOURCE_ECG ? "ECG" : "PPG");
+    }
+
+    fs_close(&file);
+}
+
+/**
+ * Load HR source from filesystem
+ * Returns: HR_SOURCE_ECG (default) or HR_SOURCE_PPG
+ */
+enum hpi_hr_source settings_load_hr_source(void)
+{
+    enum hpi_hr_source source = HR_SOURCE_ECG; // Default
+    
+    if (!sd_card_present) {
+        LOG_INF("SD card not present, using default HR source: ECG");
+        return source;
+    }
+
+    struct fs_file_t file;
+    fs_file_t_init(&file);
+    
+    int rc = fs_open(&file, SETTINGS_FILE_PATH, FS_O_READ);
+    if (rc < 0) {
+        LOG_INF("Settings file not found, using default HR source: ECG");
+        return source;
+    }
+
+    char buf[32];
+    ssize_t bytes_read = fs_read(&file, buf, sizeof(buf) - 1);
+    fs_close(&file);
+
+    if (bytes_read > 0) {
+        buf[bytes_read] = '\0'; // Null terminate
+        
+        // Parse "hr_source=X"
+        char *eq = strchr(buf, '=');
+        if (eq != NULL) {
+            int value = atoi(eq + 1);
+            if (value == 1) {
+                source = HR_SOURCE_PPG;
+                LOG_INF("Loaded HR source from file: PPG");
+            } else {
+                LOG_INF("Loaded HR source from file: ECG");
+            }
+        }
+    }
+
+    return source;
 }

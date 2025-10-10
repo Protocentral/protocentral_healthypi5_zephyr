@@ -17,9 +17,21 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
 FILE(GLOB app_sources src/*.c)
-FILE(GLOB display_sources src/display/*.c src/images/*.c src/ui/*.c src/ui/screens/*.c)
+FILE(GLOB ui_images_sources src/ui/images/*.c)
+FILE(GLOB ui_sources src/ui/*.c)
 
-target_sources(app PRIVATE ${app_sources} ${display_sources})
+# Explicitly list screen files (excluding scr_all_trends.c)
+set(screen_sources
+    src/ui/screens/scr_welcome.c
+    src/ui/screens/scr_home.c
+    src/ui/screens/scr_hr.c
+    src/ui/screens/scr_spo2.c
+    src/ui/screens/scr_rr.c
+    src/ui/screens/scr_temp.c
+    # src/ui/screens/scr_all_trends.c  # Disabled
+)
+
+target_sources(app PRIVATE ${app_sources} ${ui_images_sources} ${ui_sources} ${screen_sources})
 
 # Add vital stats module
 target_sources(app PRIVATE src/vital_stats.c)
@@ -33,4 +45,5 @@ target_sources(app PRIVATE src/vital_stats.c)
 zephyr_include_directories(src)
 zephyr_include_directories(src/display)
 zephyr_include_directories(src/ui)
+zephyr_include_directories(src/ui/images)
 zephyr_include_directories(src/bt)

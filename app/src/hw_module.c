@@ -43,6 +43,7 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
+static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
@@ -50,6 +51,7 @@ static bool rx_throttled;
 K_SEM_DEFINE(sem_up_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_down_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
+K_SEM_DEFINE(sem_ok_key_longpress, 0, 1);  // Separate semaphore for long press
 
 K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 
@@ -269,35 +271,59 @@ uint8_t hpi_hw_read_batt(void)
     return batt_level;
 }
 
-static void gpio_keys_cb_handler(struct input_event *evt)
+static void gpio_keys_cb_handler(struct input_event *evt, void *user_data)
 {
+    ARG_UNUSED(user_data);
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-    if (evt->value == 1)
+    if (evt->value == 1)  // Button pressed
     {
         switch (evt->code)
         {
         case INPUT_KEY_ENTER:
-            LOG_INF("OK Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            LOG_INF("OK Key Pressed (short)");
             k_sem_give(&sem_ok_key_pressed);
             break;
-        case INPUT_KEY_UP:
-            LOG_INF("UP Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_UP);
-            k_sem_give(&sem_up_key_pressed);
-            break;
-        case INPUT_KEY_DOWN:
-            LOG_INF("DOWN Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
-            k_sem_give(&sem_down_key_pressed);
+        case INPUT_BTN_0:  // Long press sends BTN_0
+            LOG_INF("OK Key Long-Pressed (via longpress driver)");
+            k_sem_give(&sem_ok_key_longpress);
             break;
         default:
+            LOG_DBG("Unknown input code from longpress: %d, value: %d", evt->code, evt->value);
             break;
         }
     }
 #endif
 }
-INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler, NULL);
+
+// Separate callback for UP/DOWN buttons (direct from gpio_keys)
+static void gpio_updown_cb_handler(struct input_event *evt, void *user_data)
+{
+    ARG_UNUSED(user_data);
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+    if (evt->value == 1)  // Button pressed
+    {
+        switch (evt->code)
+        {
+        case INPUT_KEY_UP:
+            LOG_INF("UP Key Pressed");
+            k_sem_give(&sem_up_key_pressed);
+            break;
+        case INPUT_KEY_DOWN:
+            LOG_INF("DOWN Key Pressed");
+            k_sem_give(&sem_down_key_pressed);
+            break;
+        default:
+            // Ignore other keys (ENTER is handled by longpress driver)
+            break;
+        }
+    }
+#endif
+}
+
+// Register callback on longpress device output (for OK button short/long press)
+INPUT_CALLBACK_DEFINE(longpress_dev, gpio_keys_cb_handler, NULL);
+// Register callback on gpio_keys device (for UP/DOWN buttons)
+INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_updown_cb_handler, NULL);
 
 void hw_thread(void)
 {

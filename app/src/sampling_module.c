@@ -84,6 +84,8 @@ static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
     {
         hpi_sensor_data_point.ecg_sample = edata->ecg_samples[0];
         hpi_sensor_data_point.bioz_sample = edata->bioz_samples[0];
+        hpi_sensor_data_point.hr = edata->hr;  // ECG HR from R-R interval
+        hpi_sensor_data_point.rtor = edata->rri;
     }
 }
 

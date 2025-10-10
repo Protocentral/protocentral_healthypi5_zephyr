@@ -33,6 +33,7 @@ LOG_MODULE_REGISTER(data_module, LOG_LEVEL_DBG);
 #include "datalog_module.h"
 #include "hw_module.h"
 #include "hpi_common_types.h"
+#include "settings_module.h"
 
 // ProtoCentral data formats
 #define CES_CMDIF_PKT_START_1 0x0A
@@ -157,6 +158,10 @@ ZBUS_CHAN_DECLARE(resp_rate_chan);
 static enum hpi_stream_modes m_stream_mode = HPI_STREAM_MODE_USB;
 K_MUTEX_DEFINE(mutex_stream_mode);
 
+// HR source selection (ECG vs PPG)
+static enum hpi_hr_source m_hr_source = HR_SOURCE_ECG;
+K_MUTEX_DEFINE(mutex_hr_source);
+
 ZBUS_CHAN_DECLARE(resp_rate_chan);
 
 void hpi_data_set_stream_mode(enum hpi_stream_modes mode)
@@ -164,6 +169,27 @@ void hpi_data_set_stream_mode(enum hpi_stream_modes mode)
     k_mutex_lock(&mutex_stream_mode, K_FOREVER);
     m_stream_mode = mode;
     k_mutex_unlock(&mutex_stream_mode);
+}
+
+void hpi_data_set_hr_source(enum hpi_hr_source source)
+{
+    k_mutex_lock(&mutex_hr_source, K_FOREVER);
+    m_hr_source = source;
+    k_mutex_unlock(&mutex_hr_source);
+    
+    LOG_INF("HR source changed to: %s", source == HR_SOURCE_ECG ? "ECG" : "PPG");
+    
+    // Save to filesystem
+    settings_save_hr_source(source);
+}
+
+enum hpi_hr_source hpi_data_get_hr_source(void)
+{
+    enum hpi_hr_source source;
+    k_mutex_lock(&mutex_hr_source, K_FOREVER);
+    source = m_hr_source;
+    k_mutex_unlock(&mutex_hr_source);
+    return source;
 }
 
 void send_ppg_data_ov3_format()
@@ -587,6 +613,10 @@ void data_thread(void)
 
     LOG_INF("Data Thread starting");
 
+    // Load HR source setting from filesystem
+    m_hr_source = settings_load_hr_source();
+    LOG_INF("Initialized HR source: %s", m_hr_source == HR_SOURCE_ECG ? "ECG" : "PPG");
+
     for (;;)
     {
         // Process ALL available samples before sleeping (critical for performance)
@@ -706,10 +736,12 @@ void data_thread(void)
                     }
                     // If outlier, keep using previous filtered value
                     
-                    // Use filtered value for serial and display
-                    hr_serial = hr_filtered;
-                    struct hpi_hr_t hr_chan_value = {.hr = hr_filtered};
-                    zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                    // Publish PPG HR only if PPG source is selected
+                    if (hpi_data_get_hr_source() == HR_SOURCE_PPG) {
+                        hr_serial = hr_filtered;
+                        struct hpi_hr_t hr_chan_value = {.hr = hr_filtered};
+                        zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                    }
                 }
                 else if (validHeartRate && quality_metrics.perfusion_ir < 100) {
                     LOG_DBG("HR rejected: %d bpm (PI=%d.%02d%%, low perfusion)",
@@ -740,6 +772,16 @@ void data_thread(void)
                 zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
 
                 resp_filt_buffer_count = 0;
+            }
+
+            // Publish ECG HR if ECG source is selected
+            // ECG HR comes from MAX30001 R-R interval detection
+            if (hpi_data_get_hr_source() == HR_SOURCE_ECG && 
+                hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255) 
+            {
+                hr_serial = hpi_sensor_data_point.hr;
+                struct hpi_hr_t hr_chan_value = {.hr = hpi_sensor_data_point.hr};
+                zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
             }
 
             /*for (int i = 0; i < 4; i++)

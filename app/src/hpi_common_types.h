@@ -9,6 +9,12 @@ HealthyPi specific common data types
 #define ECG_POINTS_PER_SAMPLE   8
 #define BIOZ_POINTS_PER_SAMPLE  4
 
+// HR source selection
+enum hpi_hr_source {
+    HR_SOURCE_ECG = 0,    // From MAX30001 R-R interval
+    HR_SOURCE_PPG = 1,    // From AFE4400 SpO2 algorithm
+};
+
 struct hpi_hr_trend_point_t
 {
     uint16_t hr;

@@ -1,13 +1,10 @@
 /*
  * Heart Rate Detail Screen
  * 
- * Minimalist design with:
- * - Large current HR value
- * - Min/Max/Avg statistics (60s window)
- * - Trend indicator
- * - Historical line chart (since boot)
- * 
- * Full 480x320 screen utilization with clean layout
+ * Minimalist horizontal design:
+ * - Top section: Icon + Current value + Stats (compact)
+ * - Bottom section: Wide horizontal trend chart
+ * - Optimized for 480x320 display
  */
 
 #include <zephyr/kernel.h>
@@ -29,17 +26,19 @@ lv_obj_t *scr_hr;
 
 // GUI Components
 static lv_obj_t *label_hr_current;
-static lv_obj_t *label_hr_unit;
-static lv_obj_t *label_stats_text;
-static lv_obj_t *label_trend;
-static lv_obj_t *label_time_info;
+static lv_obj_t *label_stats_text;  // Combined stats label (Min/Max/Avg)
+static lv_obj_t *label_hr_source;  // HR source indicator (ECG/PPG)
 static lv_obj_t *chart_hr_trend;
 static lv_chart_series_t *ser_hr;
 
 // Chart configuration
-#define HR_CHART_POINTS 120  // 2 minutes at 1 Hz (or adjustable based on update rate)
+#define HR_CHART_POINTS 120  // Reduced from 240 for better performance (still 3.7px per point)
 #define HR_CHART_MIN 40
 #define HR_CHART_MAX 180
+#define HR_CHART_UPDATE_INTERVAL 2  // Update chart every N updates (throttling)
+
+// Update counter for chart throttling
+static uint8_t chart_update_counter = 0;
 
 // Styles
 extern lv_style_t style_sub;
@@ -53,143 +52,134 @@ void draw_scr_hr(enum scroll_dir m_scroll_dir)
     scr_hr = lv_obj_create(NULL);
     draw_header(scr_hr, true);
 
-    // Main container - black background for OLED-friendly high contrast
+    // Main container
     lv_obj_t *main_container = lv_obj_create(scr_hr);
     lv_obj_set_size(main_container, 480, 290);
     lv_obj_set_pos(main_container, 0, 30);
     lv_obj_set_style_bg_color(main_container, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_border_width(main_container, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(main_container, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(main_container, 10, LV_PART_MAIN);
     lv_obj_clear_flag(main_container, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Left panel - Current value and stats (200px wide)
-    lv_obj_t *left_panel = lv_obj_create(main_container);
-    lv_obj_set_size(left_panel, 200, 290);
-    lv_obj_set_pos(left_panel, 0, 0);
-    lv_obj_set_style_bg_color(left_panel, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(left_panel, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(left_panel, 15, LV_PART_MAIN);
-    lv_obj_clear_flag(left_panel, LV_OBJ_FLAG_SCROLLABLE);
+    // Top info panel - horizontal layout with icon, value, and stats
+    lv_obj_t *info_panel = lv_obj_create(main_container);
+    lv_obj_set_size(info_panel, 460, 105);  // Increased from 90 to 105 for source label
+    lv_obj_set_pos(info_panel, 0, 0);
+    lv_obj_set_style_bg_color(info_panel, lv_palette_darken(LV_PALETTE_CYAN, 4), LV_PART_MAIN);  // Changed to cyan for better visibility
+    lv_obj_set_style_border_width(info_panel, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(info_panel, lv_palette_main(LV_PALETTE_CYAN), LV_PART_MAIN);  // Cyan border
+    lv_obj_set_style_radius(info_panel, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(info_panel, 12, LV_PART_MAIN);
+    lv_obj_clear_flag(info_panel, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Right panel - Trend chart (280px wide)
-    lv_obj_t *right_panel = lv_obj_create(main_container);
-    lv_obj_set_size(right_panel, 280, 290);
-    lv_obj_set_pos(right_panel, 200, 0);
-    lv_obj_set_style_bg_color(right_panel, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(right_panel, 2, LV_PART_MAIN);
-    lv_obj_set_style_border_color(right_panel, lv_palette_darken(LV_PALETTE_ORANGE, 2), LV_PART_MAIN);
-    lv_obj_set_style_border_side(right_panel, LV_BORDER_SIDE_LEFT, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(right_panel, 10, LV_PART_MAIN);
-    lv_obj_clear_flag(right_panel, LV_OBJ_FLAG_SCROLLABLE);
+    // Heart icon (70px)
+    lv_obj_t *img_heart = lv_img_create(info_panel);
+    lv_img_set_src(img_heart, &img_heart_70);
+    lv_obj_align(img_heart, LV_ALIGN_LEFT_MID, 0, -8);  // Shifted up slightly
+    lv_obj_set_style_img_recolor(img_heart, lv_palette_main(LV_PALETTE_CYAN), LV_PART_MAIN);  // Cyan icon
+    lv_obj_set_style_img_recolor_opa(img_heart, LV_OPA_COVER, LV_PART_MAIN);
 
-    // === LEFT PANEL CONTENT ===
+    // HR Source label (below icon) - shows "Source: ECG" or "Source: PPG"
+    label_hr_source = lv_label_create(info_panel);
+    lv_label_set_text(label_hr_source, "Source: ECG");
+    lv_obj_align_to(label_hr_source, img_heart, LV_ALIGN_OUT_BOTTOM_MID, 0, 4);  // Increased spacing
+    lv_obj_set_style_text_font(label_hr_source, &lv_font_montserrat_16, LV_STATE_DEFAULT);  // Even larger font for visibility
+    lv_obj_add_style(label_hr_source, &style_sub, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label_hr_source, lv_color_white(), LV_STATE_DEFAULT);  // White for maximum contrast
 
-    // Heart icon
-    lv_obj_t *icon_heart = lv_label_create(left_panel);
-    lv_label_set_text(icon_heart, "♥");  // Unicode heart symbol
-    lv_obj_align(icon_heart, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_set_style_text_color(icon_heart, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
-    lv_obj_add_style(icon_heart, &style_text_24, LV_STATE_DEFAULT);
+    // Current HR value container (left-center position to avoid overlap with stats)
+    lv_obj_t *value_cont = lv_obj_create(info_panel);
+    lv_obj_set_size(value_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(value_cont, LV_ALIGN_CENTER, -20, 0);  // Adjusted positioning
+    lv_obj_set_flex_flow(value_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(value_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(value_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(value_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(value_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(value_cont, 2, LV_PART_MAIN);
 
-    // Current HR value - large and centered
-    label_hr_current = lv_label_create(left_panel);
+    // Current HR value
+    label_hr_current = lv_label_create(value_cont);
     lv_label_set_text(label_hr_current, "--");
-    lv_obj_align(label_hr_current, LV_ALIGN_TOP_MID, 0, 50);
-    lv_obj_set_style_text_color(label_hr_current, lv_palette_lighten(LV_PALETTE_ORANGE, 2), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_hr_current, &style_text_42, LV_STATE_DEFAULT);
+    lv_obj_add_style(label_hr_current, &style_number_big, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label_hr_current, lv_color_white(), LV_STATE_DEFAULT);
 
     // Unit label
-    label_hr_unit = lv_label_create(left_panel);
-    lv_label_set_text(label_hr_unit, "bpm");
-    lv_obj_align_to(label_hr_unit, label_hr_current, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
-    lv_obj_set_style_text_color(label_hr_unit, lv_palette_lighten(LV_PALETTE_GREY, 2), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_hr_unit, &style_text_16, LV_STATE_DEFAULT);
+    lv_obj_t *label_unit = lv_label_create(value_cont);
+    lv_label_set_text(label_unit, "bpm");
+    lv_obj_add_style(label_unit, &style_sub, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label_unit, lv_palette_lighten(LV_PALETTE_GREY, 2), LV_STATE_DEFAULT);  // Brighter gray
 
-    // Divider line
-    lv_obj_t *line_div = lv_obj_create(left_panel);
-    lv_obj_set_size(line_div, 170, 2);
-    lv_obj_align(line_div, LV_ALIGN_TOP_LEFT, 0, 140);
-    lv_obj_set_style_bg_color(line_div, lv_palette_darken(LV_PALETTE_ORANGE, 3), LV_PART_MAIN);
-    lv_obj_set_style_border_width(line_div, 0, LV_PART_MAIN);
+    // Stats container (right side) - VERTICAL layout for better readability
+    lv_obj_t *stats_cont = lv_obj_create(info_panel);
+    lv_obj_set_size(stats_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(stats_cont, LV_ALIGN_RIGHT_MID, -10, 0);
+    lv_obj_set_flex_flow(stats_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(stats_cont, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(stats_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(stats_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(stats_cont, 5, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(stats_cont, 5, LV_PART_MAIN);
 
-    // Statistics label (multiline)
-    label_stats_text = lv_label_create(left_panel);
+    // Combined stats label (multiline for Min/Max/Avg)
+    label_stats_text = lv_label_create(stats_cont);
     lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
-    lv_obj_align(label_stats_text, LV_ALIGN_TOP_LEFT, 0, 155);
+    lv_obj_set_style_text_font(label_stats_text, &lv_font_montserrat_16, LV_STATE_DEFAULT);  // 16pt font
     lv_obj_set_style_text_color(label_stats_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_stats_text, &style_text_16, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_line_space(label_stats_text, 4, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(label_stats_text, LV_TEXT_ALIGN_RIGHT, LV_STATE_DEFAULT);
+    lv_label_set_long_mode(label_stats_text, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(label_stats_text, LV_SIZE_CONTENT);
 
-    // Trend indicator
-    label_trend = lv_label_create(left_panel);
-    lv_label_set_text(label_trend, LV_SYMBOL_UP " Rising");
-    lv_obj_align(label_trend, LV_ALIGN_BOTTOM_LEFT, 0, -25);
-    lv_obj_set_style_text_color(label_trend, lv_palette_main(LV_PALETTE_GREEN), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_trend, &style_text_14, LV_STATE_DEFAULT);
-
-    // Time info (last update / uptime)
-    label_time_info = lv_label_create(left_panel);
-    lv_label_set_text(label_time_info, "Updated: --");
-    lv_obj_align(label_time_info, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_set_style_text_color(label_time_info, lv_color_make(140, 140, 140), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_time_info, &style_text_14, LV_STATE_DEFAULT);
-
-    // === RIGHT PANEL CONTENT - TREND CHART ===
+    // Chart panel - wide horizontal chart at bottom
+    lv_obj_t *chart_panel = lv_obj_create(main_container);
+    lv_obj_set_size(chart_panel, 460, 155);  // Reduced from 170 to 155
+    lv_obj_set_pos(chart_panel, 0, 115);  // Moved down from 100 to 115
+    lv_obj_set_style_bg_color(chart_panel, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(chart_panel, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(chart_panel, lv_palette_darken(LV_PALETTE_GREY, 2), LV_PART_MAIN);
+    lv_obj_set_style_radius(chart_panel, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chart_panel, 8, LV_PART_MAIN);
+    lv_obj_clear_flag(chart_panel, LV_OBJ_FLAG_SCROLLABLE);
 
     // Chart title
-    lv_obj_t *chart_title = lv_label_create(right_panel);
-    lv_label_set_text(chart_title, "TREND (2 MIN)");
-    lv_obj_align(chart_title, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_text_color(chart_title, lv_palette_lighten(LV_PALETTE_ORANGE, 1), LV_STATE_DEFAULT);
-    lv_obj_add_style(chart_title, &style_text_14, LV_STATE_DEFAULT);
+    lv_obj_t *chart_title = lv_label_create(chart_panel);
+    lv_label_set_text(chart_title, "TREND");
+    lv_obj_align(chart_title, LV_ALIGN_TOP_LEFT, 2, 0);
+    lv_obj_set_style_text_color(chart_title, lv_palette_lighten(LV_PALETTE_CYAN, 1), LV_STATE_DEFAULT);  // Cyan title
+    lv_obj_add_style(chart_title, &style_sub, LV_STATE_DEFAULT);
 
-    // Create chart
-    chart_hr_trend = lv_chart_create(right_panel);
-    lv_obj_set_size(chart_hr_trend, 260, 240);
+    // Create wide horizontal chart
+    chart_hr_trend = lv_chart_create(chart_panel);
+    lv_obj_set_size(chart_hr_trend, 444, 120);  // Reduced from 135 to 120
     lv_obj_align(chart_hr_trend, LV_ALIGN_BOTTOM_MID, 0, 0);
     
-    // Chart styling - minimalist
+    // Chart styling
     lv_obj_set_style_bg_color(chart_hr_trend, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(chart_hr_trend, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(chart_hr_trend, lv_palette_darken(LV_PALETTE_GREY, 2), LV_PART_MAIN);
-    lv_obj_set_style_pad_all(chart_hr_trend, 8, LV_PART_MAIN);
+    lv_obj_set_style_border_width(chart_hr_trend, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(chart_hr_trend, 5, LV_PART_MAIN);
     
     // Chart configuration
     lv_chart_set_type(chart_hr_trend, LV_CHART_TYPE_LINE);
     lv_chart_set_point_count(chart_hr_trend, HR_CHART_POINTS);
     lv_chart_set_range(chart_hr_trend, LV_CHART_AXIS_PRIMARY_Y, HR_CHART_MIN, HR_CHART_MAX);
-    lv_chart_set_div_line_count(chart_hr_trend, 5, 8);  // 5 horizontal, 8 vertical lines
-    lv_chart_set_update_mode(chart_hr_trend, LV_CHART_UPDATE_MODE_SHIFT);  // Shift mode for scrolling
+    lv_chart_set_div_line_count(chart_hr_trend, 4, 10);  // 4 horizontal, 10 vertical divisions
+    lv_chart_set_update_mode(chart_hr_trend, LV_CHART_UPDATE_MODE_SHIFT);
     
     // Grid styling
     lv_obj_set_style_line_color(chart_hr_trend, lv_color_make(30, 30, 30), LV_PART_MAIN);
     lv_obj_set_style_line_width(chart_hr_trend, 1, LV_PART_MAIN);
     
     // Add series
-    ser_hr = lv_chart_add_series(chart_hr_trend, lv_palette_main(LV_PALETTE_ORANGE), LV_CHART_AXIS_PRIMARY_Y);
-    // Note: lv_chart_set_series_width not available in this LVGL version
+    ser_hr = lv_chart_add_series(chart_hr_trend, lv_palette_main(LV_PALETTE_CYAN), LV_CHART_AXIS_PRIMARY_Y);  // Cyan for better visibility
     
     // Series styling
-    lv_obj_set_style_line_color(chart_hr_trend, lv_palette_main(LV_PALETTE_ORANGE), LV_PART_ITEMS);
+    lv_obj_set_style_line_color(chart_hr_trend, lv_palette_main(LV_PALETTE_CYAN), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_hr_trend, 2, LV_PART_ITEMS);
     
-    // Initialize with no data
+    // Initialize chart with no data
     for (int i = 0; i < HR_CHART_POINTS; i++) {
         lv_chart_set_next_value(chart_hr_trend, ser_hr, LV_CHART_POINT_NONE);
     }
-
-    // Y-axis labels (min/max)
-    lv_obj_t *label_y_max = lv_label_create(right_panel);
-    lv_label_set_text_fmt(label_y_max, "%d", HR_CHART_MAX);
-    lv_obj_align(label_y_max, LV_ALIGN_TOP_LEFT, 0, 22);
-    lv_obj_set_style_text_color(label_y_max, lv_color_make(120, 120, 120), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_y_max, &style_text_14, LV_STATE_DEFAULT);
-
-    lv_obj_t *label_y_min = lv_label_create(right_panel);
-    lv_label_set_text_fmt(label_y_min, "%d", HR_CHART_MIN);
-    lv_obj_align(label_y_min, LV_ALIGN_BOTTOM_LEFT, 0, -5);
-    lv_obj_set_style_text_color(label_y_min, lv_color_make(120, 120, 120), LV_STATE_DEFAULT);
-    lv_obj_add_style(label_y_min, &style_text_14, LV_STATE_DEFAULT);
 
     // Set as current screen and show
     hpi_disp_set_curr_screen(SCR_HR);
@@ -205,55 +195,68 @@ void update_scr_hr(void)
         return;
     }
 
+    // Update HR source label
+    if (label_hr_source != NULL) {
+        enum hpi_hr_source current_source = hpi_data_get_hr_source();
+        lv_label_set_text(label_hr_source, current_source == HR_SOURCE_ECG ? "Source: ECG" : "Source: PPG");
+        
+        // Change color based on source: Cyan for ECG, Green for PPG
+        lv_color_t source_color = current_source == HR_SOURCE_ECG ? 
+                                  lv_palette_main(LV_PALETTE_CYAN) : 
+                                  lv_palette_main(LV_PALETTE_GREEN);
+        lv_obj_set_style_text_color(label_hr_source, source_color, LV_STATE_DEFAULT);
+    }
+
     // Update current HR value
     uint16_t current_hr = m_disp_hr;
     if (current_hr > 0 && current_hr < 255) {
         lv_label_set_text_fmt(label_hr_current, "%d", current_hr);
         
-        // Add to trend chart
-        lv_chart_set_next_value(chart_hr_trend, ser_hr, current_hr);
-        lv_chart_refresh(chart_hr_trend);
+        // Throttled chart update - only update every N calls for better performance
+        chart_update_counter++;
+        if (chart_update_counter >= HR_CHART_UPDATE_INTERVAL) {
+            chart_update_counter = 0;
+            lv_chart_set_next_value(chart_hr_trend, ser_hr, current_hr);
+            lv_chart_refresh(chart_hr_trend);
+        }
     } else {
         lv_label_set_text(label_hr_current, "--");
     }
 
-    // Update statistics (60-second window)
-    uint16_t hr_min = vital_stats_get_hr_min();
-    uint16_t hr_max = vital_stats_get_hr_max();
-    uint16_t hr_avg = vital_stats_get_hr_avg();
+    // Update statistics from vital_stats module - using multiline label like other screens
+    if (label_stats_text != NULL) {
+        uint16_t hr_min = vital_stats_get_hr_min();
+        uint16_t hr_max = vital_stats_get_hr_max();
+        uint16_t hr_avg = vital_stats_get_hr_avg();
 
-    if (hr_min > 0) {
-        lv_label_set_text_fmt(label_stats_text, 
-                             "Min: %d bpm\nMax: %d bpm\nAvg: %d bpm",
-                             hr_min, hr_max, hr_avg);
-    } else {
-        lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+        if (hr_min > 0) {
+            char stats_buf[64];
+            snprintf(stats_buf, sizeof(stats_buf), "Min: %d\nMax: %d\nAvg: %d", hr_min, hr_max, hr_avg);
+            lv_label_set_text(label_stats_text, stats_buf);
+            LOG_INF("HR Stats displayed - Min: %d, Max: %d, Avg: %d", hr_min, hr_max, hr_avg);
+        } else {
+            lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+        }
     }
+}
 
-    // Update trend indicator
-    int8_t trend = vital_stats_get_hr_trend();
-    if (trend > 0) {
-        lv_label_set_text(label_trend, LV_SYMBOL_UP " Rising");
-        lv_obj_set_style_text_color(label_trend, lv_palette_main(LV_PALETTE_GREEN), LV_STATE_DEFAULT);
-    } else if (trend < 0) {
-        lv_label_set_text(label_trend, LV_SYMBOL_DOWN " Falling");
-        lv_obj_set_style_text_color(label_trend, lv_palette_main(LV_PALETTE_BLUE), LV_STATE_DEFAULT);
-    } else {
-        lv_label_set_text(label_trend, LV_SYMBOL_MINUS " Stable");
-        lv_obj_set_style_text_color(label_trend, lv_palette_main(LV_PALETTE_GREY), LV_STATE_DEFAULT);
-    }
-
-    // Update time info
-    uint32_t time_since_update = vital_stats_get_hr_time_since_update();
-    if (time_since_update < 5) {
-        lv_label_set_text(label_time_info, "Just now");
-    } else if (time_since_update < 60) {
-        lv_label_set_text_fmt(label_time_info, "%ds ago", time_since_update);
-    } else if (time_since_update != 0xFFFFFFFF) {
-        lv_label_set_text_fmt(label_time_info, "%dm ago", time_since_update / 60);
-    } else {
-        lv_label_set_text(label_time_info, "No data");
-    }
+/**
+ * Toggle HR source between ECG and PPG
+ * Called when user long-presses OK button on HR screen
+ */
+void scr_hr_toggle_source(void)
+{
+    enum hpi_hr_source current = hpi_data_get_hr_source();
+    enum hpi_hr_source new_source = (current == HR_SOURCE_ECG) ? HR_SOURCE_PPG : HR_SOURCE_ECG;
+    
+    hpi_data_set_hr_source(new_source);
+    
+    LOG_INF("HR source toggled to: %s", new_source == HR_SOURCE_ECG ? "ECG" : "PPG");
+    
+    // Force immediate update
+    update_scr_hr();
+    
+    // TODO: Show toast notification "Switched to PPG HR" or "Switched to ECG HR"
 }
 
 void scr_hr_delete(void)
@@ -262,11 +265,10 @@ void scr_hr_delete(void)
         lv_obj_del(scr_hr);
         scr_hr = NULL;
         label_hr_current = NULL;
-        label_hr_unit = NULL;
         label_stats_text = NULL;
-        label_trend = NULL;
-        label_time_info = NULL;
+        label_hr_source = NULL;
         chart_hr_trend = NULL;
         ser_hr = NULL;
+        chart_update_counter = 0;  // Reset throttle counter
     }
 }

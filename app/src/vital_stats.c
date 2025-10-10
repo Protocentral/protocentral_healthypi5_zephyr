@@ -87,6 +87,8 @@ void vital_stats_update_hr(uint16_t hr)
     
     uint32_t now = k_uptime_get_32();
     
+    LOG_DBG("HR update: new=%d, valid_count=%d, index=%d", hr, hr_history.valid_count, hr_history.index);
+    
     // Remove old value from sum if buffer is full
     if (hr_history.valid_count == VITAL_STATS_WINDOW_SIZE) {
         hr_history.sum -= hr_history.values[hr_history.index];
@@ -111,6 +113,9 @@ void vital_stats_update_hr(uint16_t hr)
         if (val > 0 && val < hr_history.min) hr_history.min = val;
         if (val > hr_history.max) hr_history.max = val;
     }
+    
+    LOG_DBG("HR stats calculated: min=%d, max=%d, avg=%d", hr_history.min, hr_history.max, 
+            (hr_history.valid_count > 0) ? (hr_history.sum / hr_history.valid_count) : 0);
 }
 
 void vital_stats_update_spo2(uint8_t spo2)

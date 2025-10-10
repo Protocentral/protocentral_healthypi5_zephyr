@@ -1,5 +1,7 @@
 #pragma once
 
+#include "hpi_common_types.h"
+
 #define LOG_SAMPLE_RATE_SPS 125
 #define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
 #define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
@@ -23,5 +25,9 @@ enum hpi_stream_modes {
     HPI_STREAM_MODE_RPI_UART,
     HPI_STREAM_MODE_PLOT,
 };
+
+// HR source selection functions
+void hpi_data_set_hr_source(enum hpi_hr_source source);
+enum hpi_hr_source hpi_data_get_hr_source(void);
 
 void flush_current_session_logs(void);

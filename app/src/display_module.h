@@ -22,7 +22,7 @@ enum hpi_disp_screens
     SCR_LIST_START,
 
     SCR_HOME,
-    SCR_ALL_TRENDS,
+    // SCR_ALL_TRENDS,  // Disabled for now
     SCR_HR,
     SCR_SPO2,
     SCR_RR,
@@ -52,6 +52,30 @@ enum hpi_disp_op_mode
 
 #define TEMP_SAMPLING_INTERVAL_COUNT 125 // Number of counts of SAMPLING_INTERVAL_MS to wait before sampling temperature
 
+// Image declarations - LVGL images converted from PNG
+// Standard sizes: 35px (small), 45px (medium), 70px (large), 100/120px (source)
+LV_IMG_DECLARE(img_heart_35);
+LV_IMG_DECLARE(img_heart_45);
+LV_IMG_DECLARE(img_heart_70);
+LV_IMG_DECLARE(img_heart_120);
+LV_IMG_DECLARE(icon_spo2_35);
+LV_IMG_DECLARE(icon_spo2_45);
+LV_IMG_DECLARE(icon_spo2_70);
+LV_IMG_DECLARE(icon_spo2_120);
+LV_IMG_DECLARE(ecg_35);
+LV_IMG_DECLARE(ecg_45);
+LV_IMG_DECLARE(ecg_70);
+LV_IMG_DECLARE(ecg_120);
+LV_IMG_DECLARE(img_temp_45);
+LV_IMG_DECLARE(img_temp_70);
+LV_IMG_DECLARE(img_temp_100);
+LV_IMG_DECLARE(img_resp_35);
+LV_IMG_DECLARE(img_resp_45);
+LV_IMG_DECLARE(img_resp_70);
+LV_IMG_DECLARE(img_resp);
+LV_IMG_DECLARE(img_failed_80);
+LV_IMG_DECLARE(low_batt_100);
+
 // Home Screen functions
 void draw_scr_home(enum scroll_dir m_scroll_dir);
 void hpi_scr_home_update_spo2(int spo2);
@@ -66,6 +90,7 @@ bool hpi_disp_is_plot_screen_active(void);
 // HR Screen functions
 void draw_scr_hr(enum scroll_dir m_scroll_dir);
 void update_scr_hr(void);
+void scr_hr_toggle_source(void);  // Toggle HR source (ECG/PPG)
 
 // SpO2 Screen functions
 void draw_scr_spo2(enum scroll_dir m_scroll_dir);

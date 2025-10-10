@@ -4,10 +4,13 @@
  * Column-based layout showing all 4 vital signs with mini trend charts:
  * - Heart Rate (Orange)
  * - SpO2 (Blue)
- * - Respiration Rate (Green)
+ *    // SpO2 Icon - using SpO2 image
+    lv_obj_t *img_spo2 = lv_img_create(spo2_row);
+    lv_img_set_src(img_spo2, &icon_spo2_35);
+    lv_obj_set_pos(img_spo2, 5, 17);espiration Rate (Green)
  * - Temperature (Red)
  * 
- * Each row: [Current Value] [Mini Chart]
+ * Each row: [Icon] [Current Value] [Mini Chart]
  * Full 480x320 screen with 4 rows of ~70px each
  */
 
@@ -125,18 +128,18 @@ void draw_scr_all_trends(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_pad_all(hr_row, 5, LV_PART_MAIN);
     lv_obj_clear_flag(hr_row, LV_OBJ_FLAG_SCROLLABLE);
 
-    // HR Icon
-    lv_obj_t *icon_hr = lv_label_create(hr_row);
-    lv_label_set_text(icon_hr, "♥");  // Unicode heart symbol
-    lv_obj_set_pos(icon_hr, 5, 5);
-    lv_obj_set_style_text_color(icon_hr, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
-    lv_obj_add_style(icon_hr, &style_text_16, LV_STATE_DEFAULT);
+    // HR Icon - using image
+    lv_obj_t *img_hr = lv_img_create(hr_row);
+    lv_img_set_src(img_hr, &img_heart_35);
+    lv_obj_set_pos(img_hr, 5, 5);
+    lv_obj_set_style_img_recolor(img_hr, lv_palette_main(LV_PALETTE_ORANGE), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_hr, LV_OPA_COVER, LV_PART_MAIN);
 
     // HR Value
     label_hr_value = lv_label_create(hr_row);
     lv_label_set_text(label_hr_value, "-- bpm");
-    lv_obj_set_pos(label_hr_value, 30, 22);
-    lv_obj_set_style_text_color(label_hr_value, lv_palette_lighten(LV_PALETTE_ORANGE, 2), LV_STATE_DEFAULT);
+    lv_obj_set_pos(label_hr_value, 45, 22);
+    lv_obj_set_style_text_color(label_hr_value, lv_palette_lighten(LV_PALETTE_CYAN, 2), LV_STATE_DEFAULT);
     lv_obj_add_style(label_hr_value, &style_text_16, LV_STATE_DEFAULT);
 
     // HR Mini Chart
@@ -152,17 +155,17 @@ void draw_scr_all_trends(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_pad_all(spo2_row, 5, LV_PART_MAIN);
     lv_obj_clear_flag(spo2_row, LV_OBJ_FLAG_SCROLLABLE);
 
-    // SpO2 Icon
-    lv_obj_t *icon_spo2 = lv_label_create(spo2_row);
-    lv_label_set_text(icon_spo2, "O2");
-    lv_obj_set_pos(icon_spo2, 5, 5);
-    lv_obj_set_style_text_color(icon_spo2, lv_palette_main(LV_PALETTE_BLUE), LV_STATE_DEFAULT);
-    lv_obj_add_style(icon_spo2, &style_text_16, LV_STATE_DEFAULT);
+    // SpO2 Icon - using properly sized 35px image  
+    lv_obj_t *img_spo2 = lv_img_create(spo2_row);
+    lv_img_set_src(img_spo2, &icon_spo2_35);
+    lv_obj_set_pos(img_spo2, 5, 17);
+    lv_obj_set_style_img_recolor(img_spo2, lv_palette_main(LV_PALETTE_BLUE), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_spo2, LV_OPA_COVER, LV_PART_MAIN);
 
     // SpO2 Value
     label_spo2_value = lv_label_create(spo2_row);
     lv_label_set_text(label_spo2_value, "-- %");
-    lv_obj_set_pos(label_spo2_value, 30, 22);
+    lv_obj_set_pos(label_spo2_value, 45, 22);
     lv_obj_set_style_text_color(label_spo2_value, lv_palette_lighten(LV_PALETTE_BLUE, 2), LV_STATE_DEFAULT);
     lv_obj_add_style(label_spo2_value, &style_text_16, LV_STATE_DEFAULT);
 
@@ -179,17 +182,17 @@ void draw_scr_all_trends(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_pad_all(rr_row, 5, LV_PART_MAIN);
     lv_obj_clear_flag(rr_row, LV_OBJ_FLAG_SCROLLABLE);
 
-    // RR Icon
-    lv_obj_t *icon_rr = lv_label_create(rr_row);
-    lv_label_set_text(icon_rr, LV_SYMBOL_LOOP);
-    lv_obj_set_pos(icon_rr, 5, 5);
-    lv_obj_set_style_text_color(icon_rr, lv_palette_main(LV_PALETTE_GREEN), LV_STATE_DEFAULT);
-    lv_obj_add_style(icon_rr, &style_text_16, LV_STATE_DEFAULT);
+    // RR Icon - using ECG icon for respiration
+    lv_obj_t *img_rr = lv_img_create(rr_row);
+    lv_img_set_src(img_rr, &ecg_45);
+    lv_obj_set_pos(img_rr, 5, 5);
+    lv_obj_set_style_img_recolor(img_rr, lv_palette_main(LV_PALETTE_GREEN), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_rr, LV_OPA_COVER, LV_PART_MAIN);
 
     // RR Value
     label_rr_value = lv_label_create(rr_row);
     lv_label_set_text(label_rr_value, "-- br/m");
-    lv_obj_set_pos(label_rr_value, 30, 22);
+    lv_obj_set_pos(label_rr_value, 55, 22);
     lv_obj_set_style_text_color(label_rr_value, lv_palette_lighten(LV_PALETTE_GREEN, 2), LV_STATE_DEFAULT);
     lv_obj_add_style(label_rr_value, &style_text_16, LV_STATE_DEFAULT);
 
@@ -206,17 +209,17 @@ void draw_scr_all_trends(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_pad_all(temp_row, 5, LV_PART_MAIN);
     lv_obj_clear_flag(temp_row, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Temp Icon
-    lv_obj_t *icon_temp = lv_label_create(temp_row);
-    lv_label_set_text(icon_temp, LV_SYMBOL_CHARGE);
-    lv_obj_set_pos(icon_temp, 5, 5);
-    lv_obj_set_style_text_color(icon_temp, lv_palette_main(LV_PALETTE_RED), LV_STATE_DEFAULT);
-    lv_obj_add_style(icon_temp, &style_text_16, LV_STATE_DEFAULT);
+    // Temperature Icon - using properly sized 45px image
+    lv_obj_t *img_temp = lv_img_create(temp_row);
+    lv_img_set_src(img_temp, &img_temp_45);
+    lv_obj_set_pos(img_temp, 5, 12);
+    lv_obj_set_style_img_recolor(img_temp, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(img_temp, LV_OPA_COVER, LV_PART_MAIN);
 
-    // Temp Value
+    // Temperature Value
     label_temp_value = lv_label_create(temp_row);
-    lv_label_set_text(label_temp_value, "-- °F");
-    lv_obj_set_pos(label_temp_value, 30, 22);
+    lv_label_set_text(label_temp_value, "--.- °F");
+    lv_obj_set_pos(label_temp_value, 50, 22);
     lv_obj_set_style_text_color(label_temp_value, lv_palette_lighten(LV_PALETTE_RED, 2), LV_STATE_DEFAULT);
     lv_obj_add_style(label_temp_value, &style_text_16, LV_STATE_DEFAULT);
 
