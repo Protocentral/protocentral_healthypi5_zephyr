@@ -17,6 +17,9 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
 FILE(GLOB app_sources src/*.c)
+# Exclude BLE module from the unconditional source list. It will be
+# added conditionally via `target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED ...)`
+list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ble_module.c)
 FILE(GLOB ui_images_sources src/ui/images/*.c)
 FILE(GLOB ui_sources src/ui/*.c)
 
@@ -35,6 +38,9 @@ target_sources(app PRIVATE ${app_sources} ${ui_images_sources} ${ui_sources} ${s
 
 # Add vital stats module
 target_sources(app PRIVATE src/vital_stats.c)
+
+# Add BLE module only if enabled in Kconfig
+target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED app PRIVATE src/ble_module.c)
 
 # Add display module only if enabled
 #target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE ${display_sources})
