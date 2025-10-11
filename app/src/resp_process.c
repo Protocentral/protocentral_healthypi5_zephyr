@@ -31,7 +31,7 @@
 
 #include "resp_process.h"
 
-LOG_MODULE_REGISTER(resp_process, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(resp_process, LOG_LEVEL_WRN);
 
 // Global variables for compatibility
 uint8_t Respiration_Rate = 0;
