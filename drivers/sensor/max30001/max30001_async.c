@@ -114,17 +114,32 @@ static int max30001_async_sample_fetch(const struct device *dev,
 
             // printk("B %x ", btag);
 
-            if ((btag == 0x00) || (btag == 0x02)) // Valid sample
-            {
-                uint32_t u_bioz_temp = (uint32_t)(((uint32_t)buf_bioz[i * 3] << 16 | (uint32_t)buf_bioz[i * 3 + 1] << 8) | (uint32_t)(buf_bioz[i * 3 + 2] & 0xF0));
-                u_bioz_temp = (uint32_t)(u_bioz_temp << 8);
+                if ((btag == 0x00) || (btag == 0x02)) // Valid sample
+                {
+                    /*
+                     * Assemble the 24-bit word from the three FIFO bytes. The MAX30001
+                     * provides BioZ in a 20-bit left-justified two's complement format
+                     * inside the 24-bit word (bits [23:4]). Lower bits contain tag/status.
+                     *
+                     * Steps:
+                     *  - Build 24-bit word from bytes
+                     *  - Clear the lowest 4 bits (tag/status) to isolate the left-justified sample
+                     *  - Left-shift by 8 so the 20-bit sign bit moves to bit 31
+                     *  - Arithmetic right-shift by 12 to obtain a sign-extended 20-bit value
+                     */
+                    uint32_t word = ((uint32_t)buf_bioz[i * 3] << 16) | ((uint32_t)buf_bioz[i * 3 + 1] << 8) | (uint32_t)buf_bioz[i * 3 + 2];
 
-                int32_t s_bioz_temp = (int32_t)u_bioz_temp;
-                s_bioz_temp = (int32_t)(s_bioz_temp >> 4);
-                // printf("%d ", secgtemp);
+                    /* clear lower 4 bits which may contain tag/status */
+                    word &= 0xFFFFF0u;
 
-                bioz_samples[i] = s_bioz_temp;
-            }
+                    /* move sign bit to bit31 then arithmetic shift back to get signed value */
+                    int32_t s_bioz_temp = (int32_t)(word << 8);
+                    s_bioz_temp = (int32_t)(s_bioz_temp >> 12);
+
+                    bioz_samples[i] = s_bioz_temp;
+
+                    /* Debug helper code removed to reduce flooding of serial output. */
+                }
             else if (btag == 0x06)
             {
                 break;

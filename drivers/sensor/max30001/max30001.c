@@ -514,11 +514,14 @@ static int max30001_chip_init(const struct device *dev)
     data->chip_cfg.reg_cnfg_emux.bit.calp_sel = 0;
     data->chip_cfg.reg_cnfg_emux.bit.caln_sel = 0;
 
-    // BIOZ Configuration
+    // BIOZ Configuration - tuned for respiration (low-frequency) capture
     data->chip_cfg.reg_cnfg_bioz.bit.rate = 0;                 // 64 SPS
-    data->chip_cfg.reg_cnfg_bioz.bit.ahpf = 0b010;             // 500 Hz
-    data->chip_cfg.reg_cnfg_bioz.bit.dlpf = 0b01;              // 40 Hz
-    data->chip_cfg.reg_cnfg_bioz.bit.dhpf = 0b010;             // 0.5 Hz
+    // AHPF bypass so analog high-pass doesn't remove low-frequency respiration
+    data->chip_cfg.reg_cnfg_bioz.bit.ahpf = 0b000;             // AHPF bypass
+    // DLPF set low to keep respiration but remove high-frequency noise
+    data->chip_cfg.reg_cnfg_bioz.bit.dlpf = 0b01;              // ~4-40 Hz (keep 4 Hz)
+    // DHPF set to narrow (0.05 Hz) to preserve very slow breaths
+    data->chip_cfg.reg_cnfg_bioz.bit.dhpf = 0b01;             // ~0.05 Hz
     data->chip_cfg.reg_cnfg_bioz.bit.gain = config->bioz_gain; // FROM DTS
     data->chip_cfg.reg_cnfg_bioz.bit.fcgen = 0b0100;
     data->chip_cfg.reg_cnfg_bioz.bit.ext_rbias = 0;
@@ -540,6 +543,10 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, CNFG_GEN, data->chip_cfg.reg_cnfg_gen.all);
     //_max30001RegWrite(dev, CNFG_GEN, 0xC0004); // ECG, BIOZ Enabled, DC LOFF disabled
     k_sleep(K_MSEC(100));
+    {
+        uint32_t reg = max30001_read_reg(dev, CNFG_GEN);
+        LOG_INF("MAX30001 CNFG_GEN = 0x%06X", (uint32_t)reg);
+    }
 
     // max30001_enable_ecg(dev);
     // LOG_INF("Enabling MAX30001 ECG");
@@ -561,6 +568,10 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, CNFG_BIOZ, data->chip_cfg.reg_cnfg_bioz.all);
     //_max30001RegWrite(dev, CNFG_BIOZ, 0x201433);
     k_sleep(K_MSEC(100));
+    {
+        uint32_t reg = max30001_read_reg(dev, CNFG_BIOZ);
+        LOG_INF("MAX30001 CNFG_BIOZ = 0x%06X", (uint32_t)reg);
+    }
 
     _max30001RegWrite(dev, CNFG_BMUX, data->chip_cfg.reg_cnfg_bmux.all);
     //_max30001RegWrite(dev, CNFG_BMUX, 0x000040);
@@ -577,6 +588,10 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
     //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
     k_sleep(K_MSEC(100));
+    {
+        uint32_t reg = max30001_read_reg(dev, MNGR_INT);
+        LOG_INF("MAX30001 MNGR_INT = 0x%06X", (uint32_t)reg);
+    }
 
     //_max30001RegWrite(dev, EN_INT, 0x800003); // Disable all interrupts
 
