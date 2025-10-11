@@ -13,3 +13,5 @@
 __pycache__/
 .github/copilot-instructions.md
 /temp_docs
+CLAUDE.md
+add_license_headers.sh

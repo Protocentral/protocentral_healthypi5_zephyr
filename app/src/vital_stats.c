@@ -1,4 +1,29 @@
 /*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Ashwin Whitchurch, ProtoCentral Electronics
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+
+/*
  * Vital Signs Statistics Module Implementation
  */
 
@@ -87,7 +112,7 @@ void vital_stats_update_hr(uint16_t hr)
     
     uint32_t now = k_uptime_get_32();
     
-    LOG_DBG("HR update: new=%d, valid_count=%d, index=%d", hr, hr_history.valid_count, hr_history.index);
+    //LOG_DBG("HR update: new=%d, valid_count=%d, index=%d", hr, hr_history.valid_count, hr_history.index);
     
     // Remove old value from sum if buffer is full
     if (hr_history.valid_count == VITAL_STATS_WINDOW_SIZE) {
@@ -114,8 +139,8 @@ void vital_stats_update_hr(uint16_t hr)
         if (val > hr_history.max) hr_history.max = val;
     }
     
-    LOG_DBG("HR stats calculated: min=%d, max=%d, avg=%d", hr_history.min, hr_history.max, 
-            (hr_history.valid_count > 0) ? (hr_history.sum / hr_history.valid_count) : 0);
+    //LOG_DBG("HR stats calculated: min=%d, max=%d, avg=%d", hr_history.min, hr_history.max, 
+    //        (hr_history.valid_count > 0) ? (hr_history.sum / hr_history.valid_count) : 0);
 }
 
 void vital_stats_update_spo2(uint8_t spo2)

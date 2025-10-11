@@ -1,3 +1,28 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Ashwin Whitchurch, ProtoCentral Electronics
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
@@ -777,7 +802,18 @@ void data_thread(void)
             
             if (resp_filt_buffer_count < RESP_FILT_BUFFER_SIZE)
             {
-                resp_i16_buf[resp_filt_buffer_count++] = (int16_t)(hpi_sensor_data_point.bioz_sample >> 4);
+                // DEBUG: Log the scaling issue
+                static uint16_t dbg_cnt = 0;
+                if (dbg_cnt++ > 2000) {
+                    dbg_cnt = 0;
+                    LOG_DBG("BioZ: Original=%d, Scaled>>4=%d, USB sends Original",
+                            hpi_sensor_data_point.bioz_sample,
+                            (int16_t)(hpi_sensor_data_point.bioz_sample >> 4));
+                }
+
+                // TEMPORARY FIX: Remove >> 4 scaling for sine wave testing
+                // Original: resp_i16_buf[resp_filt_buffer_count++] = (int16_t)(hpi_sensor_data_point.bioz_sample >> 4);
+                resp_i16_buf[resp_filt_buffer_count++] = (int16_t)(hpi_sensor_data_point.bioz_sample);
             }
             else
             {
