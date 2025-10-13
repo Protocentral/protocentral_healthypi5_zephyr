@@ -8,49 +8,49 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    container: ghcr.io/zephyrproject-rtos/ci:latest
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
+      - name: Free Disk Space
+        run: |
+          echo "Before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo apt-get clean
+          sudo docker system prune -af
+          echo "After cleanup:"
+          df -h
+          
       - name: Checkout
         uses: actions/checkout@v3
         with:
           path: healthypi5_zephyr
 
-      - name: Initialize
-        working-directory: healthypi5_zephyr
+      - name: Initialize and Build
         run: |
-          west init -l .
-          west update -o=--depth=1 -n
-
-      - name: Build Basic firmware - ILI9488
-        working-directory: healthypi5_zephyr
-        run: |
-          rm -rf *.uf2
-          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'          
-          mv build/zephyr/zephyr.uf2 healthypi5_basic_ili9488.uf2
-
-      - name: Build Basic firmware - ST7796
-        working-directory: healthypi5_zephyr
-        run: |
-          west build -t pristine
-          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'          
-          mv build/zephyr/zephyr.uf2 healthypi5_basic_st7796.uf2 
-
-      - name: Build display firmware for ILI9488
-        working-directory: healthypi5_zephyr
-        run: |
-          west build -t pristine
-          west build -p auto -b healthypi5 app  -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'          
-          mv build/zephyr/zephyr.uf2 healthypi5_display_ili9488.uf2
-
-      - name: Build display firmware for ST7796
-        working-directory: healthypi5_zephyr
-        run: |
-          west build -t pristine
-          west build -p auto -b healthypi5 app -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'
-          mv build/zephyr/zephyr.uf2 healthypi5_display_st7796.uf2
-
+          docker run --rm \
+            -v $(pwd)/healthypi5_zephyr:/workspace \
+            -w /workspace \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            ghcr.io/zephyrproject-rtos/ci:latest \
+            bash -c "
+              set -e
+              west init -l .
+              west update -o=--depth=1 -n
+              
+              # Build ILI9488 variant
+              west build -p auto -b healthypi5 app \
+                -DEXTRA_CONF_FILE='overlay-display-ili9488.conf;overlay-logger-sd.conf' \
+                -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_ili9488.overlay'
+              mv build/zephyr/zephyr.uf2 healthypi5_ili9488.uf2
+              
+              # Build ST7796 variant
+              west build -p always -b healthypi5 app \
+                -DEXTRA_CONF_FILE='overlay-display-st7796.conf;overlay-logger-sd.conf' \
+                -DEXTRA_DTC_OVERLAY_FILE='healthypi5_rp2040_display_st7796.overlay'
+              mv build/zephyr/zephyr.uf2 healthypi5_st7796.uf2
+            "
       - name: Upload release assets
         uses: ncipollo/release-action@v1
         with:
