@@ -220,6 +220,11 @@ void update_scr_rr(uint8_t rr_value, bool ecg_lead_off)
         return;  // Screen doesn't exist or was deleted, skip update
     }
     
+    // Verify we're still on the RR screen - could have changed during delayed updates
+    if (hpi_disp_get_curr_screen() != SCR_RR) {
+        return;
+    }
+    
     if (label_rr_current == NULL) {
         return;
     }

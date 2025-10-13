@@ -821,9 +821,9 @@ void display_screens_thread(void)
                 hpi_scr_update_hr(m_disp_hr);
                 last_hr_refresh = k_uptime_get_32();
                 
-                // Update detail screens when active
+                // Update detail screens when active (skip during transitions)
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_HR) {
+                if (curr == SCR_HR && !hpi_disp_is_screen_transitioning()) {
                     update_scr_hr();
                 } // else if (curr == SCR_ALL_TRENDS) {
                   //     update_scr_all_trends();
@@ -835,9 +835,9 @@ void display_screens_thread(void)
                 hpi_scr_update_spo2(m_disp_spo2);
                 last_spo2_refresh = k_uptime_get_32();
                 
-                // Update detail screens when active
+                // Update detail screens when active (skip during transitions)
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_SPO2) {
+                if (curr == SCR_SPO2 && !hpi_disp_is_screen_transitioning()) {
                     update_scr_spo2(m_disp_spo2, m_disp_ppg_lead_off);
                 } // else if (curr == SCR_ALL_TRENDS) {
                   //     update_scr_all_trends();
@@ -849,9 +849,9 @@ void display_screens_thread(void)
                 hpi_scr_update_rr(m_disp_rr);
                 last_rr_refresh = k_uptime_get_32();
                 
-                // Update detail screens when active
+                // Update detail screens when active (skip during transitions)
                 int curr = hpi_disp_get_curr_screen();
-                if (curr == SCR_RR) {
+                if (curr == SCR_RR && !hpi_disp_is_screen_transitioning()) {
                     update_scr_rr(m_disp_rr, m_disp_ecg_lead_off);
                 } // else if (curr == SCR_ALL_TRENDS) {
                   //     update_scr_all_trends();

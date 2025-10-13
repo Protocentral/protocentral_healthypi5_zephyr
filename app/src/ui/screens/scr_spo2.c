@@ -222,7 +222,15 @@ void draw_scr_spo2(enum scroll_dir m_scroll_dir)
 
 void update_scr_spo2(uint8_t spo2_value, bool ppg_lead_off)
 {
-    if (scr_spo2 == NULL || label_spo2_current == NULL) {
+    // CRITICAL: Check ALL pointers before use - prevent crash during screen transition
+    if (scr_spo2 == NULL || label_spo2_current == NULL || lead_off_overlay == NULL) {
+        LOG_DBG("SpO2 screen not fully initialized, skipping update");
+        return;
+    }
+
+    // Verify we're still on the SpO2 screen - could have changed during delayed updates
+    if (hpi_disp_get_curr_screen() != SCR_SPO2) {
+        LOG_DBG("No longer on SpO2 screen, skipping update");
         return;
     }
 
@@ -235,10 +243,10 @@ void update_scr_spo2(uint8_t spo2_value, bool ppg_lead_off)
     // Check lead-off status and show/hide overlay
     if (ppg_lead_off) {
         // Lead-off detected - show "NO PPG SIGNAL" overlay, hide value
-        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+        if (lv_obj_is_valid(lead_off_overlay)) {
             lv_obj_clear_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
         }
-        if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
+        if (lv_obj_is_valid(label_spo2_current)) {
             lv_obj_add_flag(label_spo2_current, LV_OBJ_FLAG_HIDDEN);
         }
         if (label_spo2_unit != NULL && lv_obj_is_valid(label_spo2_unit)) {
