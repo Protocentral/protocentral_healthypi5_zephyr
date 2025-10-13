@@ -39,7 +39,7 @@
 
 #include "spo2_process.h"
 
-LOG_MODULE_REGISTER(spo2_process, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(spo2_process, LOG_LEVEL_WRN);
 
 // ============================================================================
 // PROBE-OFF DETECTION THRESHOLDS
