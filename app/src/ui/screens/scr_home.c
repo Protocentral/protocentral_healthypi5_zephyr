@@ -49,6 +49,10 @@ extern lv_obj_t *g_label_home_rr;
 extern lv_obj_t *g_label_home_temp_f;
 extern lv_obj_t *g_label_home_temp_c;
 
+// Lead-off warning icons
+static lv_obj_t *icon_hr_warn = NULL;
+static lv_obj_t *icon_spo2_warn = NULL;
+
 void draw_scr_home(enum scroll_dir m_scroll_dir)
 {
     scr_home = lv_obj_create(NULL);
@@ -134,6 +138,14 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_align(label_hr_unit, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_add_style(label_hr_unit, &style_sub, LV_STATE_DEFAULT);
 
+    // HR Warning icon (lead-off indicator) - initially hidden
+    icon_hr_warn = lv_label_create(obj_hr_card);
+    lv_label_set_text(icon_hr_warn, LV_SYMBOL_WARNING);
+    lv_obj_align(icon_hr_warn, LV_ALIGN_TOP_RIGHT, -5, 5);
+    lv_obj_set_style_text_font(icon_hr_warn, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(icon_hr_warn, lv_color_make(255, 160, 0), LV_STATE_DEFAULT);
+    lv_obj_add_flag(icon_hr_warn, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
+
     // SpO2 Icon - using SpO2 image (35px for consistency)
     lv_obj_t *img_spo2 = lv_img_create(obj_spo2_card);
     lv_img_set_src(img_spo2, &icon_spo2_35);
@@ -158,6 +170,14 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_label_set_text(label_spo2_unit, "%");
     lv_obj_align(label_spo2_unit, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_add_style(label_spo2_unit, &style_sub, LV_STATE_DEFAULT);
+
+    // SpO2 Warning icon (lead-off indicator) - initially hidden
+    icon_spo2_warn = lv_label_create(obj_spo2_card);
+    lv_label_set_text(icon_spo2_warn, LV_SYMBOL_WARNING);
+    lv_obj_align(icon_spo2_warn, LV_ALIGN_TOP_RIGHT, -5, 5);
+    lv_obj_set_style_text_font(icon_spo2_warn, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(icon_spo2_warn, lv_color_make(255, 160, 0), LV_STATE_DEFAULT);
+    lv_obj_add_flag(icon_spo2_warn, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
 
     // RR Icon - using respiration image (35px for consistency)
     lv_obj_t *img_rr = lv_img_create(obj_rr_card);
@@ -307,7 +327,8 @@ void hpi_scr_home_update_spo2(int spo2)
     if (g_label_home_spo2 == NULL)
         return;
 
-    if (spo2 < 0)
+    // Display "--" for invalid readings (< 0) or zero (no valid data)
+    if (spo2 <= 0)
     {
         lv_label_set_text(g_label_home_spo2, "--");
         return;
@@ -316,6 +337,37 @@ void hpi_scr_home_update_spo2(int spo2)
     char buf[16];
     sprintf(buf, "%d", spo2);
     lv_label_set_text(g_label_home_spo2, buf);
+}
+
+void hpi_scr_home_update_lead_off(bool ecg_lead_off, bool ppg_lead_off)
+{
+    if (scr_home == NULL) return;
+    
+    // Update HR warning icon (ECG lead-off)
+    if (icon_hr_warn != NULL) {
+        if (ecg_lead_off) {
+            lv_obj_clear_flag(icon_hr_warn, LV_OBJ_FLAG_HIDDEN);
+            // Also show "--" for HR value
+            if (g_label_home_hr != NULL) {
+                lv_label_set_text(g_label_home_hr, "--");
+            }
+        } else {
+            lv_obj_add_flag(icon_hr_warn, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    
+    // Update SpO2 warning icon (PPG lead-off - software detection based on signal quality)
+    if (icon_spo2_warn != NULL) {
+        if (ppg_lead_off) {
+            lv_obj_clear_flag(icon_spo2_warn, LV_OBJ_FLAG_HIDDEN);
+            // Also show "--" for SpO2 value
+            if (g_label_home_spo2 != NULL) {
+                lv_label_set_text(g_label_home_spo2, "--");
+            }
+        } else {
+            lv_obj_add_flag(icon_spo2_warn, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
 }
 
 void hpi_scr_home_update_pr(int pr)

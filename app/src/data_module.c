@@ -189,6 +189,26 @@ K_MUTEX_DEFINE(mutex_hr_source);
 
 ZBUS_CHAN_DECLARE(resp_rate_chan);
 
+// ============================================================================
+// Lead-Off Detection State Management (UI Layer Only)
+// ============================================================================
+// Time-based debouncing for UI updates only - all detection logic is in spo2_process.c
+
+#define ECG_LEADOFF_DEBOUNCE_MS    500    // ECG lead-off is stable (hardware detection)
+#define PPG_LEADOFF_DEBOUNCE_MS    1000   // PPG UI debounce (already filtered by algorithm)
+
+// Lead-off state tracking (UI layer)
+static bool ecg_lead_off_state = false;   // Current UI state for ECG
+static bool ppg_lead_off_state = true;    // Current UI state for PPG (start as lead-off)
+static int64_t ecg_leadoff_timer = 0;     // Timestamp for ECG debouncing
+static int64_t ppg_leadoff_timer = 0;     // Timestamp for PPG debouncing
+static bool ecg_leadoff_raw = false;      // Raw ECG hardware status
+static bool ppg_leadoff_prev = true;      // Previous filtered state from algorithm
+
+// SpO2 algorithm probe state tracker (initialized once)
+static spo2_probe_state_t spo2_probe_state;
+static bool spo2_probe_state_initialized = false;
+
 void hpi_data_set_stream_mode(enum hpi_stream_modes mode)
 {
     k_mutex_lock(&mutex_stream_mode, K_FOREVER);
@@ -642,6 +662,16 @@ void data_thread(void)
     m_hr_source = settings_load_hr_source();
     LOG_INF("Initialized HR source: %s", m_hr_source == HR_SOURCE_ECG ? "ECG" : "PPG");
 
+    // Initialize lead-off timers
+    ecg_leadoff_timer = k_uptime_get();
+    ppg_leadoff_timer = k_uptime_get();
+    
+    // Initialize SpO2 probe state tracker (consecutive count filtering in algorithm)
+    // threshold_off=4: need 4 consecutive probe-off detections (~2 seconds at 0.5s/reading)
+    // threshold_on=4: need 4 consecutive probe-on detections (~2 seconds)
+    spo2_probe_state_init(&spo2_probe_state, 4, 4);
+    spo2_probe_state_initialized = true;
+
     for (;;)
     {
         // Process ALL available samples before sleeping (critical for performance)
@@ -675,7 +705,7 @@ void data_thread(void)
                 // Buffer is full, calculate SPO2 and HR with quality metrics (Phase 1)
                 spo2_time_count = 0;
                 maxim_heart_rate_and_oxygen_saturation_with_quality(irBuffer, bufferLength, redBuffer, 
-                    &m_spo2, &validSPO2, &m_hr, &validHeartRate, &quality_metrics);
+                    &m_spo2, &validSPO2, &m_hr, &validHeartRate, &quality_metrics, &spo2_probe_state);
                 
                 // Log quality metrics for debugging
                 if (validSPO2 || validHeartRate) {
@@ -705,8 +735,8 @@ void data_thread(void)
                 }
                 
                 // Publish SpO2 with enhanced validation and smoothing filter
-                if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100 && 
-                    quality_metrics.confidence >= 50) // Minimum confidence threshold
+                // Confidence threshold removed - probe-off detection handles validity
+                if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100)
                 {
                     // Outlier rejection: SpO2 changes slowly, reject >5% jumps
                     bool is_spo2_outlier = false;
@@ -792,6 +822,43 @@ void data_thread(void)
                             m_hr, quality_metrics.perfusion_ir / 100, quality_metrics.perfusion_ir % 100);
                 }
                 
+                // ============================================================================
+                // PPG Lead-Off Detection - UI Debouncing Only
+                // ============================================================================
+                // All detection logic (DC level, PI, peaks, consecutive filtering) is in spo2_process.c
+                // Here we only apply final time-based debounce for UI stability
+                
+                bool probe_off_filtered = quality_metrics.probe_off_filtered;
+                
+                // Check if filtered state changed from algorithm
+                if (probe_off_filtered != ppg_leadoff_prev) {
+                    // State change detected, restart timer
+                    ppg_leadoff_timer = k_uptime_get();
+                    ppg_leadoff_prev = probe_off_filtered;
+                    
+                    LOG_INF("PPG filtered state changed: %s (reason=%d, PI=%d.%02d%%)",
+                            probe_off_filtered ? "PROBE-OFF" : "PROBE-ON",
+                            quality_metrics.probe_off_reason,
+                            quality_metrics.perfusion_ir / 100, 
+                            quality_metrics.perfusion_ir % 100);
+                }
+                
+                // Apply asymmetric debouncing: fast response when finger placed, slow when removed
+                int64_t elapsed_ms = k_uptime_get() - ppg_leadoff_timer;
+                
+                if (probe_off_filtered != ppg_lead_off_state) {
+                    // Asymmetric debounce thresholds:
+                    // - PROBE-ON (finger placed): 200ms - fast response since algorithm already filtered
+                    // - PROBE-OFF (finger removed): 1000ms - prevent flickering on weak signal
+                    int64_t required_debounce = probe_off_filtered ? PPG_LEADOFF_DEBOUNCE_MS : 200;
+                    
+                    if (elapsed_ms >= required_debounce) {
+                        ppg_lead_off_state = probe_off_filtered;
+                        LOG_INF("PPG UI state updated: %s (after %lld ms)",
+                                ppg_lead_off_state ? "LEAD-OFF" : "CONNECTED", elapsed_ms);
+                    }
+                }
+                
                 // Shift buffer for next calculation
                 for (int i = FreqS; i < BUFFER_SIZE; i++)
                 {
@@ -821,22 +888,59 @@ void data_thread(void)
                 resp_process_sample(resp_i16_buf, resp_i16_filt_out);
                 resp_algo_process(resp_i16_filt_out, &m_resp_rate);
 
-                struct hpi_resp_rate_t resp_rate_chan_value = {
-                    .resp_rate = m_resp_rate};
-                // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
-                zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
+                // IMPORTANT: Only publish respiration rate if ECG leads are connected
+                // BioZ signal requires ECG electrodes for proper measurement
+                if (!ecg_lead_off_state && m_resp_rate > 0 && m_resp_rate < 60) {
+                    struct hpi_resp_rate_t resp_rate_chan_value = {
+                        .resp_rate = m_resp_rate};
+                    // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
+                    zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
+                }
 
                 resp_filt_buffer_count = 0;
             }
 
             // Publish ECG HR if ECG source is selected
             // ECG HR comes from MAX30001 R-R interval detection
+            // IMPORTANT: Suppress HR publication during lead-off to prevent false readings
             if (hpi_data_get_hr_source() == HR_SOURCE_ECG && 
-                hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255) 
+                hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255 &&
+                !ecg_lead_off_state)  // Don't publish during lead-off
             {
                 hr_serial = hpi_sensor_data_point.hr;
                 struct hpi_hr_t hr_chan_value = {.hr = hpi_sensor_data_point.hr};
                 zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+            }
+
+            // ============================================================================
+            // ECG Lead-Off Detection (Hardware-based with debouncing)
+            // ============================================================================
+            // MAX30001 provides hardware DC lead-off detection
+            // ecg_lead_off: 0 = electrodes connected, 1 = electrodes disconnected
+            
+            bool ecg_leadoff_raw_new = (hpi_sensor_data_point.ecg_lead_off != 0);
+            
+            if (ecg_leadoff_raw_new != ecg_leadoff_raw) {
+                // State change detected, restart timer
+                ecg_leadoff_raw = ecg_leadoff_raw_new;
+                ecg_leadoff_timer = k_uptime_get();
+                LOG_DBG("ECG lead-off raw state change: %s", 
+                        ecg_leadoff_raw ? "DISCONNECTED" : "CONNECTED");
+            }
+            else {
+                // Check if debounce period has elapsed
+                int64_t elapsed_ms = k_uptime_get() - ecg_leadoff_timer;
+                
+                if (ecg_leadoff_raw && !ecg_lead_off_state && elapsed_ms >= ECG_LEADOFF_DEBOUNCE_MS) {
+                    // Transitioning to lead-off
+                    ecg_lead_off_state = true;
+                    LOG_INF("ECG Lead-Off DETECTED (electrodes disconnected for %lld ms)", elapsed_ms);
+                }
+                else if (!ecg_leadoff_raw && ecg_lead_off_state && elapsed_ms >= ECG_LEADOFF_DEBOUNCE_MS) {
+                    // Transitioning to connected
+                    ecg_lead_off_state = false;
+                    LOG_INF("ECG Lead-On DETECTED (electrodes connected for %lld ms)", elapsed_ms);
+                }
             }
 
             /*for (int i = 0; i < 4; i++)
@@ -905,6 +1009,39 @@ void data_thread(void)
         {
             hpi_data_set_stream_mode(HPI_STREAM_MODE_USB);
         }
+
+        // ============================================================================
+        // Update Lead-Off UI Indicators (throttled to ~10Hz to avoid display flooding)
+        // ============================================================================
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+        static int64_t last_ui_update_time = 0;
+        int64_t current_time = k_uptime_get();
+        
+        if (current_time - last_ui_update_time >= 100) {  // Update every 100ms (10Hz)
+            last_ui_update_time = current_time;
+            
+            // CRITICAL: Skip UI updates during screen transitions to prevent blocking data processing
+            // Screen transitions involve LVGL operations that can take >1 second
+            // If we try to update UI during this time, the data thread blocks and the queue overflows
+            if (!hpi_disp_is_screen_transitioning()) {
+                // Get current screen ONCE to avoid race conditions
+                int curr_screen = hpi_disp_get_curr_screen();
+                
+                // Always update home screen indicators (fast operation)
+                hpi_scr_home_update_lead_off(ecg_lead_off_state, ppg_lead_off_state);
+                
+                // Update detail screen overlays based on current screen
+                if (curr_screen == SCR_HR) {
+                    // HR screen - show ECG lead-off overlay
+                    update_scr_hr_lead_off(ecg_lead_off_state);
+                }
+                else if (curr_screen == SCR_SPO2) {
+                    // SpO2 screen - show PPG lead-off overlay (uses same debounced state)
+                    update_scr_spo2_lead_off(ppg_lead_off_state);
+                }
+            }
+        }
+#endif
 
         // Only sleep if no samples were processed (queue was empty)
         // This ensures we process samples as fast as they arrive

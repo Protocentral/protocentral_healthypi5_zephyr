@@ -50,39 +50,38 @@ static void anim_x_cb(void *var, int32_t v)
     lv_obj_set_x(var, v);
 }
 
+// Static style - created once and reused across screen draws
+static lv_style_t style_welcome_scr_bg;
+static bool style_welcome_initialized = false;
+
 void draw_scr_welcome(void)
 {
-    lv_style_t style_welcome_scr_bg;
+    // Initialize style only once (not per screen draw)
+    if (!style_welcome_initialized) {
+        lv_style_init(&style_welcome_scr_bg);
+        
+        lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
+        lv_style_set_border_width(&style_welcome_scr_bg, 0);
 
-    // Screen background style
-    lv_style_init(&style_welcome_scr_bg);
+        static lv_grad_dsc_t grad;
+        grad.dir = LV_GRAD_DIR_HOR;
+        grad.stops_count = 2;
+        grad.stops[0].color = lv_color_hex(0x003a57);
+        grad.stops[1].color = lv_color_black();
 
-    
-    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
-    lv_style_set_border_width(&style_welcome_scr_bg, 0);
+        // Shift the gradient to the bottom
+        grad.stops[0].frac = 128;
+        grad.stops[1].frac = 192;
 
-    static lv_grad_dsc_t grad;
-    grad.dir = LV_GRAD_DIR_HOR;
-    grad.stops_count = 2;
-    grad.stops[0].color = lv_color_hex(0x003a57); // lv_palette_lighten(LV_PALETTE_GREY, 1);
-    grad.stops[1].color = lv_color_black();       // lv_palette_main(LV_PALETTE_BLUE);
-
-    // Shift the gradient to the bottom
-    grad.stops[0].frac = 128;
-    grad.stops[1].frac = 192;
-
-    // lv_style_set_bg_color(&style_welcome_scr_bg, lv_color_black());
-    lv_style_set_bg_grad(&style_welcome_scr_bg, &grad);
-
+        lv_style_set_bg_grad(&style_welcome_scr_bg, &grad);
+        
+        style_welcome_initialized = true;
+    }
 
     lv_obj_t *scr_welcome = lv_obj_create(NULL);
     lv_obj_add_style(scr_welcome, &style_welcome_scr_bg, 0);
 
     draw_header(scr_welcome, false);
-
-    /*Make a gradient*/
-    lv_style_set_bg_opa(&style_welcome_scr_bg, LV_OPA_COVER);
-    lv_style_set_border_width(&style_welcome_scr_bg, 0);
 
     lv_obj_t *label_hpi = lv_label_create(scr_welcome);
     lv_label_set_text(label_hpi, "Welcome to HealthyPi 5 !");

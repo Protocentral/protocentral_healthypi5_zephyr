@@ -55,6 +55,7 @@ static lv_obj_t *label_stats_text;  // Combined stats label (Min/Max/Avg)
 static lv_obj_t *label_hr_source;  // HR source indicator (ECG/PPG)
 static lv_obj_t *chart_hr_trend;
 static lv_chart_series_t *ser_hr;
+static lv_obj_t *lead_off_overlay = NULL;  // Lead-off warning overlay
 
 // Chart configuration
 #define HR_CHART_POINTS 120  // Reduced from 240 for better performance (still 3.7px per point)
@@ -135,6 +136,32 @@ void draw_scr_hr(enum scroll_dir m_scroll_dir)
     lv_obj_add_style(label_unit, &style_sub, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(label_unit, lv_palette_lighten(LV_PALETTE_GREY, 2), LV_STATE_DEFAULT);  // Brighter gray
 
+    // Lead-off warning overlay (positioned over value, initially hidden)
+    lead_off_overlay = lv_obj_create(info_panel);
+    lv_obj_set_size(lead_off_overlay, 280, 80);
+    lv_obj_align(lead_off_overlay, LV_ALIGN_CENTER, 20, 0);
+    lv_obj_set_style_bg_color(lead_off_overlay, lv_color_make(60, 20, 20), LV_PART_MAIN);
+    lv_obj_set_style_border_width(lead_off_overlay, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(lead_off_overlay, lv_color_make(200, 50, 50), LV_PART_MAIN);
+    lv_obj_set_style_radius(lead_off_overlay, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lead_off_overlay, 8, LV_PART_MAIN);
+    lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
+    
+    // Warning icon
+    lv_obj_t *icon_lead_off = lv_label_create(lead_off_overlay);
+    lv_label_set_text(icon_lead_off, LV_SYMBOL_WARNING);
+    lv_obj_align(icon_lead_off, LV_ALIGN_LEFT_MID, 5, 0);
+    lv_obj_set_style_text_font(icon_lead_off, &lv_font_montserrat_28, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(icon_lead_off, lv_color_make(255, 180, 0), LV_STATE_DEFAULT);
+    
+    // Warning text
+    lv_obj_t *label_lead_off_warning = lv_label_create(lead_off_overlay);
+    lv_label_set_text(label_lead_off_warning, "ELECTRODES\nDISCONNECTED");
+    lv_obj_align(label_lead_off_warning, LV_ALIGN_CENTER, 25, 0);
+    lv_obj_set_style_text_font(label_lead_off_warning, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label_lead_off_warning, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(label_lead_off_warning, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
+
     // Stats container (right side) - VERTICAL layout for better readability
     lv_obj_t *stats_cont = lv_obj_create(info_panel);
     lv_obj_set_size(stats_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -201,9 +228,12 @@ void draw_scr_hr(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_line_color(chart_hr_trend, lv_palette_main(LV_PALETTE_CYAN), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_hr_trend, 2, LV_PART_ITEMS);
     
-    // Initialize chart with no data
+    // Initialize chart with no data - yield every 20 points to prevent blocking data thread
     for (int i = 0; i < HR_CHART_POINTS; i++) {
         lv_chart_set_next_value(chart_hr_trend, ser_hr, LV_CHART_POINT_NONE);
+        if ((i % 20) == 0) {
+            k_yield();  // Allow data thread to run
+        }
     }
 
     // Set as current screen and show
@@ -220,8 +250,14 @@ void update_scr_hr(void)
         return;
     }
 
+    // Additional validation: Check if screen is valid before accessing children
+    if (!lv_obj_is_valid(scr_hr)) {
+        LOG_DBG("HR screen not yet valid, skipping update");
+        return;
+    }
+
     // Update HR source label
-    if (label_hr_source != NULL) {
+    if (label_hr_source != NULL && lv_obj_is_valid(label_hr_source)) {
         enum hpi_hr_source current_source = hpi_data_get_hr_source();
         lv_label_set_text(label_hr_source, current_source == HR_SOURCE_ECG ? "Source: ECG" : "Source: PPG");
         
@@ -235,21 +271,27 @@ void update_scr_hr(void)
     // Update current HR value
     uint16_t current_hr = m_disp_hr;
     if (current_hr > 0 && current_hr < 255) {
-        lv_label_set_text_fmt(label_hr_current, "%d", current_hr);
+        if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
+            lv_label_set_text_fmt(label_hr_current, "%d", current_hr);
+        }
         
         // Throttled chart update - only update every N calls for better performance
         chart_update_counter++;
         if (chart_update_counter >= HR_CHART_UPDATE_INTERVAL) {
             chart_update_counter = 0;
-            lv_chart_set_next_value(chart_hr_trend, ser_hr, current_hr);
-            lv_chart_refresh(chart_hr_trend);
+            if (chart_hr_trend != NULL && lv_obj_is_valid(chart_hr_trend) && ser_hr != NULL) {
+                lv_chart_set_next_value(chart_hr_trend, ser_hr, current_hr);
+                lv_chart_refresh(chart_hr_trend);
+            }
         }
     } else {
-        lv_label_set_text(label_hr_current, "--");
+        if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
+            lv_label_set_text(label_hr_current, "--");
+        }
     }
 
     // Update statistics from vital_stats module - using multiline label like other screens
-    if (label_stats_text != NULL) {
+    if (label_stats_text != NULL && lv_obj_is_valid(label_stats_text)) {
         uint16_t hr_min = vital_stats_get_hr_min();
         uint16_t hr_max = vital_stats_get_hr_max();
         uint16_t hr_avg = vital_stats_get_hr_avg();
@@ -262,6 +304,46 @@ void update_scr_hr(void)
         } else {
             lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
         }
+    }
+}
+
+/**
+ * Update lead-off status on HR screen
+ */
+void update_scr_hr_lead_off(bool ecg_lead_off)
+{
+    // CRITICAL: Only update if we're actually on the HR screen
+    if (hpi_disp_get_curr_screen() != SCR_HR) {
+        return;
+    }
+    
+    if (scr_hr == NULL || lead_off_overlay == NULL) return;
+    
+    // Additional validation: Check if objects are still valid in LVGL
+    if (!lv_obj_is_valid(scr_hr) || !lv_obj_is_valid(lead_off_overlay)) {
+        LOG_DBG("HR screen objects not yet valid, skipping lead-off update");
+        return;
+    }
+    
+    if (ecg_lead_off) {
+        // Show warning overlay, hide normal value
+        if (lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_clear_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
+            lv_obj_add_flag(label_hr_current, LV_OBJ_FLAG_HIDDEN);
+        }
+        LOG_WRN("HR Screen: ECG lead-off warning displayed");
+    } else {
+        // Hide warning, show normal value
+        // Re-validate before each operation (object could become invalid between checks)
+        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
+            lv_obj_clear_flag(label_hr_current, LV_OBJ_FLAG_HIDDEN);
+        }
+        LOG_INF("HR Screen: ECG lead-off cleared");
     }
 }
 
@@ -294,6 +376,7 @@ void scr_hr_delete(void)
         label_hr_source = NULL;
         chart_hr_trend = NULL;
         ser_hr = NULL;
+        lead_off_overlay = NULL;   // FIX: NULL out overlay pointer
         chart_update_counter = 0;  // Reset throttle counter
     }
 }

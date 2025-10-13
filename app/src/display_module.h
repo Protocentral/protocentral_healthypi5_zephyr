@@ -108,6 +108,7 @@ void hpi_scr_home_update_pr(int pr);
 void hpi_scr_home_update_rr(int rr);
 void hpi_scr_home_update_temp(float temp_f, float temp_c);
 void hpi_scr_home_update_hr(int hr);
+void hpi_scr_home_update_lead_off(bool ecg_lead_off, bool ppg_lead_off);
 
 int hpi_disp_get_op_mode();
 bool hpi_disp_is_plot_screen_active(void);
@@ -116,8 +117,12 @@ bool hpi_disp_is_plot_screen_active(void);
 void draw_scr_hr(enum scroll_dir m_scroll_dir);
 void update_scr_hr(void);
 void scr_hr_toggle_source(void);  // Toggle HR source (ECG/PPG)
+void update_scr_hr_lead_off(bool ecg_lead_off);
 
 // SpO2 Screen functions
+void draw_scr_spo2(enum scroll_dir m_scroll_dir);
+void update_scr_spo2(void);
+void update_scr_spo2_lead_off(bool ppg_lead_off);  // Uses debounced state like home screen
 void draw_scr_spo2(enum scroll_dir m_scroll_dir);
 void update_scr_spo2(void);
 
@@ -145,6 +150,7 @@ void hpi_scr_update_spo2(int spo2);
 
 void hpi_disp_set_curr_screen(int screen);
 int hpi_disp_get_curr_screen(void);
+bool hpi_disp_is_screen_transitioning(void);  // Check if screen change in progress
 
 void draw_header(lv_obj_t *parent, bool showFWVersion);
 void draw_footer(lv_obj_t *parent);

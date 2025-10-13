@@ -178,6 +178,14 @@ extern struct k_sem sem_up_key_pressed;
 extern struct k_sem sem_down_key_pressed;
 extern struct k_msgq q_computed_val;
 
+// Software debounce for UP/DOWN buttons to prevent rapid screen changes
+#define BUTTON_DEBOUNCE_MS 1200  // 1.2 seconds between UP/DOWN button presses
+static uint32_t last_up_press_time = 0;
+static uint32_t last_down_press_time = 0;
+
+// Flag to skip lv_task_handler on next iteration after screen change
+static bool skip_next_lvgl_handler = false;
+
 int hpi_disp_get_op_mode()
 {
     return m_op_mode;
@@ -598,6 +606,11 @@ int hpi_disp_get_curr_screen(void)
     return screen;
 }
 
+bool hpi_disp_is_screen_transitioning(void)
+{
+    return screen_transitioning;
+}
+
 // Function table mapping screen IDs to draw/gesture functions
 static const screen_func_table_entry_t screen_func_table[] = {
     [SCR_HOME] = {draw_scr_home, NULL},
@@ -679,7 +692,15 @@ void display_screens_thread(void)
         }*/
 
         // CRITICAL: Process lv_task_handler() FIRST to handle screen changes immediately
-        lv_task_handler();
+        // BUT skip immediately after screen change to let new screen stabilize
+        if (!screen_transitioning && !skip_next_lvgl_handler) {
+            lv_task_handler();
+        }
+        
+        // Clear skip flag after one iteration
+        if (skip_next_lvgl_handler) {
+            skip_next_lvgl_handler = false;
+        }
 
         /*
          * REAL-TIME PLOTTING DISABLED
@@ -768,6 +789,7 @@ void display_screens_thread(void)
                         mem_mon.used_pct, mem_mon.free_size);
                 
                 screen_transitioning = false;  // Re-enable periodic updates
+                skip_next_lvgl_handler = true;  // Skip lv_task_handler on next iteration
                 
                 // Skip periodic updates this iteration - let new screen settle
                 // This prevents trying to update labels that were just created
@@ -840,15 +862,31 @@ void display_screens_thread(void)
             }
         }
 
-        // Check for key presses
+        // Check for key presses with software debouncing for UP/DOWN
         if (k_sem_take(&sem_down_key_pressed, K_NO_WAIT) == 0)
         {
-            hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+            uint32_t current_time = k_uptime_get_32();
+            if ((current_time - last_down_press_time) >= BUTTON_DEBOUNCE_MS) {
+                last_down_press_time = current_time;
+                hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
+                LOG_DBG("DOWN button accepted (debounced)");
+            } else {
+                LOG_DBG("DOWN button ignored (debounce: %u ms elapsed)", 
+                        current_time - last_down_press_time);
+            }
         }
 
         if (k_sem_take(&sem_up_key_pressed, K_NO_WAIT) == 0)
         {
-            hpi_disp_change_event(HPI_SCR_EVENT_UP);
+            uint32_t current_time = k_uptime_get_32();
+            if ((current_time - last_up_press_time) >= BUTTON_DEBOUNCE_MS) {
+                last_up_press_time = current_time;
+                hpi_disp_change_event(HPI_SCR_EVENT_UP);
+                LOG_DBG("UP button accepted (debounced)");
+            } else {
+                LOG_DBG("UP button ignored (debounce: %u ms elapsed)", 
+                        current_time - last_up_press_time);
+            }
         }
 
         // OK button long-press detection using Zephyr's input-longpress driver

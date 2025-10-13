@@ -210,6 +210,12 @@ void update_scr_temp(void)
         return;
     }
 
+    // Additional validation: Check if screen is valid before accessing children
+    if (!lv_obj_is_valid(scr_temp)) {
+        LOG_DBG("Temperature screen not yet valid, skipping update");
+        return;
+    }
+
     // Update current temperature values
     float current_temp_f = m_disp_temp_f;
     
@@ -218,15 +224,19 @@ void update_scr_temp(void)
         int temp_f_int = (int)current_temp_f;
         int temp_f_dec = (int)((current_temp_f - temp_f_int) * 10);
         
-        lv_label_set_text_fmt(label_temp_current, "%d.%d", temp_f_int, temp_f_dec);
+        if (label_temp_current != NULL && lv_obj_is_valid(label_temp_current)) {
+            lv_label_set_text_fmt(label_temp_current, "%d.%d", temp_f_int, temp_f_dec);
+        }
         
-        // Add to trend chart (Fahrenheit) - only if chart is valid
-        if (chart_temp_trend != NULL && ser_temp != NULL) {
+        // Add to trend chart (Fahrenheit) - validate before use
+        if (chart_temp_trend != NULL && lv_obj_is_valid(chart_temp_trend) && ser_temp != NULL) {
             lv_chart_set_next_value(chart_temp_trend, ser_temp, (int16_t)current_temp_f);
             lv_chart_refresh(chart_temp_trend);
         }
     } else {
-        lv_label_set_text(label_temp_current, "--");
+        if (label_temp_current != NULL && lv_obj_is_valid(label_temp_current)) {
+            lv_label_set_text(label_temp_current, "--");
+        }
     }
 
     // Update statistics (60-second window) - in Fahrenheit
@@ -234,20 +244,22 @@ void update_scr_temp(void)
     float temp_max = vital_stats_get_temp_max();
     float temp_avg = vital_stats_get_temp_avg();
 
-    if (temp_min > 0) {
-        // Manual float formatting for statistics
-        int min_int = (int)temp_min;
-        int min_dec = (int)((temp_min - min_int) * 10);
-        int max_int = (int)temp_max;
-        int max_dec = (int)((temp_max - max_int) * 10);
-        int avg_int = (int)temp_avg;
-        int avg_dec = (int)((temp_avg - avg_int) * 10);
-        
-        lv_label_set_text_fmt(label_stats_text, 
-                             "Min: %d.%d°F\nMax: %d.%d°F\nAvg: %d.%d°F",
-                             min_int, min_dec, max_int, max_dec, avg_int, avg_dec);
-    } else {
-        lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+    if (label_stats_text != NULL && lv_obj_is_valid(label_stats_text)) {
+        if (temp_min > 0) {
+            // Manual float formatting for statistics
+            int min_int = (int)temp_min;
+            int min_dec = (int)((temp_min - min_int) * 10);
+            int max_int = (int)temp_max;
+            int max_dec = (int)((temp_max - max_int) * 10);
+            int avg_int = (int)temp_avg;
+            int avg_dec = (int)((temp_avg - avg_int) * 10);
+            
+            lv_label_set_text_fmt(label_stats_text, 
+                                 "Min: %d.%d°F\nMax: %d.%d°F\nAvg: %d.%d°F",
+                                 min_int, min_dec, max_int, max_dec, avg_int, avg_dec);
+        } else {
+            lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+        }
     }
 
     // Note: Time info removed in new layout

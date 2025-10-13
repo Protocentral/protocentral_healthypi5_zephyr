@@ -76,7 +76,36 @@ typedef struct {
     uint16_t signal_strength;   // RMS amplitude of AC component
     uint8_t confidence;         // Overall confidence score (0-100)
     bool valid;                 // Result is valid and reliable
+    bool probe_off;             // Reliable probe-off detection flag (RAW, single reading)
+    bool probe_off_filtered;    // Filtered probe-off (after consecutive count filtering)
+    uint8_t probe_off_reason;   // Reason code for probe-off (see below)
 } spo2_quality_metrics_t;
+
+// Probe-off reason codes (for debugging/logging)
+#define PROBE_OFF_NONE           0  // Probe is connected
+#define PROBE_OFF_LOW_DC         1  // DC signal too weak
+#define PROBE_OFF_SATURATED      2  // Signal saturated
+#define PROBE_OFF_LOW_PI         3  // Perfusion index too low
+#define PROBE_OFF_NO_PEAKS       4  // No cardiac pulses detected
+#define PROBE_OFF_WEAK_AC        5  // AC amplitude too weak
+#define PROBE_OFF_LOW_CONFIDENCE 6  // Overall confidence too low
+
+// Probe-off detection state tracker
+// This handles consecutive count filtering within the algorithm layer
+typedef struct {
+    bool probe_off_state;       // Current filtered probe-off state
+    uint8_t consecutive_off;    // Count of consecutive probe-off detections
+    uint8_t consecutive_on;     // Count of consecutive probe-on detections
+    uint8_t threshold_off;      // Threshold for declaring probe-off
+    uint8_t threshold_on;       // Threshold for declaring probe-on
+} spo2_probe_state_t;
+
+// Initialize probe state tracker (call once at startup)
+void spo2_probe_state_init(spo2_probe_state_t *state, uint8_t threshold_off, uint8_t threshold_on);
+
+// Update probe state with new detection result (call each SpO2 calculation)
+// Returns true if state changed
+bool spo2_probe_state_update(spo2_probe_state_t *state, bool probe_off_raw);
 
 // Expose internal buffers to avoid duplication (Phase 1 optimization)
 // CRITICAL FIX: Must be uint32_t to match PPG sensor data type
@@ -94,7 +123,8 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
     int8_t *pch_spo2_valid, 
     int32_t *pn_heart_rate, 
     int8_t *pch_hr_valid,
-    spo2_quality_metrics_t *quality);
+    spo2_quality_metrics_t *quality,
+    spo2_probe_state_t *probe_state);  // Optional: pass NULL to disable filtering
 
 void maxim_find_peaks(int32_t *pn_locs, int32_t *n_npks,  int32_t  *pn_x, int32_t n_size, int32_t n_min_height, int32_t n_min_distance, int32_t n_max_num);
 void maxim_peaks_above_min_height(int32_t *pn_locs, int32_t *n_npks,  int32_t  *pn_x, int32_t n_size, int32_t n_min_height);

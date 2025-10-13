@@ -210,16 +210,28 @@ void update_scr_rr(void)
         return;
     }
 
+    // Additional validation: Check if screen is valid before accessing children
+    if (!lv_obj_is_valid(scr_rr)) {
+        LOG_DBG("Respiration rate screen not yet valid, skipping update");
+        return;
+    }
+
     // Update current RR value
     uint8_t current_rr = m_disp_rr;
     if (current_rr > 0 && current_rr < 60) {
-        lv_label_set_text_fmt(label_rr_current, "%d", current_rr);
+        if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
+            lv_label_set_text_fmt(label_rr_current, "%d", current_rr);
+        }
         
-        // Add to trend chart
-        lv_chart_set_next_value(chart_rr_trend, ser_rr, current_rr);
-        lv_chart_refresh(chart_rr_trend);
+        // Add to trend chart - validate before use
+        if (chart_rr_trend != NULL && lv_obj_is_valid(chart_rr_trend) && ser_rr != NULL) {
+            lv_chart_set_next_value(chart_rr_trend, ser_rr, current_rr);
+            lv_chart_refresh(chart_rr_trend);
+        }
     } else {
-        lv_label_set_text(label_rr_current, "--");
+        if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
+            lv_label_set_text(label_rr_current, "--");
+        }
     }
 
     // Update statistics (60-second window)
@@ -227,12 +239,14 @@ void update_scr_rr(void)
     uint8_t rr_max = vital_stats_get_rr_max();
     uint8_t rr_avg = vital_stats_get_rr_avg();
 
-    if (rr_min > 0) {
-        lv_label_set_text_fmt(label_stats_text, 
-                             "Min: %d\nMax: %d\nAvg: %d",
-                             rr_min, rr_max, rr_avg);
-    } else {
-        lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+    if (label_stats_text != NULL && lv_obj_is_valid(label_stats_text)) {
+        if (rr_min > 0) {
+            lv_label_set_text_fmt(label_stats_text, 
+                                 "Min: %d\nMax: %d\nAvg: %d",
+                                 rr_min, rr_max, rr_avg);
+        } else {
+            lv_label_set_text(label_stats_text, "Min: --\nMax: --\nAvg: --");
+        }
     }
 
     // Note: Trend and time info removed in new layout
