@@ -52,6 +52,7 @@ extern lv_obj_t *g_label_home_temp_c;
 // Lead-off warning icons
 static lv_obj_t *icon_hr_warn = NULL;
 static lv_obj_t *icon_spo2_warn = NULL;
+static lv_obj_t *icon_rr_warn = NULL;
 
 void draw_scr_home(enum scroll_dir m_scroll_dir)
 {
@@ -185,6 +186,14 @@ void draw_scr_home(enum scroll_dir m_scroll_dir)
     lv_obj_align(img_rr, LV_ALIGN_TOP_LEFT, 8, 8);
     lv_obj_set_style_img_recolor(img_rr, lv_palette_main(LV_PALETTE_GREEN), LV_PART_MAIN);
     lv_obj_set_style_img_recolor_opa(img_rr, LV_OPA_COVER, LV_PART_MAIN);
+
+    // RR Warning Icon (lead-off indicator)
+    icon_rr_warn = lv_label_create(obj_rr_card);
+    lv_label_set_text(icon_rr_warn, LV_SYMBOL_WARNING);
+    lv_obj_align(icon_rr_warn, LV_ALIGN_TOP_RIGHT, -5, 5);
+    lv_obj_set_style_text_font(icon_rr_warn, &lv_font_montserrat_20, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(icon_rr_warn, lv_color_make(255, 160, 0), LV_STATE_DEFAULT);
+    lv_obj_add_flag(icon_rr_warn, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
 
     // RR Title
     lv_obj_t *label_rr_title = lv_label_create(obj_rr_card);
@@ -353,6 +362,19 @@ void hpi_scr_home_update_lead_off(bool ecg_lead_off, bool ppg_lead_off)
             }
         } else {
             lv_obj_add_flag(icon_hr_warn, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    
+    // Update RR warning icon (ECG/BioZ lead-off - same electrodes as ECG)
+    if (icon_rr_warn != NULL) {
+        if (ecg_lead_off) {
+            lv_obj_clear_flag(icon_rr_warn, LV_OBJ_FLAG_HIDDEN);
+            // Also show "--" for RR value
+            if (g_label_home_rr != NULL) {
+                lv_label_set_text(g_label_home_rr, "--");
+            }
+        } else {
+            lv_obj_add_flag(icon_rr_warn, LV_OBJ_FLAG_HIDDEN);
         }
     }
     

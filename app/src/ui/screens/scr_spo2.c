@@ -22,19 +22,6 @@
  * SOFTWARE.
  */
 
-
-/*
- * SpO2 Detail Screen
- * 
- * Minimalist design with:
- * - Large current SpO2 value
- * - Min/Max/Avg statistics (60s window)
- * - Trend indicator
- * - Historical line chart (since boot)
- * 
- * Full 480x320 screen utilization with clean layout
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
@@ -48,7 +35,7 @@
 #include "data_module.h"
 #include "vital_stats.h"
 
-LOG_MODULE_REGISTER(scr_spo2, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(scr_spo2, LOG_LEVEL_WRN);
 
 lv_obj_t *scr_spo2;
 

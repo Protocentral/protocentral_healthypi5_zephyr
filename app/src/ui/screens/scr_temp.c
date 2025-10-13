@@ -22,18 +22,6 @@
  * SOFTWARE.
  */
 
-
-/*
- * Temperature Detail Screen
- * 
- * Minimalist design with:
- * - Large current temperature value (F and C)
- * - Min/Max/Avg statistics (60s window)
- * - Historical line chart (since boot)
- * 
- * Full 480x320 screen utilization with clean layout
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
@@ -47,7 +35,7 @@
 #include "data_module.h"
 #include "vital_stats.h"
 
-LOG_MODULE_REGISTER(scr_temp, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(scr_temp, LOG_LEVEL_WRN);
 
 lv_obj_t *scr_temp;
 
@@ -60,8 +48,8 @@ static lv_chart_series_t *ser_temp;
 
 // Chart configuration
 #define TEMP_CHART_POINTS 120  // 2 minutes at 1 Hz
-#define TEMP_CHART_MIN_F 95
-#define TEMP_CHART_MAX_F 105
+#define TEMP_CHART_MIN_F 60    // Room temp to fever range
+#define TEMP_CHART_MAX_F 120
 
 // Styles
 extern lv_style_t style_sub;
@@ -191,10 +179,15 @@ void draw_scr_temp(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_line_color(chart_temp_trend, lv_palette_main(LV_PALETTE_RED), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_temp_trend, 2, LV_PART_ITEMS);
     
-    // Initialize with no data
-    for (int i = 0; i < TEMP_CHART_POINTS; i++) {
-        lv_chart_set_next_value(chart_temp_trend, ser_temp, LV_CHART_POINT_NONE);
-    }
+    // Chart is initialized with default values by lv_chart_set_point_count()
+    // No need for manual initialization which can block the system
+    
+    // Series styling
+    lv_obj_set_style_line_color(chart_temp_trend, lv_palette_main(LV_PALETTE_RED), LV_PART_ITEMS);
+    lv_obj_set_style_line_width(chart_temp_trend, 2, LV_PART_ITEMS);
+    
+    // Chart is initialized with default values by lv_chart_set_point_count()
+    // No need for manual initialization which can block the system
 
     // Set as current screen and show
     hpi_disp_set_curr_screen(SCR_TEMP);
@@ -219,6 +212,8 @@ void update_scr_temp(void)
     // Update current temperature values
     float current_temp_f = m_disp_temp_f;
     
+    LOG_DBG("Temp update: temp_f=%.1f", (double)current_temp_f);
+    
     if (current_temp_f > 0 && current_temp_f < 120) {
         // Manual float formatting (no FP printf support)
         int temp_f_int = (int)current_temp_f;
@@ -230,10 +225,14 @@ void update_scr_temp(void)
         
         // Add to trend chart (Fahrenheit) - validate before use
         if (chart_temp_trend != NULL && lv_obj_is_valid(chart_temp_trend) && ser_temp != NULL) {
+            LOG_DBG("Adding temp to chart: %d", (int16_t)current_temp_f);
             lv_chart_set_next_value(chart_temp_trend, ser_temp, (int16_t)current_temp_f);
             lv_chart_refresh(chart_temp_trend);
+        } else {
+            LOG_WRN("Chart objects invalid: chart=%p, series=%p", chart_temp_trend, ser_temp);
         }
     } else {
+        LOG_DBG("Temp out of range or zero: %.1f", (double)current_temp_f);
         if (label_temp_current != NULL && lv_obj_is_valid(label_temp_current)) {
             lv_label_set_text(label_temp_current, "--");
         }

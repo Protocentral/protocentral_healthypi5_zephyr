@@ -22,19 +22,6 @@
  * SOFTWARE.
  */
 
-
-/*
- * Respiration Rate Detail Screen
- * 
- * Minimalist design with:
- * - Large current RR value
- * - Min/Max/Avg statistics (60s window)
- * - Trend indicator
- * - Historical line chart (since boot)
- * 
- * Full 480x320 screen utilization with clean layout
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
@@ -48,7 +35,7 @@
 #include "data_module.h"
 #include "vital_stats.h"
 
-LOG_MODULE_REGISTER(scr_rr, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(scr_rr, LOG_LEVEL_WRN);
 
 lv_obj_t *scr_rr;
 
@@ -58,6 +45,7 @@ static lv_obj_t *label_rr_unit = NULL;
 static lv_obj_t *label_stats_text = NULL;
 static lv_obj_t *chart_rr_trend = NULL;
 static lv_chart_series_t *ser_rr = NULL;
+static lv_obj_t *lead_off_overlay = NULL;  // Lead-off warning overlay
 
 // Chart configuration
 #define RR_CHART_POINTS 120  // 2 minutes at 1 Hz
@@ -122,6 +110,32 @@ void draw_scr_rr(enum scroll_dir m_scroll_dir)
     lv_label_set_text(label_rr_unit, "br/min");
     lv_obj_add_style(label_rr_unit, &style_sub, LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(label_rr_unit, lv_palette_lighten(LV_PALETTE_GREY, 2), LV_STATE_DEFAULT);
+
+    // Lead-off warning overlay (positioned over value, initially hidden)
+    lead_off_overlay = lv_obj_create(info_panel);
+    lv_obj_set_size(lead_off_overlay, 280, 80);
+    lv_obj_align(lead_off_overlay, LV_ALIGN_CENTER, 20, 0);
+    lv_obj_set_style_bg_color(lead_off_overlay, lv_color_make(60, 20, 20), LV_PART_MAIN);
+    lv_obj_set_style_border_width(lead_off_overlay, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(lead_off_overlay, lv_color_make(200, 50, 50), LV_PART_MAIN);
+    lv_obj_set_style_radius(lead_off_overlay, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lead_off_overlay, 8, LV_PART_MAIN);
+    lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);  // Hidden by default
+    
+    // Warning icon
+    lv_obj_t *icon_lead_off = lv_label_create(lead_off_overlay);
+    lv_label_set_text(icon_lead_off, LV_SYMBOL_WARNING);
+    lv_obj_align(icon_lead_off, LV_ALIGN_LEFT_MID, 5, 0);
+    lv_obj_set_style_text_font(icon_lead_off, &lv_font_montserrat_28, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(icon_lead_off, lv_color_make(255, 180, 0), LV_STATE_DEFAULT);
+    
+    // Warning text
+    lv_obj_t *label_lead_off_warning = lv_label_create(lead_off_overlay);
+    lv_label_set_text(label_lead_off_warning, "ELECTRODES\nDISCONNECTED");
+    lv_obj_align(label_lead_off_warning, LV_ALIGN_CENTER, 25, 0);
+    lv_obj_set_style_text_font(label_lead_off_warning, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label_lead_off_warning, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(label_lead_off_warning, LV_TEXT_ALIGN_CENTER, LV_STATE_DEFAULT);
 
     // Stats container (right side) - VERTICAL layout
     lv_obj_t *stats_cont = lv_obj_create(info_panel);
@@ -210,12 +224,33 @@ void update_scr_rr(uint8_t rr_value, bool ecg_lead_off)
         return;
     }
 
-    // Update current RR value - show "--" when lead-off detected
-    if (ecg_lead_off || rr_value == 0 || rr_value >= 60) {
+    // Handle lead-off overlay visibility
+    if (ecg_lead_off) {
+        // Show warning overlay, hide normal value
+        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_clear_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
+            lv_obj_add_flag(label_rr_current, LV_OBJ_FLAG_HIDDEN);
+        }
+        // Don't update chart or stats during lead-off
+        return;
+    } else {
+        // Hide warning overlay, show normal value
+        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
+            lv_obj_clear_flag(label_rr_current, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // Update current RR value - show "--" for invalid values
+    if (rr_value == 0 || rr_value >= 60) {
         if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
             lv_label_set_text(label_rr_current, "--");
         }
-        // Don't update chart or stats during lead-off
+        // Don't update chart or stats for invalid values
         return;
     }
     
@@ -258,5 +293,6 @@ void scr_rr_delete(void)
         label_stats_text = NULL;
         chart_rr_trend = NULL;
         ser_rr = NULL;
+        lead_off_overlay = NULL;
     }
 }

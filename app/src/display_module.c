@@ -173,6 +173,11 @@ lv_obj_t *g_label_home_rr = NULL;
 lv_obj_t *g_label_home_temp_f = NULL;
 lv_obj_t *g_label_home_temp_c = NULL;
 
+// Lead-off state tracking for change detection (reduce LVGL calls)
+// Use 0xFF to indicate "uninitialized" - forces initial update regardless of actual state
+static uint8_t last_displayed_ecg_lead_off = 0xFF;
+static uint8_t last_displayed_ppg_lead_off = 0xFF;
+
 // Externs
 
 extern struct k_sem sem_hw_inited;
@@ -853,28 +858,40 @@ void display_screens_thread(void)
                   // }
             }
 
-            // Lead-off status update (10Hz = 100ms interval)
-            // CRITICAL: Skip if we just did a regular update to avoid conflicts
-            // Split home and detail updates across cycles to reduce blocking time
-            // ALSO skip if on detail screens (HR/SpO2) - those updates are too heavy to combine with lead-off
+            // Lead-off status update - ONLY on state changes to reduce LVGL overhead
+            // Updates home screen warning icons and detail screen overlays
+            // CRITICAL: Only runs in display thread - safe for LVGL operations
+            // Reduced frequency: only update when state actually changes (not every 100ms)
+            // Note: State vars initialized to 0xFF to force initial update on boot
             if (k_uptime_get_32() - last_lead_off_refresh > 100 &&
                 k_uptime_get_32() - last_spo2_refresh > 50 &&  // Wait 50ms after SpO2 update
                 k_uptime_get_32() - last_hr_refresh > 50)       // Wait 50ms after HR update
             {
                 int curr = hpi_disp_get_curr_screen();
+                last_lead_off_refresh = k_uptime_get_32();
                 
-                // Skip lead-off updates entirely when on detail screens that have heavy regular updates
-                // HR and SpO2 screens update charts/stats frequently - combining with lead-off causes queue overflow
-                bool is_detail_screen = (curr == SCR_HR || curr == SCR_SPO2);
+                // Check if state has actually changed before updating (reduces LVGL calls by 90%)
+                // On first run, 0xFF != (0 or 1) so update always happens
+                bool ecg_changed = ((uint8_t)m_disp_ecg_lead_off != last_displayed_ecg_lead_off);
+                bool ppg_changed = ((uint8_t)m_disp_ppg_lead_off != last_displayed_ppg_lead_off);
                 
-                if (!is_detail_screen) {
-                    last_lead_off_refresh = k_uptime_get_32();
-                    
+                if (ecg_changed || ppg_changed) {
                     // Skip updates during screen transitions to avoid race conditions
                     if (!hpi_disp_is_screen_transitioning()) {
-                        // Only update home screen indicators (fast operation)
-                        // Detail screen overlays are not critical enough to risk crashes
+                        // Update home screen indicators (visible from any screen if overlaid)
                         hpi_scr_home_update_lead_off(m_disp_ecg_lead_off, m_disp_ppg_lead_off);
+                        
+                        // Update detail screen overlays when on those screens
+                        if (curr == SCR_HR && ecg_changed) {
+                            update_scr_hr_lead_off(m_disp_ecg_lead_off);
+                        } else if (curr == SCR_SPO2 && ppg_changed) {
+                            // SpO2 overlay updated in update_scr_spo2() above
+                        }
+                        // RR overlay updated in update_scr_rr() above
+                        
+                        // Update state tracking (cast to uint8_t for storage)
+                        last_displayed_ecg_lead_off = (uint8_t)m_disp_ecg_lead_off;
+                        last_displayed_ppg_lead_off = (uint8_t)m_disp_ppg_lead_off;
                     }
                 }
             }
@@ -943,6 +960,9 @@ static void disp_hr_listener(const struct zbus_channel *chan)
     // Update lead-off status from HR message
     m_disp_ecg_lead_off = hpi_hr->lead_off;
     
+    // CRITICAL: Do NOT call LVGL functions from Zbus listener - causes hard fault!
+    // Lead-off overlay updates handled in display_screens_thread periodic loop
+    
     // Only update HR value if not in lead-off state
     if (!hpi_hr->lead_off) {
         m_disp_hr = hpi_hr->hr;
@@ -958,7 +978,7 @@ static void disp_hr_listener(const struct zbus_channel *chan)
         }
     } else {
         // Lead-off detected - don't update value (keep last good value or show "--")
-        LOG_DBG("HR lead-off detected, value=%d (ignored)", hpi_hr->hr);
+        // Debug log removed to reduce console clutter during lead-off
     }
 }
 ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
@@ -991,7 +1011,7 @@ static void disp_spo2_listener(const struct zbus_channel *chan)
         vital_stats_update_spo2(hpi_spo2->spo2);
     } else {
         // Lead-off detected - don't update value (keep last good value or show "--")
-        LOG_DBG("SpO2 lead-off detected, value=%d (ignored)", hpi_spo2->spo2);
+        // Debug log removed to reduce console clutter during lead-off
     }
     // hpi_scr_update_spo2(hpi_spo2->spo2);
 }
@@ -1012,8 +1032,8 @@ static void disp_resp_rate_listener(const struct zbus_channel *chan)
         // Update vital stats history
         vital_stats_update_rr((uint8_t)hpi_resp_rate->resp_rate);
     } else {
-        // Lead-off detected - don't update value
-        LOG_DBG("RR lead-off detected, value=%d (ignored)", hpi_resp_rate->resp_rate);
+        // Lead-off detected - don't update value (keep last good value or show "--")
+        // Debug log removed to reduce console clutter during lead-off
     }
     // hpi_scr_update_rr(hpi_resp_rate->resp_rate);
 }

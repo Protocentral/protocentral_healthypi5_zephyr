@@ -8,7 +8,7 @@ LOG_MODULE_REGISTER(MAX30001_ASYNC, CONFIG_SENSOR_LOG_LEVEL);
 static int max30001_async_sample_fetch(const struct device *dev,
                                        uint32_t *num_samples_ecg, uint32_t *num_samples_bioz, int32_t ecg_samples[32],
                                        int32_t bioz_samples[32], uint16_t *rri, uint16_t *hr,
-                                       uint8_t ecg_lead_off, uint8_t bioz_lead_off)
+                                       uint8_t *ecg_lead_off, uint8_t *bioz_lead_off)
 {
     struct max30001_data *data = dev->data;
     const struct max30001_config *config = dev->config;
@@ -38,14 +38,14 @@ static int max30001_async_sample_fetch(const struct device *dev,
 
     if ((max30001_status & MAX30001_STATUS_MASK_DCLOFF) == MAX30001_STATUS_MASK_DCLOFF)
     {
-        // LOG_INF("Leads Off\n");
+        LOG_DBG("ECG Leads Off (hardware detected)");
         data->ecg_lead_off = 1;
-        ecg_lead_off = 1;
+        *ecg_lead_off = 1;
     }
     else
     {
         data->ecg_lead_off = 0;
-        ecg_lead_off = 0;
+        *ecg_lead_off = 0;
     }
 
     while (!(max30001_status & MAX30001_STATUS_MASK_EINT) == MAX30001_STATUS_MASK_EINT)

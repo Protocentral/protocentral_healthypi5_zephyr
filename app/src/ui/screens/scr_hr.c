@@ -307,6 +307,9 @@ void update_scr_hr(void)
  */
 void update_scr_hr_lead_off(bool ecg_lead_off)
 {
+    // Track last state to only log once on state change
+    static bool last_lead_off_state = false;
+    
     // CRITICAL: Only update if we're actually on the HR screen
     if (hpi_disp_get_curr_screen() != SCR_HR) {
         return;
@@ -328,7 +331,11 @@ void update_scr_hr_lead_off(bool ecg_lead_off)
         if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
             lv_obj_add_flag(label_hr_current, LV_OBJ_FLAG_HIDDEN);
         }
-        LOG_WRN("HR Screen: ECG lead-off warning displayed");
+        // Only log once on state change
+        if (!last_lead_off_state) {
+            LOG_WRN("HR Screen: ECG lead-off warning displayed");
+            last_lead_off_state = true;
+        }
     } else {
         // Hide warning, show normal value
         // Re-validate before each operation (object could become invalid between checks)
@@ -338,7 +345,11 @@ void update_scr_hr_lead_off(bool ecg_lead_off)
         if (label_hr_current != NULL && lv_obj_is_valid(label_hr_current)) {
             lv_obj_clear_flag(label_hr_current, LV_OBJ_FLAG_HIDDEN);
         }
-        LOG_INF("HR Screen: ECG lead-off cleared");
+        // Only log once on state change
+        if (last_lead_off_state) {
+            LOG_INF("HR Screen: ECG lead-off cleared");
+            last_lead_off_state = false;
+        }
     }
 }
 

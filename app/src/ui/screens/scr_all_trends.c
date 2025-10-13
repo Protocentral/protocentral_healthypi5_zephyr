@@ -22,23 +22,6 @@
  * SOFTWARE.
  */
 
-
-/*
- * All Trends Overview Screen
- * 
- * Column-based layout showing all 4 vital signs with mini trend charts:
- * - Heart Rate (Orange)
- * - SpO2 (Blue)
- *    // SpO2 Icon - using SpO2 image
-    lv_obj_t *img_spo2 = lv_img_create(spo2_row);
-    lv_img_set_src(img_spo2, &icon_spo2_35);
-    lv_obj_set_pos(img_spo2, 5, 17);espiration Rate (Green)
- * - Temperature (Red)
- * 
- * Each row: [Icon] [Current Value] [Mini Chart]
- * Full 480x320 screen with 4 rows of ~70px each
- */
-
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
