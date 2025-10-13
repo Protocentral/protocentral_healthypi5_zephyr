@@ -15,6 +15,3 @@ __pycache__/
 /temp_docs
 CLAUDE.md
 add_license_headers.sh
-CMakeFiles
-CMakeCache.txt
-.github/copilot-instructions.md
