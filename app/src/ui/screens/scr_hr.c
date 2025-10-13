@@ -228,13 +228,8 @@ void draw_scr_hr(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_line_color(chart_hr_trend, lv_palette_main(LV_PALETTE_CYAN), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_hr_trend, 2, LV_PART_ITEMS);
     
-    // Initialize chart with no data - yield every 20 points to prevent blocking data thread
-    for (int i = 0; i < HR_CHART_POINTS; i++) {
-        lv_chart_set_next_value(chart_hr_trend, ser_hr, LV_CHART_POINT_NONE);
-        if ((i % 20) == 0) {
-            k_yield();  // Allow data thread to run
-        }
-    }
+    // Chart is initialized with default values by lv_chart_set_point_count()
+    // No need for manual initialization which can block the system
 
     // Set as current screen and show
     hpi_disp_set_curr_screen(SCR_HR);

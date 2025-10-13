@@ -121,14 +121,11 @@ void update_scr_hr_lead_off(bool ecg_lead_off);
 
 // SpO2 Screen functions
 void draw_scr_spo2(enum scroll_dir m_scroll_dir);
-void update_scr_spo2(void);
-void update_scr_spo2_lead_off(bool ppg_lead_off);  // Uses debounced state like home screen
-void draw_scr_spo2(enum scroll_dir m_scroll_dir);
-void update_scr_spo2(void);
+void update_scr_spo2(uint8_t spo2_value, bool ppg_lead_off);
 
 // RR Screen functions
 void draw_scr_rr(enum scroll_dir m_scroll_dir);
-void update_scr_rr(void);
+void update_scr_rr(uint8_t rr_value, bool ecg_lead_off);
 
 // Temperature Screen functions
 void draw_scr_temp(enum scroll_dir m_scroll_dir);

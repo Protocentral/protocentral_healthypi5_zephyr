@@ -99,6 +99,7 @@ struct hpi_computed_hrv_t
 struct hpi_hr_t
 {
     uint16_t hr;
+    bool lead_off;       // true = ECG electrodes disconnected (no valid HR)
 };
 
 struct hpi_steps_t
@@ -116,11 +117,13 @@ struct hpi_temp_t
 struct hpi_spo2_t
 {
     uint8_t spo2;
+    bool lead_off;       // true = PPG probe off (finger removed, no valid SpO2)
 };
 
 struct hpi_resp_rate_t
 {
     uint16_t resp_rate;
+    bool lead_off;       // true = BioZ electrodes disconnected (no valid respiration)
 };
 
 struct hpi_batt_status_t

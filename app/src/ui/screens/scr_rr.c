@@ -53,11 +53,11 @@ LOG_MODULE_REGISTER(scr_rr, LOG_LEVEL_DBG);
 lv_obj_t *scr_rr;
 
 // GUI Components
-static lv_obj_t *label_rr_current;
-static lv_obj_t *label_rr_unit;
-static lv_obj_t *label_stats_text;
-static lv_obj_t *chart_rr_trend;
-static lv_chart_series_t *ser_rr;
+static lv_obj_t *label_rr_current = NULL;
+static lv_obj_t *label_rr_unit = NULL;
+static lv_obj_t *label_stats_text = NULL;
+static lv_obj_t *chart_rr_trend = NULL;
+static lv_chart_series_t *ser_rr = NULL;
 
 // Chart configuration
 #define RR_CHART_POINTS 120  // 2 minutes at 1 Hz
@@ -67,9 +67,6 @@ static lv_chart_series_t *ser_rr;
 // Styles
 extern lv_style_t style_sub;
 extern lv_style_t style_number_big;
-
-// External variables
-extern uint8_t m_disp_rr;
 
 void draw_scr_rr(enum scroll_dir m_scroll_dir)
 {
@@ -191,47 +188,46 @@ void draw_scr_rr(enum scroll_dir m_scroll_dir)
     lv_obj_set_style_line_color(chart_rr_trend, lv_palette_main(LV_PALETTE_GREEN), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_rr_trend, 2, LV_PART_ITEMS);
     
-    // Initialize with no data
-    for (int i = 0; i < RR_CHART_POINTS; i++) {
-        lv_chart_set_next_value(chart_rr_trend, ser_rr, LV_CHART_POINT_NONE);
-    }
+    // Chart is initialized with default values by lv_chart_set_point_count()
+    // No need for manual initialization which can block the system
 
     // Set as current screen and show
     hpi_disp_set_curr_screen(SCR_RR);
     hpi_show_screen(scr_rr, m_scroll_dir);
     
-    // Initial update
-    update_scr_rr();
+    // No initial update - will be called by display_module with actual values
 }
 
-void update_scr_rr(void)
+void update_scr_rr(uint8_t rr_value, bool ecg_lead_off)
 {
-    if (scr_rr == NULL || label_rr_current == NULL) {
+    // CRITICAL: Validate screen exists first before touching any objects
+    // This prevents crashes when screen is deleted during/after transition
+    if (scr_rr == NULL || !lv_obj_is_valid(scr_rr)) {
+        return;  // Screen doesn't exist or was deleted, skip update
+    }
+    
+    if (label_rr_current == NULL) {
         return;
     }
 
-    // Additional validation: Check if screen is valid before accessing children
-    if (!lv_obj_is_valid(scr_rr)) {
-        LOG_DBG("Respiration rate screen not yet valid, skipping update");
-        return;
-    }
-
-    // Update current RR value
-    uint8_t current_rr = m_disp_rr;
-    if (current_rr > 0 && current_rr < 60) {
-        if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
-            lv_label_set_text_fmt(label_rr_current, "%d", current_rr);
-        }
-        
-        // Add to trend chart - validate before use
-        if (chart_rr_trend != NULL && lv_obj_is_valid(chart_rr_trend) && ser_rr != NULL) {
-            lv_chart_set_next_value(chart_rr_trend, ser_rr, current_rr);
-            lv_chart_refresh(chart_rr_trend);
-        }
-    } else {
+    // Update current RR value - show "--" when lead-off detected
+    if (ecg_lead_off || rr_value == 0 || rr_value >= 60) {
         if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
             lv_label_set_text(label_rr_current, "--");
         }
+        // Don't update chart or stats during lead-off
+        return;
+    }
+    
+    // Valid RR value - update display
+    if (label_rr_current != NULL && lv_obj_is_valid(label_rr_current)) {
+        lv_label_set_text_fmt(label_rr_current, "%d", rr_value);
+    }
+    
+    // Add to trend chart - validate before use
+    if (chart_rr_trend != NULL && lv_obj_is_valid(chart_rr_trend) && ser_rr != NULL) {
+        lv_chart_set_next_value(chart_rr_trend, ser_rr, rr_value);
+        lv_chart_refresh(chart_rr_trend);
     }
 
     // Update statistics (60-second window)

@@ -52,7 +52,7 @@ ZBUS_CHAN_DEFINE(hr_chan,         /* Name */
                  NULL,            /* Validator */
                  NULL,            /* User Data */
                  HPI_OBSERVERS(disp_hr_lis, bt_hr_lis),
-                 ZBUS_MSG_INIT(0) /* Initial value {0} */
+                 ZBUS_MSG_INIT(.hr = 0, .lead_off = false) /* Initial: no lead-off */
 );
 
 ZBUS_CHAN_DEFINE(temp_chan, /* Name */
@@ -68,7 +68,7 @@ ZBUS_CHAN_DEFINE(spo2_chan,
                  NULL, 
                  NULL, 
                  HPI_OBSERVERS(disp_spo2_lis, bt_spo2_lis),
-                 ZBUS_MSG_INIT(0) 
+                 ZBUS_MSG_INIT(.spo2 = 0, .lead_off = true) /* Initial: probe off */
 );
 
 ZBUS_CHAN_DEFINE(resp_rate_chan, 
@@ -76,5 +76,5 @@ ZBUS_CHAN_DEFINE(resp_rate_chan,
                  NULL, 
                  NULL, 
                  HPI_OBSERVERS(disp_resp_rate_lis, bt_resp_rate_lis),
-                 ZBUS_MSG_INIT(0) 
+                 ZBUS_MSG_INIT(.resp_rate = 0, .lead_off = false) /* Initial: no lead-off */
 );

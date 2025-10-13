@@ -107,7 +107,6 @@ lv_style_t style_text_42;     // montserrat_42 - extra large values
 
 static uint8_t m_disp_batt_level = 0;
 static bool m_disp_batt_charging = false;
-static int last_batt_refresh = 0;
 
 uint16_t m_disp_hr = 0;  // Non-static - accessed by detail screens
 static int last_hr_refresh = 0;
@@ -122,6 +121,11 @@ static int last_spo2_refresh = 0;
 
 uint8_t m_disp_rr = 0;  // Non-static - accessed by detail screens
 static int last_rr_refresh = 0;
+
+// Lead-off state variables (updated by Zbus listener, read by display thread and screen modules)
+bool m_disp_ecg_lead_off = false;  // Non-static - accessed by detail screens
+bool m_disp_ppg_lead_off = true;   // Non-static - accessed by detail screens (start as lead-off)
+static int last_lead_off_refresh = 0;
 
 K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 4);
 K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 64, 4);
@@ -193,7 +197,6 @@ int hpi_disp_get_op_mode()
 
 bool hpi_disp_is_plot_screen_active(void)
 {
-    int screen = hpi_disp_get_curr_screen();
     return false;  // No plot screens anymore, only detail screens with charts
 }
 
@@ -269,6 +272,10 @@ void display_init_styles()
     lv_style_set_text_color(&style_text_42, lv_color_white());
     lv_style_set_text_font(&style_text_42, &lv_font_montserrat_42);
 
+    // Screen background style - black background
+    lv_style_init(&style_scr_back);
+    lv_style_set_bg_color(&style_scr_back, lv_color_black());
+    
     // lv_style_set_bg_grad(&style_scr_back, &grad);
 }
 
@@ -381,8 +388,8 @@ void draw_header(lv_obj_t *parent, bool showFWVersion)
 
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_style_init(&style_scr_back);
-    lv_style_set_bg_color(&style_scr_back, lv_color_black());
+    // Style already initialized once during display_init_styles()
+    // Don't re-init on every screen draw - causes memory leak!
     lv_obj_add_style(parent, &style_scr_back, 0);
 
     //lv_disp_set_bg_color(NULL, lv_color_black());
@@ -540,16 +547,14 @@ void hpi_show_screen(lv_obj_t *parent, enum scroll_dir m_scroll_dir)
     // Get reference to old screen before loading new one
     lv_obj_t *old_screen = lv_scr_act();
     
-    // Load new screen with auto-delete enabled
-    if (m_scroll_dir == SCROLL_LEFT)
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-    else
-        lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-    
-    // Explicitly clean up old screen if it still exists and isn't the default
+    // Delete old screen BEFORE loading new one to free memory immediately
+    // Don't rely on auto-delete which may be delayed
     if (old_screen != NULL && old_screen != parent && lv_obj_is_valid(old_screen)) {
         lv_obj_del(old_screen);
     }
+    
+    // Load new screen without auto-delete (we already deleted manually)
+    lv_scr_load_anim(parent, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 }
 
 void hpi_disp_update_batt_level(int batt_level)
@@ -623,11 +628,6 @@ static const screen_func_table_entry_t screen_func_table[] = {
 
 void display_screens_thread(void)
 {
-    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
-    struct hpi_ppg_sensor_data_t ppg_sensor_sample;
-
-    struct hpi_sensor_data_point_t sensor_all_data_point;
-
     k_sem_take(&sem_hw_inited, K_FOREVER);
 
     display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
@@ -726,14 +726,6 @@ void display_screens_thread(void)
                 // Sample discarded - plotting disabled
             }
         }
-        
-        /*
-        if (k_uptime_get_32() - last_batt_refresh > HPI_DISP_BATT_REFR_INT)
-        {
-            hpi_disp_update_batt_level(m_disp_batt_level);
-            last_batt_refresh = k_uptime_get_32();
-        }
-        */
 
         // Process async screen change requests FIRST (from healthypi-move-fw pattern)
         // CRITICAL: Must be before periodic updates to prevent use-after-free
@@ -841,7 +833,7 @@ void display_screens_thread(void)
                 // Update detail screens when active
                 int curr = hpi_disp_get_curr_screen();
                 if (curr == SCR_SPO2) {
-                    update_scr_spo2();
+                    update_scr_spo2(m_disp_spo2, m_disp_ppg_lead_off);
                 } // else if (curr == SCR_ALL_TRENDS) {
                   //     update_scr_all_trends();
                   // }
@@ -855,10 +847,36 @@ void display_screens_thread(void)
                 // Update detail screens when active
                 int curr = hpi_disp_get_curr_screen();
                 if (curr == SCR_RR) {
-                    update_scr_rr();
+                    update_scr_rr(m_disp_rr, m_disp_ecg_lead_off);
                 } // else if (curr == SCR_ALL_TRENDS) {
                   //     update_scr_all_trends();
                   // }
+            }
+
+            // Lead-off status update (10Hz = 100ms interval)
+            // CRITICAL: Skip if we just did a regular update to avoid conflicts
+            // Split home and detail updates across cycles to reduce blocking time
+            // ALSO skip if on detail screens (HR/SpO2) - those updates are too heavy to combine with lead-off
+            if (k_uptime_get_32() - last_lead_off_refresh > 100 &&
+                k_uptime_get_32() - last_spo2_refresh > 50 &&  // Wait 50ms after SpO2 update
+                k_uptime_get_32() - last_hr_refresh > 50)       // Wait 50ms after HR update
+            {
+                int curr = hpi_disp_get_curr_screen();
+                
+                // Skip lead-off updates entirely when on detail screens that have heavy regular updates
+                // HR and SpO2 screens update charts/stats frequently - combining with lead-off causes queue overflow
+                bool is_detail_screen = (curr == SCR_HR || curr == SCR_SPO2);
+                
+                if (!is_detail_screen) {
+                    last_lead_off_refresh = k_uptime_get_32();
+                    
+                    // Skip updates during screen transitions to avoid race conditions
+                    if (!hpi_disp_is_screen_transitioning()) {
+                        // Only update home screen indicators (fast operation)
+                        // Detail screen overlays are not critical enough to risk crashes
+                        hpi_scr_home_update_lead_off(m_disp_ecg_lead_off, m_disp_ppg_lead_off);
+                    }
+                }
             }
         }
 
@@ -921,16 +939,26 @@ ZBUS_LISTENER_DEFINE(disp_batt_lis, disp_batt_status_listener);
 static void disp_hr_listener(const struct zbus_channel *chan)
 {
     const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
-    m_disp_hr = hpi_hr->hr;
     
-    // Update vital stats history - throttle to once per second like other vitals
-    // HR updates come at ~83 Hz (PPG sample rate), but stats should update at 1 Hz
-    // to maintain a meaningful 60-second window instead of 720ms window
-    static uint32_t last_stats_update = 0;
-    uint32_t now = k_uptime_get_32();
-    if (now - last_stats_update >= 1000) {  // Update stats once per second
-        vital_stats_update_hr(hpi_hr->hr);
-        last_stats_update = now;
+    // Update lead-off status from HR message
+    m_disp_ecg_lead_off = hpi_hr->lead_off;
+    
+    // Only update HR value if not in lead-off state
+    if (!hpi_hr->lead_off) {
+        m_disp_hr = hpi_hr->hr;
+        
+        // Update vital stats history - throttle to once per second like other vitals
+        // HR updates come at ~83 Hz (PPG sample rate), but stats should update at 1 Hz
+        // to maintain a meaningful 60-second window instead of 720ms window
+        static uint32_t last_stats_update = 0;
+        uint32_t now = k_uptime_get_32();
+        if (now - last_stats_update >= 1000) {  // Update stats once per second
+            vital_stats_update_hr(hpi_hr->hr);
+            last_stats_update = now;
+        }
+    } else {
+        // Lead-off detected - don't update value (keep last good value or show "--")
+        LOG_DBG("HR lead-off detected, value=%d (ignored)", hpi_hr->hr);
     }
 }
 ZBUS_LISTENER_DEFINE(disp_hr_lis, disp_hr_listener);
@@ -949,12 +977,22 @@ ZBUS_LISTENER_DEFINE(disp_temp_lis, disp_temp_listener);
 static void disp_spo2_listener(const struct zbus_channel *chan)
 {
     const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
-    m_disp_spo2 = hpi_spo2->spo2;
     
-    LOG_DBG("SpO2 ZBUS update: %d", hpi_spo2->spo2);
+    // Update lead-off status from SpO2 message
+    m_disp_ppg_lead_off = hpi_spo2->lead_off;
     
-    // Update vital stats history
-    vital_stats_update_spo2(hpi_spo2->spo2);
+    LOG_DBG("SpO2 ZBUS update: %d, lead_off=%d", hpi_spo2->spo2, hpi_spo2->lead_off);
+    
+    // Only update SpO2 value if not in lead-off state
+    if (!hpi_spo2->lead_off) {
+        m_disp_spo2 = hpi_spo2->spo2;
+        
+        // Update vital stats history
+        vital_stats_update_spo2(hpi_spo2->spo2);
+    } else {
+        // Lead-off detected - don't update value (keep last good value or show "--")
+        LOG_DBG("SpO2 lead-off detected, value=%d (ignored)", hpi_spo2->spo2);
+    }
     // hpi_scr_update_spo2(hpi_spo2->spo2);
 }
 ZBUS_LISTENER_DEFINE(disp_spo2_lis, disp_spo2_listener);
@@ -962,13 +1000,27 @@ ZBUS_LISTENER_DEFINE(disp_spo2_lis, disp_spo2_listener);
 static void disp_resp_rate_listener(const struct zbus_channel *chan)
 {
     const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
-    m_disp_rr = hpi_resp_rate->resp_rate;
     
-    // Update vital stats history
-    vital_stats_update_rr((uint8_t)hpi_resp_rate->resp_rate);
+    // Respiration uses same lead-off as ECG (BioZ requires ECG electrodes)
+    // Update lead-off status from respiration message
+    m_disp_ecg_lead_off = hpi_resp_rate->lead_off;
+    
+    // Only update RR value if not in lead-off state
+    if (!hpi_resp_rate->lead_off) {
+        m_disp_rr = hpi_resp_rate->resp_rate;
+        
+        // Update vital stats history
+        vital_stats_update_rr((uint8_t)hpi_resp_rate->resp_rate);
+    } else {
+        // Lead-off detected - don't update value
+        LOG_DBG("RR lead-off detected, value=%d (ignored)", hpi_resp_rate->resp_rate);
+    }
     // hpi_scr_update_rr(hpi_resp_rate->resp_rate);
 }
 ZBUS_LISTENER_DEFINE(disp_resp_rate_lis, disp_resp_rate_listener);
+
+// Lead-off status is now embedded in vital sign messages
+// No separate lead-off listener needed
 
 #define DISPLAY_SCREENS_THREAD_STACKSIZE 5000
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5

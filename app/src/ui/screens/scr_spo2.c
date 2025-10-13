@@ -70,9 +70,6 @@ static lv_obj_t *label_signal_quality = NULL;  // Signal quality indicator
 extern lv_style_t style_sub;
 extern lv_style_t style_number_big;
 
-// External variables
-extern uint8_t m_disp_spo2;
-
 void draw_scr_spo2(enum scroll_dir m_scroll_dir)
 {
     scr_spo2 = lv_obj_create(NULL);
@@ -223,26 +220,20 @@ void draw_scr_spo2(enum scroll_dir m_scroll_dir)
     ser_spo2 = lv_chart_add_series(chart_spo2_trend, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
     
     // Series styling
-    lv_obj_set_style_line_color(chart_spo2_trend, lv_palette_main(LV_PALETTE_BLUE), LV_PART_ITEMS);
+    lv_obj_set_style_line_color(chart_spo2_trend, lv_palette_main(LV_PALETTE_BLUE_GREY), LV_PART_ITEMS);
     lv_obj_set_style_line_width(chart_spo2_trend, 2, LV_PART_ITEMS);
     
-    // Initialize with no data - yield every 20 points to prevent blocking data thread
-    for (int i = 0; i < SPO2_CHART_POINTS; i++) {
-        lv_chart_set_next_value(chart_spo2_trend, ser_spo2, LV_CHART_POINT_NONE);
-        if ((i % 20) == 0) {
-            k_yield();  // Allow data thread to run
-        }
-    }
+    // Chart is initialized with default values by lv_chart_set_point_count()
+    // No need for manual initialization which can block the system
 
     // Set as current screen and show
     hpi_disp_set_curr_screen(SCR_SPO2);
     hpi_show_screen(scr_spo2, m_scroll_dir);
     
-    // Initial update
-    update_scr_spo2();
+    // No initial update - will be called by display_module with actual values
 }
 
-void update_scr_spo2(void)
+void update_scr_spo2(uint8_t spo2_value, bool ppg_lead_off)
 {
     if (scr_spo2 == NULL || label_spo2_current == NULL) {
         return;
@@ -254,19 +245,48 @@ void update_scr_spo2(void)
         return;
     }
 
-    // Update current SpO2 value
-    uint8_t current_spo2 = m_disp_spo2;
-    LOG_DBG("SpO2 Screen Update - m_disp_spo2=%d", current_spo2);
-    
-    if (current_spo2 > 0 && current_spo2 <= 100) {
+    // Check lead-off status and show/hide overlay
+    if (ppg_lead_off) {
+        // Lead-off detected - show "NO PPG SIGNAL" overlay, hide value
+        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_clear_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
         if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
-            lv_label_set_text_fmt(label_spo2_current, "%d", current_spo2);
+            lv_obj_add_flag(label_spo2_current, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_spo2_unit != NULL && lv_obj_is_valid(label_spo2_unit)) {
+            lv_obj_add_flag(label_spo2_unit, LV_OBJ_FLAG_HIDDEN);
+        }
+        
+        LOG_DBG("SpO2 Screen: Lead-off overlay shown");
+        
+        // Don't add points to chart during lead-off
+        return;
+    } else {
+        // Probe connected - hide overlay, show normal value
+        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
+            lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
+            lv_obj_clear_flag(label_spo2_current, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (label_spo2_unit != NULL && lv_obj_is_valid(label_spo2_unit)) {
+            lv_obj_clear_flag(label_spo2_unit, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // Update current SpO2 value (only if probe connected)
+    LOG_DBG("SpO2 Screen Update - spo2=%d, lead_off=%d", spo2_value, ppg_lead_off);
+    
+    if (spo2_value > 0 && spo2_value <= 100) {
+        if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
+            lv_label_set_text_fmt(label_spo2_current, "%d", spo2_value);
         }
         
         // Add to trend chart (validate before use)
         if (chart_spo2_trend != NULL && lv_obj_is_valid(chart_spo2_trend) && 
             ser_spo2 != NULL) {
-            lv_chart_set_next_value(chart_spo2_trend, ser_spo2, current_spo2);
+            lv_chart_set_next_value(chart_spo2_trend, ser_spo2, spo2_value);
             lv_chart_refresh(chart_spo2_trend);
         }
     } else {
@@ -293,60 +313,6 @@ void update_scr_spo2(void)
     }
 
     // Note: Trend and time info removed in new layout
-}
-
-/**
- * Update lead-off status on SpO2 screen
- * Uses debounced PPG lead-off state from data_module (same as home screen)
- */
-void update_scr_spo2_lead_off(bool ppg_lead_off)
-{
-    // CRITICAL: Only update if we're actually on the SpO2 screen
-    // This prevents crashes when lead-off state changes during screen transitions
-    if (hpi_disp_get_curr_screen() != SCR_SPO2) {
-        return;
-    }
-    
-    // Safety check: Ensure screen and overlay exist AND are valid LVGL objects
-    if (scr_spo2 == NULL || lead_off_overlay == NULL) {
-        return;
-    }
-    
-    // Additional validation: Check if objects are still valid in LVGL
-    // This prevents crashes when objects are being deleted/recreated
-    if (!lv_obj_is_valid(scr_spo2) || !lv_obj_is_valid(lead_off_overlay)) {
-        LOG_DBG("SpO2 screen objects not yet valid, skipping lead-off update");
-        return;
-    }
-    
-    if (ppg_lead_off) {
-        // Show warning overlay, hide normal value
-        if (lv_obj_is_valid(lead_off_overlay)) {
-            lv_obj_clear_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
-        }
-        if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
-            lv_obj_add_flag(label_spo2_current, LV_OBJ_FLAG_HIDDEN);
-        }
-        if (label_spo2_unit != NULL && lv_obj_is_valid(label_spo2_unit)) {
-            lv_obj_add_flag(label_spo2_unit, LV_OBJ_FLAG_HIDDEN);
-        }
-        
-        LOG_WRN("SpO2 Screen: PPG lead-off warning displayed");
-    } else {
-        // Hide warning, show normal value
-        // Re-validate before each operation (object could become invalid between checks)
-        if (lead_off_overlay != NULL && lv_obj_is_valid(lead_off_overlay)) {
-            lv_obj_add_flag(lead_off_overlay, LV_OBJ_FLAG_HIDDEN);
-        }
-        if (label_spo2_current != NULL && lv_obj_is_valid(label_spo2_current)) {
-            lv_obj_clear_flag(label_spo2_current, LV_OBJ_FLAG_HIDDEN);
-        }
-        if (label_spo2_unit != NULL && lv_obj_is_valid(label_spo2_unit)) {
-            lv_obj_clear_flag(label_spo2_unit, LV_OBJ_FLAG_HIDDEN);
-        }
-        
-        LOG_INF("SpO2 Screen: Finger detected");
-    }
 }
 
 void scr_spo2_delete(void)

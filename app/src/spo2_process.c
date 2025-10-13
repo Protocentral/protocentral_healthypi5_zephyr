@@ -55,10 +55,13 @@ LOG_MODULE_REGISTER(spo2_process, LOG_LEVEL_DBG);
 // 2 peaks allows for heart rates as low as ~40 bpm
 #define PROBE_OFF_MIN_PEAKS         2
 
-// AC amplitude threshold (ADC units)
+// AC amplitude thresholds with hysteresis (ADC units)
 // This is hardware-specific and depends on AFE4400 gain settings
-// HealthyPi 5 typically sees AC=150-300 with good finger contact
-#define PROBE_OFF_AC_THRESHOLD      150     // ADC units
+// HealthyPi 5 can produce valid SpO2 readings with AC as low as 110
+// Real-world testing: AC=111-130 → SpO2=99% (valid)
+// Hysteresis prevents flickering when AC hovers near threshold
+#define PROBE_OFF_AC_LOW            70      // Below this = probe off (very strict, only true removal)
+#define PROBE_OFF_AC_HIGH           110     // Above this = probe on (very forgiving, accepts all working signals)
 
 // Shared buffers - exposed for memory efficiency
 uint32_t an_x[BUFFER_SIZE]; // IR buffer
@@ -692,12 +695,20 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
             LOG_WRN("Probe OFF: Insufficient peaks (%d)", n_peaks);
         }
         
-        // Criterion 3: AC amplitude too weak (even if PI calculation worked)
-        // This catches edge cases where DC is high but AC is negligible
-        else if (median_ac_ir < PROBE_OFF_AC_THRESHOLD) {
-            probe_off_detected = true;
-            probe_off_reason = PROBE_OFF_WEAK_AC;
-            LOG_WRN("Probe OFF: AC too weak (%d, need >%d)", median_ac_ir, PROBE_OFF_AC_THRESHOLD);
+        // Criterion 3: AC amplitude with hysteresis to prevent flickering
+        // Use different thresholds based on current state:
+        // - If currently OFF: need AC > 180 to declare ON (harder to recover)
+        // - If currently ON: need AC < 120 to declare OFF (easier to stay on)
+        else {
+            bool currently_off = (probe_state != NULL) ? probe_state->probe_off_state : quality->probe_off;
+            int ac_threshold = currently_off ? PROBE_OFF_AC_HIGH : PROBE_OFF_AC_LOW;
+            
+            if (median_ac_ir < ac_threshold) {
+                probe_off_detected = true;
+                probe_off_reason = PROBE_OFF_WEAK_AC;
+                LOG_WRN("Probe OFF: AC too weak (%d, need >%d, state=%s)", 
+                        median_ac_ir, ac_threshold, currently_off ? "OFF" : "ON");
+            }
         }
         
         // Set probe-off flag (RAW detection, single reading)
@@ -745,11 +756,13 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
             confidence -= 10;
         }
         
-        // Penalize weak signal (aligned with PROBE_OFF_AC_THRESHOLD=150)
-        if (median_ac_ir < PROBE_OFF_AC_THRESHOLD) {
-            confidence = 0;  // Below probe-off threshold
+        // Penalize weak signal (aligned with probe-off hysteresis)
+        if (median_ac_ir < PROBE_OFF_AC_LOW) {
+            confidence = 0;  // Below lower threshold (definitely off)
+        } else if (median_ac_ir < PROBE_OFF_AC_HIGH) {
+            confidence -= 40;  // In hysteresis zone (marginal)
         } else if (median_ac_ir < 300) {
-            confidence -= 40;  // Marginal signal
+            confidence -= 20;  // Weak but acceptable
         } else if (median_ac_ir < 500) {
             confidence -= 20;
         } else if (median_ac_ir < 1000) {

@@ -177,6 +177,7 @@ int16_t temp_serial;
 ZBUS_CHAN_DECLARE(hr_chan);
 ZBUS_CHAN_DECLARE(spo2_chan);
 ZBUS_CHAN_DECLARE(resp_rate_chan);
+ZBUS_CHAN_DECLARE(lead_off_chan);  // Lead-off state channel
 
 // New vars
 
@@ -195,7 +196,7 @@ ZBUS_CHAN_DECLARE(resp_rate_chan);
 // Time-based debouncing for UI updates only - all detection logic is in spo2_process.c
 
 #define ECG_LEADOFF_DEBOUNCE_MS    500    // ECG lead-off is stable (hardware detection)
-#define PPG_LEADOFF_DEBOUNCE_MS    1000   // PPG UI debounce (already filtered by algorithm)
+#define PPG_LEADOFF_DEBOUNCE_MS    1500   // PPG UI debounce for removal (balanced with AC hysteresis)
 
 // Lead-off state tracking (UI layer)
 static bool ecg_lead_off_state = false;   // Current UI state for ECG
@@ -204,6 +205,10 @@ static int64_t ecg_leadoff_timer = 0;     // Timestamp for ECG debouncing
 static int64_t ppg_leadoff_timer = 0;     // Timestamp for PPG debouncing
 static bool ecg_leadoff_raw = false;      // Raw ECG hardware status
 static bool ppg_leadoff_prev = true;      // Previous filtered state from algorithm
+
+// Last valid values for lead-off state change publications
+static uint8_t last_valid_ecg_hr = 0;     // Last valid ECG HR (for lead-off publications)
+static uint8_t last_valid_rr = 0;          // Last valid respiration rate
 
 // SpO2 algorithm probe state tracker (initialized once)
 static spo2_probe_state_t spo2_probe_state;
@@ -667,9 +672,15 @@ void data_thread(void)
     ppg_leadoff_timer = k_uptime_get();
     
     // Initialize SpO2 probe state tracker (consecutive count filtering in algorithm)
+    // With severe AC alternation (110→260→110→260), use very forgiving consecutive filtering
+    // Real-world testing shows valid SpO2=99% even with AC=111-130, so accept marginal signals
     // threshold_off=4: need 4 consecutive probe-off detections (~2 seconds at 0.5s/reading)
-    // threshold_on=4: need 4 consecutive probe-on detections (~2 seconds)
-    spo2_probe_state_init(&spo2_probe_state, 4, 4);
+    //   - Quick removal detection when AC < 80
+    //   - Strict: truly poor contact, not just marginal
+    // threshold_on=3: need 3 consecutive probe-on detections (~1.5 seconds)
+    //   - Very fast initial detection when AC > 130 (allows alternating 111→260 to pass)
+    //   - Asymmetric hysteresis: easy to detect, moderate to lose
+    spo2_probe_state_init(&spo2_probe_state, 4, 3);
     spo2_probe_state_initialized = true;
 
     for (;;)
@@ -738,14 +749,18 @@ void data_thread(void)
                 // Confidence threshold removed - probe-off detection handles validity
                 if (validSPO2 && m_spo2 > 0 && m_spo2 <= 100)
                 {
-                    // Outlier rejection: SpO2 changes slowly, reject >5% jumps
+                    // Outlier rejection: Only reject sudden DROPS >5%, allow gradual increases
+                    // SpO2 can legitimately increase from low readings when signal improves
                     bool is_spo2_outlier = false;
                     if (spo2_history_count > 0 && spo2_filtered > 0) {
-                        int32_t spo2_delta = (m_spo2 > spo2_filtered) ? (m_spo2 - spo2_filtered) : (spo2_filtered - m_spo2);
-                        if (spo2_delta > 5) {  // SpO2 shouldn't jump >5% normally
-                            is_spo2_outlier = true;
-                            LOG_WRN("SpO2 outlier detected: %d%% (filtered: %d%%, delta: %d)", 
-                                    m_spo2, spo2_filtered, spo2_delta);
+                        // Only check for drops, not increases
+                        if (m_spo2 < spo2_filtered) {
+                            int32_t spo2_drop = spo2_filtered - m_spo2;
+                            if (spo2_drop > 5) {  // Reject sudden drops >5%
+                                is_spo2_outlier = true;
+                                LOG_WRN("SpO2 outlier detected: %d%% (filtered: %d%%, drop: %d)", 
+                                        m_spo2, spo2_filtered, spo2_drop);
+                            }
                         }
                     }
                     
@@ -768,8 +783,12 @@ void data_thread(void)
                     // If outlier, keep using previous filtered value
                     
                     // Use filtered value for serial and display
+                    // Include PPG lead-off status - display should show "--" if probe off
                     spo2_serial = spo2_filtered;
-                    struct hpi_spo2_t spo2_chan_value = {.spo2 = spo2_filtered};
+                    struct hpi_spo2_t spo2_chan_value = {
+                        .spo2 = spo2_filtered,
+                        .lead_off = ppg_lead_off_state
+                    };
                     zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_NO_WAIT);
                 }
                 
@@ -780,10 +799,12 @@ void data_thread(void)
                 if (validHeartRate && m_hr > 30 && m_hr < 220 &&
                     quality_metrics.perfusion_ir >= 100)  // Require PI ≥ 1.0% (primary quality gate)
                 {
-                    // Outlier rejection: If HR changes by more than 30 bpm from filtered value, 
-                    // treat it as suspicious and reduce its weight
+                    // Outlier rejection: Only reject sudden DROPS or JUMPS >30 bpm
+                    // HR can legitimately vary but sudden extreme changes indicate noise
                     bool is_outlier = false;
                     if (hr_history_count > 0 && hr_filtered > 0) {
+                        // Check both increases and decreases for HR (unlike SpO2)
+                        // HR can jump up suddenly (exercise) or drop (relaxation)
                         int32_t hr_delta = (m_hr > hr_filtered) ? (m_hr - hr_filtered) : (hr_filtered - m_hr);
                         if (hr_delta > 30) {
                             is_outlier = true;
@@ -811,9 +832,13 @@ void data_thread(void)
                     // If outlier, keep using previous filtered value
                     
                     // Publish PPG HR only if PPG source is selected
+                    // Include PPG lead-off status - HR invalid if probe off
                     if (hpi_data_get_hr_source() == HR_SOURCE_PPG) {
                         hr_serial = hr_filtered;
-                        struct hpi_hr_t hr_chan_value = {.hr = hr_filtered};
+                        struct hpi_hr_t hr_chan_value = {
+                            .hr = hr_filtered,
+                            .lead_off = ppg_lead_off_state
+                        };
                         zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
                     }
                 }
@@ -847,15 +872,32 @@ void data_thread(void)
                 int64_t elapsed_ms = k_uptime_get() - ppg_leadoff_timer;
                 
                 if (probe_off_filtered != ppg_lead_off_state) {
-                    // Asymmetric debounce thresholds:
-                    // - PROBE-ON (finger placed): 200ms - fast response since algorithm already filtered
-                    // - PROBE-OFF (finger removed): 1000ms - prevent flickering on weak signal
-                    int64_t required_debounce = probe_off_filtered ? PPG_LEADOFF_DEBOUNCE_MS : 200;
+                    // Asymmetric debounce thresholds (reduced with lower consecutive counts):
+                    // - PROBE-ON (finger placed): 300ms - fast initial detection (4 consecutive in algorithm)
+                    // - PROBE-OFF (finger removed): 1500ms - prevent flickering (6 consecutive + time buffer)
+                    int64_t required_debounce = probe_off_filtered ? PPG_LEADOFF_DEBOUNCE_MS : 300;
                     
                     if (elapsed_ms >= required_debounce) {
                         ppg_lead_off_state = probe_off_filtered;
                         LOG_INF("PPG UI state updated: %s (after %lld ms)",
                                 ppg_lead_off_state ? "LEAD-OFF" : "CONNECTED", elapsed_ms);
+                        
+                        // Immediately publish lead-off state change for both SpO2 and HR (PPG source)
+                        // This ensures display updates to show "--" even if no valid readings
+                        struct hpi_spo2_t spo2_chan_value = {
+                            .spo2 = spo2_filtered,  // Keep last valid value
+                            .lead_off = ppg_lead_off_state
+                        };
+                        zbus_chan_pub(&spo2_chan, &spo2_chan_value, K_NO_WAIT);
+                        
+                        // Also update PPG HR if it's the active source
+                        if (hpi_data_get_hr_source() == HR_SOURCE_PPG) {
+                            struct hpi_hr_t hr_chan_value = {
+                                .hr = hr_filtered,  // Keep last valid value
+                                .lead_off = ppg_lead_off_state
+                            };
+                            zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                        }
                     }
                 }
                 
@@ -888,11 +930,14 @@ void data_thread(void)
                 resp_process_sample(resp_i16_buf, resp_i16_filt_out);
                 resp_algo_process(resp_i16_filt_out, &m_resp_rate);
 
-                // IMPORTANT: Only publish respiration rate if ECG leads are connected
+                // Publish respiration rate with lead-off status
                 // BioZ signal requires ECG electrodes for proper measurement
-                if (!ecg_lead_off_state && m_resp_rate > 0 && m_resp_rate < 60) {
+                if (m_resp_rate > 0 && m_resp_rate < 60) {
+                    last_valid_rr = m_resp_rate;  // Remember for lead-off state changes
                     struct hpi_resp_rate_t resp_rate_chan_value = {
-                        .resp_rate = m_resp_rate};
+                        .resp_rate = m_resp_rate,
+                        .lead_off = ecg_lead_off_state
+                    };
                     // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
                     zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
                 }
@@ -902,13 +947,16 @@ void data_thread(void)
 
             // Publish ECG HR if ECG source is selected
             // ECG HR comes from MAX30001 R-R interval detection
-            // IMPORTANT: Suppress HR publication during lead-off to prevent false readings
+            // Include lead-off status - HR invalid if electrodes disconnected
             if (hpi_data_get_hr_source() == HR_SOURCE_ECG && 
-                hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255 &&
-                !ecg_lead_off_state)  // Don't publish during lead-off
+                hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255)
             {
                 hr_serial = hpi_sensor_data_point.hr;
-                struct hpi_hr_t hr_chan_value = {.hr = hpi_sensor_data_point.hr};
+                last_valid_ecg_hr = hpi_sensor_data_point.hr;  // Remember for lead-off state changes
+                struct hpi_hr_t hr_chan_value = {
+                    .hr = hpi_sensor_data_point.hr,
+                    .lead_off = ecg_lead_off_state
+                };
                 zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
             }
 
@@ -935,11 +983,42 @@ void data_thread(void)
                     // Transitioning to lead-off
                     ecg_lead_off_state = true;
                     LOG_INF("ECG Lead-Off DETECTED (electrodes disconnected for %lld ms)", elapsed_ms);
+                    
+                    // Immediately publish lead-off state change for ECG HR and RR
+                    // This ensures display updates to show "--" even if no valid readings
+                    if (hpi_data_get_hr_source() == HR_SOURCE_ECG) {
+                        struct hpi_hr_t hr_chan_value = {
+                            .hr = last_valid_ecg_hr,  // Keep last valid value
+                            .lead_off = ecg_lead_off_state
+                        };
+                        zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                    }
+                    
+                    struct hpi_resp_rate_t rr_chan_value = {
+                        .resp_rate = last_valid_rr,  // Keep last valid value
+                        .lead_off = ecg_lead_off_state
+                    };
+                    zbus_chan_pub(&resp_rate_chan, &rr_chan_value, K_NO_WAIT);
                 }
                 else if (!ecg_leadoff_raw && ecg_lead_off_state && elapsed_ms >= ECG_LEADOFF_DEBOUNCE_MS) {
                     // Transitioning to connected
                     ecg_lead_off_state = false;
                     LOG_INF("ECG Lead-On DETECTED (electrodes connected for %lld ms)", elapsed_ms);
+                    
+                    // Immediately publish lead-on state change for ECG HR and RR
+                    if (hpi_data_get_hr_source() == HR_SOURCE_ECG) {
+                        struct hpi_hr_t hr_chan_value = {
+                            .hr = last_valid_ecg_hr,  // Keep last valid value
+                            .lead_off = ecg_lead_off_state
+                        };
+                        zbus_chan_pub(&hr_chan, &hr_chan_value, K_NO_WAIT);
+                    }
+                    
+                    struct hpi_resp_rate_t rr_chan_value = {
+                        .resp_rate = last_valid_rr,  // Keep last valid value
+                        .lead_off = ecg_lead_off_state
+                    };
+                    zbus_chan_pub(&resp_rate_chan, &rr_chan_value, K_NO_WAIT);
                 }
             }
 
@@ -1011,36 +1090,13 @@ void data_thread(void)
         }
 
         // ============================================================================
-        // Update Lead-Off UI Indicators (throttled to ~10Hz to avoid display flooding)
+        // Publish Lead-Off State Updates via Zbus (10Hz throttled)
         // ============================================================================
+        // CRITICAL: Never call LVGL functions from data thread!
+        // Lead-off status is now embedded in vital sign messages (hr_chan, spo2_chan, resp_rate_chan)
+        // No need for separate lead-off channel publication
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-        static int64_t last_ui_update_time = 0;
-        int64_t current_time = k_uptime_get();
-        
-        if (current_time - last_ui_update_time >= 100) {  // Update every 100ms (10Hz)
-            last_ui_update_time = current_time;
-            
-            // CRITICAL: Skip UI updates during screen transitions to prevent blocking data processing
-            // Screen transitions involve LVGL operations that can take >1 second
-            // If we try to update UI during this time, the data thread blocks and the queue overflows
-            if (!hpi_disp_is_screen_transitioning()) {
-                // Get current screen ONCE to avoid race conditions
-                int curr_screen = hpi_disp_get_curr_screen();
-                
-                // Always update home screen indicators (fast operation)
-                hpi_scr_home_update_lead_off(ecg_lead_off_state, ppg_lead_off_state);
-                
-                // Update detail screen overlays based on current screen
-                if (curr_screen == SCR_HR) {
-                    // HR screen - show ECG lead-off overlay
-                    update_scr_hr_lead_off(ecg_lead_off_state);
-                }
-                else if (curr_screen == SCR_SPO2) {
-                    // SpO2 screen - show PPG lead-off overlay (uses same debounced state)
-                    update_scr_spo2_lead_off(ppg_lead_off_state);
-                }
-            }
-        }
+        // Placeholder for future display-only updates
 #endif
 
         // Only sleep if no samples were processed (queue was empty)
