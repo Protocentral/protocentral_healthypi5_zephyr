@@ -1,3 +1,28 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Ashwin Whitchurch, ProtoCentral Electronics
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -14,18 +39,10 @@
 #include <zephyr/settings/settings.h>
 
 #include "cmd_module.h"
-#include "hpi_common_types.h"	
+#include "hpi_common_types.h"
 
-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
-LOG_MODULE_REGISTER(ble_module);
-
-struct bt_conn *current_conn;
-
-static uint8_t spo2_att_ble[5];
-static uint8_t temp_att_ble[2];
-uint8_t in_data_buffer[50];
-
-extern struct k_msgq q_cmd_msg;
+#define LOG_LEVEL CONFIG_LOG_LEVEL_DBG
+LOG_MODULE_REGISTER(ble_module, LOG_LEVEL_DBG);
 
 // BLE GATT Identifiers
 
@@ -74,6 +91,17 @@ extern struct k_msgq q_cmd_msg;
 #define UUID_HPI_CMD_SERVICE BT_UUID_DECLARE_128(CMD_SERVICE_UUID)
 #define UUID_HPI_CMD_SERVICE_CHAR_TX BT_UUID_DECLARE_128(CMD_TX_CHARACTERISTIC_UUID)
 #define UUID_HPI_CMD_SERVICE_CHAR_RX BT_UUID_DECLARE_128(CMD_RX_CHARACTERISTIC_UUID)
+
+struct bt_conn *current_conn;
+
+static uint8_t spo2_att_ble[5];
+static uint8_t temp_att_ble[2];
+uint8_t in_data_buffer[50];
+
+extern struct k_msgq q_cmd_msg;
+
+K_SEM_DEFINE(sem_ble_connected, 0, 1);
+K_SEM_DEFINE(sem_ble_disconnected, 0, 1);
 
 static void spo2_on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
@@ -236,6 +264,34 @@ void ble_resp_rate_notify(uint16_t resp_rate)
 	bt_gatt_notify(NULL, &hpi_ppg_resp_service.attrs[4], &resp_rate, sizeof(resp_rate));
 }
 
+
+
+void ble_ecg_notify_single(int32_t ecg_data)
+{
+	uint8_t out_data[16];
+	int i=0;
+
+	out_data[0] = (uint8_t)ecg_data;
+	out_data[1] = (uint8_t)(ecg_data >> 8);
+	out_data[2] = (uint8_t)(ecg_data >> 16);
+	out_data[3] = (uint8_t)(ecg_data >> 24);
+
+	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, 4);
+}
+
+void ble_bioz_notify_single(int32_t resp_data)
+{
+	uint8_t out_data[16];
+	int i=0;
+
+	out_data[0] = (uint8_t)resp_data;
+	out_data[1] = (uint8_t)(resp_data >> 8);
+	out_data[2] = (uint8_t)(resp_data >> 16);
+	out_data[3] = (uint8_t)(resp_data >> 24);
+
+	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, 4);
+}
+
 void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 {
 	uint8_t out_data[128];
@@ -248,7 +304,14 @@ void ble_ecg_notify(int32_t *ecg_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(ecg_data[i] >> 24);
 	}
 
-	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
+	// Check return value to prevent blocking data thread
+	// Returns -ENOMEM if BLE buffers full - drop packet instead of blocking
+	int ret = bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[1], &out_data, len * 4);
+	
+	if (ret < 0 && ret != -ENOTCONN) {
+		// BLE stack busy - packet dropped (prevents data thread stall)
+		// Better to drop occasional packet than stall entire stream
+	}
 }
 
 void ble_bioz_notify(int32_t *resp_data, uint8_t len)
@@ -263,7 +326,13 @@ void ble_bioz_notify(int32_t *resp_data, uint8_t len)
 		out_data[i * 4 + 3] = (uint8_t)(resp_data[i] >> 24);
 	}
 
-	bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
+	// Check return value to prevent blocking data thread
+	// Returns -ENOMEM if BLE buffers full - drop packet instead of blocking
+	int ret = bt_gatt_notify(NULL, &hpi_ecg_resp_service.attrs[4], &out_data, len * 4);
+	
+	if (ret < 0 && ret != -ENOTCONN) {
+		// BLE stack busy - packet dropped (prevents data thread stall)
+	}
 }
 
 void ble_ppg_notify(int16_t ppg_data)
@@ -302,23 +371,25 @@ static void connected(struct bt_conn *conn, uint8_t err)
 {
 	if (err)
 	{
-		LOG_ERR("BLE Connection failed (err 0x%02x)", err);
+		printk("Connection failed (err 0x%02x)\n", err);
 	}
 	else
 	{
 		LOG_DBG("BLE Connected");
 		current_conn = bt_conn_ref(conn);
+		k_sem_give(&sem_ble_connected);
+		//show_state_ble_connected();
 	}
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
 	LOG_DBG("BLE Disconnected (reason 0x%02x)", reason);
-	// send_status_serial(BLE_STATUS_DISCONNECTED);
 	if (current_conn)
 	{
 		bt_conn_unref(current_conn);
 		current_conn = NULL;
+		k_sem_give(&sem_ble_disconnected);
 	}
 }
 
@@ -424,15 +495,12 @@ void ble_module_init()
 {
 	int err = 0;
 
-	err = bt_enable(NULL);
+	err = bt_enable(bt_ready);
 	if (err)
 	{
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 		return;
 	}
-
-	bt_ready();
-
 	// bt_conn_auth_cb_register(&auth_cb_display);
 }
 
@@ -447,14 +515,14 @@ void healthypi5_service_send_data(const uint8_t *data, uint16_t len)
 
 static void bt_temp_listener(const struct zbus_channel *chan)
 {
-    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+	const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
 	ble_temp_notify((hpi_temp->temp_c * 100));
 }
 ZBUS_LISTENER_DEFINE(bt_temp_lis, bt_temp_listener);
 
 static void bt_batt_listener(const struct zbus_channel *chan)
 {
-    const struct hpi_batt_status_t *hpi_batt = zbus_chan_const_msg(chan);
+	const struct hpi_batt_status_t *hpi_batt = zbus_chan_const_msg(chan);
 	ble_bas_notify(hpi_batt->batt_level);
 }
 ZBUS_LISTENER_DEFINE(bt_batt_lis, bt_batt_listener);
@@ -462,20 +530,29 @@ ZBUS_LISTENER_DEFINE(bt_batt_lis, bt_batt_listener);
 static void bt_hr_listener(const struct zbus_channel *chan)
 {
 	const struct hpi_hr_t *hpi_hr = zbus_chan_const_msg(chan);
-	ble_hrs_notify(hpi_hr->hr);
+	// Only send HR if not in lead-off state
+	if (!hpi_hr->lead_off) {
+		ble_hrs_notify(hpi_hr->hr);
+	}
 }
 ZBUS_LISTENER_DEFINE(bt_hr_lis, bt_hr_listener);
 
 static void bt_spo2_listener(const struct zbus_channel *chan)
 {
 	const struct hpi_spo2_t *hpi_spo2 = zbus_chan_const_msg(chan);
-	ble_spo2_notify(hpi_spo2->spo2);
+	// Only send SpO2 if not in lead-off state
+	if (!hpi_spo2->lead_off) {
+		ble_spo2_notify(hpi_spo2->spo2);
+	}
 }
 ZBUS_LISTENER_DEFINE(bt_spo2_lis, bt_spo2_listener);
 
 static void bt_resp_rate_listener(const struct zbus_channel *chan)
 {
 	const struct hpi_resp_rate_t *hpi_resp_rate = zbus_chan_const_msg(chan);
-	ble_resp_rate_notify(hpi_resp_rate->resp_rate);
+	// Only send RR if not in lead-off state
+	if (!hpi_resp_rate->lead_off) {
+		ble_resp_rate_notify(hpi_resp_rate->resp_rate);
+	}
 }
 ZBUS_LISTENER_DEFINE(bt_resp_rate_lis, bt_resp_rate_listener);

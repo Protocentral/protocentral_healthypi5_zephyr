@@ -32,10 +32,11 @@ config HEALTHYPI_SD_CARD_ENABLED
     help
       Enable SD Card
 
-config HEALTHYPI_OP_MODE_DISPLAY
-    bool "Enable Display Mode"
-    default n
+config HEALTHYPI_BLE_ENABLED
+    bool "Enable BLE support"
+    default y
     help
-      Enable Display Mode
-      
+      Enable building and initializing the Bluetooth (BLE) module.
+      When disabled, `ble_module.c` is not compiled and Bluetooth features
+      are excluded from the firmware image.
 source "Kconfig.zephyr"

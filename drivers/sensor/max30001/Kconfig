@@ -15,6 +15,8 @@ config SENSOR_MAX30001_INIT_PRIORITY
 	help
 	  MAX30001 device driver initialization priority.
 
+
+
 endif # SENSOR_MAX30001
 
 module = MAX30001

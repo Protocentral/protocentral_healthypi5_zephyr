@@ -17,9 +17,30 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
 FILE(GLOB app_sources src/*.c)
-FILE(GLOB display_sources src/display/*.c src/images/*.c src/ui/*.c src/ui/screens/*.c)
+# Exclude BLE module from the unconditional source list. It will be
+# added conditionally via `target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED ...)`
+list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ble_module.c)
+FILE(GLOB ui_images_sources src/ui/images/*.c)
+FILE(GLOB ui_sources src/ui/*.c)
 
-target_sources(app PRIVATE ${app_sources} ${display_sources})
+# Explicitly list screen files (excluding scr_all_trends.c)
+set(screen_sources
+    src/ui/screens/scr_welcome.c
+    src/ui/screens/scr_home.c
+    src/ui/screens/scr_hr.c
+    src/ui/screens/scr_spo2.c
+    src/ui/screens/scr_rr.c
+    src/ui/screens/scr_temp.c
+    # src/ui/screens/scr_all_trends.c  # Disabled
+)
+
+target_sources(app PRIVATE ${app_sources} ${ui_images_sources} ${ui_sources} ${screen_sources})
+
+# Add vital stats module
+target_sources(app PRIVATE src/vital_stats.c)
+
+# Add BLE module only if enabled in Kconfig
+target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED app PRIVATE src/ble_module.c)
 
 # Add display module only if enabled
 #target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE ${display_sources})
@@ -30,4 +51,5 @@ target_sources(app PRIVATE ${app_sources} ${display_sources})
 zephyr_include_directories(src)
 zephyr_include_directories(src/display)
 zephyr_include_directories(src/ui)
+zephyr_include_directories(src/ui/images)
 zephyr_include_directories(src/bt)

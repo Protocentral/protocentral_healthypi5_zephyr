@@ -1,3 +1,28 @@
+/*
+ * SPDX-License-Identifier: MIT
+ *
+ * Copyright (c) 2025 Ashwin Whitchurch, ProtoCentral Electronics
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/logging/log.h>
@@ -43,6 +68,7 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
+static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
@@ -50,6 +76,7 @@ static bool rx_throttled;
 K_SEM_DEFINE(sem_up_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_down_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_ok_key_pressed, 0, 1);
+K_SEM_DEFINE(sem_ok_key_longpress, 0, 1);  // Separate semaphore for long press
 
 K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 
@@ -271,33 +298,57 @@ uint8_t hpi_hw_read_batt(void)
 
 static void gpio_keys_cb_handler(struct input_event *evt, void* user_data)
 {
+    ARG_UNUSED(user_data);
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
-    if (evt->value == 1)
+    if (evt->value == 1)  // Button pressed
     {
         switch (evt->code)
         {
         case INPUT_KEY_ENTER:
-            LOG_INF("OK Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_OK);
+            LOG_INF("OK Key Pressed (short)");
             k_sem_give(&sem_ok_key_pressed);
             break;
-        case INPUT_KEY_UP:
-            LOG_INF("UP Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_UP);
-            k_sem_give(&sem_up_key_pressed);
-            break;
-        case INPUT_KEY_DOWN:
-            LOG_INF("DOWN Key Pressed");
-            // hpi_disp_change_event(HPI_SCR_EVENT_DOWN);
-            k_sem_give(&sem_down_key_pressed);
+        case INPUT_BTN_0:  // Long press sends BTN_0
+            LOG_INF("OK Key Long-Pressed (via longpress driver)");
+            k_sem_give(&sem_ok_key_longpress);
             break;
         default:
+            LOG_DBG("Unknown input code from longpress: %d, value: %d", evt->code, evt->value);
             break;
         }
     }
 #endif
 }
-INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_keys_cb_handler, NULL);
+
+// Separate callback for UP/DOWN buttons (direct from gpio_keys)
+static void gpio_updown_cb_handler(struct input_event *evt, void *user_data)
+{
+    ARG_UNUSED(user_data);
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
+    if (evt->value == 1)  // Button pressed
+    {
+        switch (evt->code)
+        {
+        case INPUT_KEY_UP:
+            LOG_INF("UP Key Pressed");
+            k_sem_give(&sem_up_key_pressed);
+            break;
+        case INPUT_KEY_DOWN:
+            LOG_INF("DOWN Key Pressed");
+            k_sem_give(&sem_down_key_pressed);
+            break;
+        default:
+            // Ignore other keys (ENTER is handled by longpress driver)
+            break;
+        }
+    }
+#endif
+}
+
+// Register callback on longpress device output (for OK button short/long press)
+INPUT_CALLBACK_DEFINE(longpress_dev, gpio_keys_cb_handler, NULL);
+// Register callback on gpio_keys device (for UP/DOWN buttons)
+INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_updown_cb_handler, NULL);
 
 void hw_thread(void)
 {
@@ -378,7 +429,8 @@ void hw_thread(void)
             .batt_level = (uint8_t) hpi_hw_read_batt(),
             .batt_charging = 0,
         };
-        zbus_chan_pub(&batt_chan, &batt_s, K_SECONDS(1));
+        // Use K_NO_WAIT to prevent blocking threads
+        zbus_chan_pub(&batt_chan, &batt_s, K_NO_WAIT);
 
         // Read and publish temperature
         hpi_hw_read_temp(&m_temp_f, &m_temp_c);
@@ -386,7 +438,8 @@ void hw_thread(void)
             .temp_f = m_temp_f,
             .temp_c = m_temp_c,
         };
-        zbus_chan_pub(&temp_chan, &temp, K_SECONDS(1));
+        // Use K_NO_WAIT to prevent blocking threads
+        zbus_chan_pub(&temp_chan, &temp, K_NO_WAIT);
 
         gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));
