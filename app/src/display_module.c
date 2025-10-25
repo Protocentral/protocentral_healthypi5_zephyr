@@ -42,7 +42,7 @@
 #include "vital_stats.h"
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(display_module, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(display_module, LOG_LEVEL_INF);  // Changed from DBG to reduce log spam
 
 #define HPI_DISP_BATT_REFR_INT 1000
 
@@ -127,10 +127,10 @@ bool m_disp_ecg_lead_off = false;  // Non-static - accessed by detail screens
 bool m_disp_ppg_lead_off = true;   // Non-static - accessed by detail screens (start as lead-off)
 static int last_lead_off_refresh = 0;
 
-K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 64, 4);
-K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 64, 4);
+K_MSGQ_DEFINE(q_plot_ecg_bioz, sizeof(struct hpi_ecg_bioz_sensor_data_t), 32, 4);
+K_MSGQ_DEFINE(q_plot_ppg, sizeof(struct hpi_ppg_sensor_data_t), 32, 4);
 
-K_MSGQ_DEFINE(q_hpi_plot_all_sample, sizeof(struct hpi_sensor_data_point_t), 64, 1);
+K_MSGQ_DEFINE(q_hpi_plot_all_sample, sizeof(struct hpi_sensor_data_point_t), 32, 1);
 
 K_MUTEX_DEFINE(mutex_curr_screen);
 K_SEM_DEFINE(sem_disp_inited, 0, 1);

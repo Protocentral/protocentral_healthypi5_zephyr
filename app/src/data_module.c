@@ -30,6 +30,7 @@
 #include <zephyr/fs/fs.h>
 #include <zephyr/fs/littlefs.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <zephyr/zbus/zbus.h>
 
@@ -42,7 +43,7 @@
 #include "hpi_common_types.h"
 #include "display_module.h"
 
-LOG_MODULE_REGISTER(data_module, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(data_module, LOG_LEVEL_INF);  // Changed from DBG to reduce log spam
 
 #ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
@@ -73,7 +74,7 @@ LOG_MODULE_REGISTER(data_module, LOG_LEVEL_DBG);
 
 #define SAMPLE_BUFF_WATERMARK 4
 
-K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 100, 1);
+K_MSGQ_DEFINE(q_computed_val, sizeof(struct hpi_computed_data_t), 50, 1);
 
 enum hpi5_data_format
 {
@@ -259,9 +260,12 @@ void send_ppg_data_ov3_format()
 
     if (settings_send_usb_enabled)
     {
-        send_usb_cdc(hpi_ov3_ppg_packet_header, 5);
-        send_usb_cdc(hpi_ov3_ppg_data, pkt_ppg_pos_counter);
-        send_usb_cdc(hpi_ov3_packet_footer, 2);
+        // Consolidate into single buffer to reduce ring buffer fragmentation
+        static uint8_t consolidated_ppg_packet[5 + HPI_OV3_DATA_PPG_LEN + 2];
+        memcpy(consolidated_ppg_packet, hpi_ov3_ppg_packet_header, 5);
+        memcpy(consolidated_ppg_packet + 5, hpi_ov3_ppg_data, pkt_ppg_pos_counter);
+        memcpy(consolidated_ppg_packet + 5 + pkt_ppg_pos_counter, hpi_ov3_packet_footer, 2);
+        send_usb_cdc(consolidated_ppg_packet, 5 + pkt_ppg_pos_counter + 2);
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -297,9 +301,12 @@ void send_ecg_bioz_data_ov3_format(int32_t *ecg_data, int32_t ecg_sample_count, 
 
     if (settings_send_usb_enabled)
     {
-        send_usb_cdc(hpi_ov3_ecg_bioz_packet_header, 5);
-        send_usb_cdc(hpi_ov3_ecg_bioz_data, pkt_ecg_bioz_pos_counter);
-        send_usb_cdc(hpi_ov3_packet_footer, 2);
+        // Consolidate into single buffer to reduce ring buffer fragmentation
+        static uint8_t consolidated_ecg_bioz_packet[5 + HPI_OV3_DATA_ECG_BIOZ_LEN + 2];
+        memcpy(consolidated_ecg_bioz_packet, hpi_ov3_ecg_bioz_packet_header, 5);
+        memcpy(consolidated_ecg_bioz_packet + 5, hpi_ov3_ecg_bioz_data, pkt_ecg_bioz_pos_counter);
+        memcpy(consolidated_ecg_bioz_packet + 5 + pkt_ecg_bioz_pos_counter, hpi_ov3_packet_footer, 2);
+        send_usb_cdc(consolidated_ecg_bioz_packet, 5 + pkt_ecg_bioz_pos_counter + 2);
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -352,9 +359,13 @@ void sendData(int32_t ecg_sample, int32_t bioz_sample, int32_t raw_red, int32_t 
 
     if (settings_send_usb_enabled)
     {
-        send_usb_cdc(DataPacketHeader, 5);
-        send_usb_cdc(DataPacket, DATA_LEN);
-        send_usb_cdc(DataPacketFooter, 2);
+        // Consolidate into single buffer to reduce ring buffer fragmentation
+        // and interrupt overhead (was 3 separate calls, now 1)
+        static uint8_t consolidated_packet[5 + DATA_LEN + 2];
+        memcpy(consolidated_packet, DataPacketHeader, 5);
+        memcpy(consolidated_packet + 5, DataPacket, DATA_LEN);
+        memcpy(consolidated_packet + 5 + DATA_LEN, DataPacketFooter, 2);
+        send_usb_cdc(consolidated_packet, sizeof(consolidated_packet));
     }
 
     if (settings_send_rpi_uart_enabled)
@@ -610,6 +621,10 @@ void data_thread(void)
     int8_t validSPO2;      // indicator to show if the SPO2 calculation is valid
     int32_t m_hr;          // heart rate value
     int8_t validHeartRate; // indicator to show if the heart rate calculation is valid
+    
+    // Heartbeat tracking
+    uint32_t samples_processed = 0;
+    uint32_t last_heartbeat_time = 0;
 
     // Phase 1: Add quality metrics
     spo2_quality_metrics_t quality_metrics = {0};
@@ -662,6 +677,9 @@ void data_thread(void)
     int16_t resp_filt_buffer_count = 0;
 
     LOG_INF("Data Thread starting");
+    
+    // Initialize heartbeat tracking
+    last_heartbeat_time = k_uptime_get_32();
 
     // Load HR source setting from filesystem
     m_hr_source = settings_load_hr_source();
@@ -686,11 +704,20 @@ void data_thread(void)
     for (;;)
     {
         // Process ALL available samples before sleeping (critical for performance)
-        int samples_processed = 0;
+        int loop_samples_processed = 0;
         
         while (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
             samples_processed++;
+            loop_samples_processed++;
+            
+            // Heartbeat logging every 30 seconds (reduced from 10s)
+            uint32_t current_time = k_uptime_get_32();
+            if (current_time - last_heartbeat_time >= 30000) {
+                LOG_INF("Data thread: %u samples, uptime %u.%03u s",
+                        samples_processed, current_time / 1000, current_time % 1000);
+                last_heartbeat_time = current_time;
+            }
             
             // Buffer PPG data for SPO2/HR calculation
             if (spo2_time_count < FreqS)
@@ -1101,15 +1128,17 @@ void data_thread(void)
 
         // Only sleep if no samples were processed (queue was empty)
         // This ensures we process samples as fast as they arrive
-        if (samples_processed == 0) {
+        if (loop_samples_processed == 0) {
             k_sleep(K_USEC(500));  // 500us sleep when idle (was 1ms)
         } else {
-            k_yield();  // Just yield to other threads, don't sleep
+            // Add small sleep even when processing to give USB interrupt handler time
+            // This prevents data thread from starving the USB CDC interrupt
+            k_sleep(K_USEC(100));  // 100us sleep between processing bursts
         }
     }
 }
 
-#define DATA_THREAD_STACKSIZE 6144
-#define DATA_THREAD_PRIORITY 6
+#define DATA_THREAD_STACKSIZE 5120
+#define DATA_THREAD_PRIORITY 4  // Higher priority than sampling workqueue (6)
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 0);

@@ -36,6 +36,9 @@
 // #include "display_screens.h"
 LOG_MODULE_REGISTER(sampling_module, CONFIG_SENSOR_LOG_LEVEL);
 
+// Sample count tracking for diagnostics
+static uint32_t work_handler_calls = 0;
+
 // extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 extern const struct device *const max30205_dev;
@@ -46,10 +49,15 @@ extern const struct device *const max30205_dev;
 #define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 50
 
-#define UNIFIED_SAMPLING_INTERVAL_MS 4
+#define UNIFIED_SAMPLING_INTERVAL_MS 8  // 8ms = 125Hz reads, matches 128 SPS sensor rate
 
-// Unified data point queue
-K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 256, 1);
+// Unified data point queue - 128 entries = 1 second buffer at 128 SPS
+K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 128, 1);
+
+// Dedicated work queue for sensor sampling to avoid overloading system workqueue
+// Priority 6 (same as data thread) with 4KB stack (needs space for SPI/RTIO operations)
+K_THREAD_STACK_DEFINE(sampling_workq_stack, 4096);
+static struct k_work_q sampling_workq;
 
 RTIO_DEFINE(max30001_read_rtio_poll_ctx, 16, 16);
 RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 16, 16);
@@ -87,88 +95,6 @@ static void sensor_ppg_decode(uint8_t *buf, uint32_t buf_len)
     hpi_sensor_data_point.ppg_sample_ir = edata->raw_sample_ir;
 }
 
-static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
-{
-    const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
-
-    // printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
-    uint8_t n_samples_ecg = edata->num_samples_ecg;
-    uint8_t n_samples_bioz = edata->num_samples_bioz;
-
-    if (n_samples_ecg > 1)
-    {
-        n_samples_ecg = 1;
-    }
-
-    if (n_samples_bioz > 1)
-    {
-        n_samples_bioz = 1;
-    }
-
-    if ((n_samples_ecg > 0) || (n_samples_bioz > 0))
-    {
-        hpi_sensor_data_point.ecg_sample = edata->ecg_samples[0];
-        hpi_sensor_data_point.bioz_sample = edata->bioz_samples[0];
-        hpi_sensor_data_point.hr = edata->hr;  // ECG HR from R-R interval
-        hpi_sensor_data_point.rtor = edata->rri;
-        
-        // CRITICAL: Copy lead-off status from driver to data point
-        hpi_sensor_data_point.ecg_lead_off = edata->ecg_lead_off;
-        hpi_sensor_data_point.bioz_lead_off = edata->bioz_lead_off;
-        
-        // Debug: Log lead-off state changes
-        static uint8_t last_ecg_lead_off = 0;
-        if (edata->ecg_lead_off != last_ecg_lead_off) {
-            LOG_INF("Sampling: ECG lead-off %d -> %d", last_ecg_lead_off, edata->ecg_lead_off);
-            last_ecg_lead_off = edata->ecg_lead_off;
-        }
-    }
-}
-
-/*static void sensor_ecg_bioz_decode(uint8_t *buf, uint32_t buf_len)
-{
-    const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buf;
-    struct hpi_ecg_bioz_sensor_data_t ecg_bioz_sensor_sample;
-
-    //printk("ECG NS: %d | B: %d ", edata->num_samples_ecg, edata->num_samples_bioz);
-    uint8_t n_samples_ecg = edata->num_samples_ecg;
-    uint8_t n_samples_bioz = edata->num_samples_bioz;
-
-    if (n_samples_ecg > 8)
-    {
-        n_samples_ecg = 8;
-    }
-
-    if (n_samples_bioz > 4)
-    {
-        n_samples_bioz = 4;
-    }
-
-    if ((n_samples_ecg > 0) || (n_samples_bioz > 0))
-    {
-        ecg_bioz_sensor_sample.ecg_num_samples = n_samples_ecg;
-        ecg_bioz_sensor_sample.bioz_num_samples = n_samples_bioz;
-
-        for (int i = 0; i < n_samples_ecg; i++)
-        {
-            ecg_bioz_sensor_sample.ecg_samples[i] = edata->ecg_samples[i];
-        }
-
-        for (int i = 0; i < n_samples_bioz; i++)
-        {
-            ecg_bioz_sensor_sample.bioz_samples[i] = edata->bioz_samples[i];
-        }
-
-        ecg_bioz_sensor_sample.hr = edata->hr;
-
-        if(k_msgq_put(&q_ecg_bioz_sample, &ecg_bioz_sensor_sample, K_MSEC(1))!=0)
-        {
-            LOG_ERR("ECG/BioZ sample queue error");
-            //k_msgq_purge(&q_ecg_bioz_sample);
-        }
-    }
-}*/
-
 static bool sensors_ready = false;  // Flag to prevent timer callbacks before sensors are initialized
 
 void work_sample_handler(struct k_work *work)
@@ -178,6 +104,8 @@ void work_sample_handler(struct k_work *work)
         return;
     }
     
+    work_handler_calls++;
+    
     uint8_t ecg_bioz_buf[512];
     uint8_t ppg_buf[64];
 
@@ -185,23 +113,59 @@ void work_sample_handler(struct k_work *work)
     if (ret < 0)
     {
         LOG_ERR("Error reading from MAX30001");
-        //continue;
+        return;
     }
 
-    sensor_ecg_bioz_decode(ecg_bioz_buf, sizeof(ecg_bioz_buf));
+    // First, decode ECG/BioZ which updates hpi_sensor_data_point
+    const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)ecg_bioz_buf;
+    uint8_t n_samples_ecg = edata->num_samples_ecg;
+    uint8_t n_samples_bioz = edata->num_samples_bioz;
+    
+    // Debug logging (reduced frequency)
+    static uint32_t debug_count = 0;
+    if (++debug_count % 2500 == 0) {  // Every ~10 seconds at 250Hz
+        LOG_INF("ECG/BioZ: n_ecg=%d, n_bioz=%d, calls=%u",
+                n_samples_ecg, n_samples_bioz, work_handler_calls);
+    }
 
     ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
     if (ret < 0)
     {
         LOG_ERR("Error reading from AFE4400");
-        //continue;
+        return;
     }
     sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
-
-    if (k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) != 0)
-    {
-        LOG_ERR("Unified sample queue error");
-        // k_msgq_purge(&q_ecg_bioz_sample);
+    
+    // MAX30001 now configured for 128 SPS
+    // At 8ms reads (125Hz), expect ~1 sample per read
+    // Process all samples to prevent any FIFO accumulation
+    
+    int samples_to_process = (n_samples_ecg > 2) ? 2 : n_samples_ecg;
+    
+    for (int i = 0; i < samples_to_process; i++) {
+        hpi_sensor_data_point.ecg_sample = edata->ecg_samples[i];
+        
+        // BioZ only on first sample (64 SPS rate)
+        if (i == 0 && n_samples_bioz > 0) {
+            hpi_sensor_data_point.bioz_sample = edata->bioz_samples[0];
+        }
+        
+        // Metadata only on first sample
+        if (i == 0) {
+            hpi_sensor_data_point.hr = edata->hr;
+            hpi_sensor_data_point.rtor = edata->rri;
+            hpi_sensor_data_point.ecg_lead_off = edata->ecg_lead_off;
+            hpi_sensor_data_point.bioz_lead_off = edata->bioz_lead_off;
+        }
+        
+        // K_NO_WAIT: at 128 SPS with 128-entry queue, drops indicate processing issue
+        if (k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) != 0)
+        {
+            static uint32_t drop_count = 0;
+            if (++drop_count % 50 == 1) {
+                LOG_ERR("Queue full at 128 SPS, drops: %u", drop_count);
+            }
+        }
     }
 }
 
@@ -209,7 +173,9 @@ K_WORK_DEFINE(work_sample, work_sample_handler);
 
 void sample_all_handler(struct k_timer *dummy)
 {
-    k_work_submit(&work_sample);
+    // Submit to dedicated sampling workqueue instead of system workqueue
+    // This prevents overwhelming the system workqueue
+    k_work_submit_to_queue(&sampling_workq, &work_sample);
 }
 
 K_TIMER_DEFINE(tmr_sensor_sample_all, sample_all_handler, NULL);
@@ -222,6 +188,14 @@ void hpi_sensor_read_all_thread(void)
 
     k_sem_take(&sem_ecg_bioz_thread_start, K_FOREVER);
     LOG_INF("Sensor Read All Thread starting");
+
+    // Initialize dedicated work queue for sensor sampling
+    k_work_queue_init(&sampling_workq);
+    k_work_queue_start(&sampling_workq, sampling_workq_stack,
+                       K_THREAD_STACK_SIZEOF(sampling_workq_stack), 
+                       6, NULL);  // Priority 6 (same as data thread)
+    
+    LOG_INF("Sampling work queue initialized");
 
     // Mark sensors as ready BEFORE starting timer to prevent null pointer crashes
     sensors_ready = true;
@@ -260,7 +234,7 @@ void hpi_sensor_read_all_thread(void)
 
 #define UNIFIED_SAMPLING_THREAD_PRIORITY 7
 
-K_THREAD_DEFINE(hpi_sensor_read_all_thread_id, 4096, hpi_sensor_read_all_thread, NULL, NULL, NULL, UNIFIED_SAMPLING_THREAD_PRIORITY, 0, 1000);
+K_THREAD_DEFINE(hpi_sensor_read_all_thread_id, 3072, hpi_sensor_read_all_thread, NULL, NULL, NULL, UNIFIED_SAMPLING_THREAD_PRIORITY, 0, 1000);
 
 // K_THREAD_DEFINE(ecg_bioz_sample_trigger_thread_id, 4096, ecg_bioz_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);
 // K_THREAD_DEFINE(ppg_sample_trigger_thread_id, 1024, ppg_sample_trigger_thread, NULL, NULL, NULL, ECG_SAMPLING_THREAD_PRIORITY, 0, 1000);

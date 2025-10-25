@@ -52,12 +52,42 @@ int main(void)
 	return 0;
 }
 
-/*void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf)
+void k_sys_fatal_error_handler(unsigned int reason, const struct arch_esf *esf)
 {
     LOG_PANIC();
 
-    LOG_ERR("Fatal error: %u. Rebooting...", reason);
-    sys_reboot(SYS_REBOOT_COLD);
+    LOG_ERR("========================================");
+    LOG_ERR("FATAL ERROR at uptime: %lld ms", k_uptime_get());
+    LOG_ERR("Reason: %u", reason);
+    
+    // Log reason codes
+    switch (reason) {
+        case K_ERR_CPU_EXCEPTION:
+            LOG_ERR("CPU Exception");
+            break;
+        case K_ERR_KERNEL_PANIC:
+            LOG_ERR("Kernel Panic");
+            break;
+        case K_ERR_STACK_CHK_FAIL:
+            LOG_ERR("Stack Check Failure (Stack Overflow)");
+            break;
+        case K_ERR_KERNEL_OOPS:
+            LOG_ERR("Kernel Oops");
+            break;
+        default:
+            LOG_ERR("Unknown fatal error");
+            break;
+    }
+    LOG_ERR("========================================");
+    
+    // Give time for log to flush
+    k_sleep(K_MSEC(100));
+    
+    // Don't reboot - stay in error state for debugging
+    while (1) {
+        k_sleep(K_FOREVER);
+    }
 
     CODE_UNREACHABLE;
-}*/
+}
+

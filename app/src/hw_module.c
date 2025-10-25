@@ -67,6 +67,11 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
+// USB buffer monitoring
+static uint32_t usb_buffer_drops = 0;
+static uint32_t usb_buffer_writes = 0;
+static uint32_t last_usb_log_time = 0;
+
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
 static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
@@ -81,7 +86,10 @@ K_SEM_DEFINE(sem_ok_key_longpress, 0, 1);  // Separate semaphore for long press
 K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 
 // USB CDC UART
-#define RING_BUF_SIZE 1024
+// 6KB buffer - balanced between memory usage and USB throughput
+// At 125Hz with ~29 bytes/packet = ~3.6KB/sec, 6KB provides ~1.7 second buffer
+// This handles USB enumeration delays and brief host-side pauses
+#define RING_BUF_SIZE 6144
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
 
@@ -136,9 +144,36 @@ static void leds_init()
 
 void send_usb_cdc(const char *buf, size_t len)
 {
-    int rb_len;
-    rb_len = ring_buf_put(&ringbuf_usb_cdc, buf, len);
-    uart_irq_tx_enable(usb_dev);
+    // Check if buffer has enough space before attempting write
+    uint32_t space = ring_buf_space_get(&ringbuf_usb_cdc);
+    
+    if (space < len) {
+        // Buffer full - drop packet silently to avoid USB stalls
+        // Don't log here as logging during overflow makes it worse
+        usb_buffer_drops++;
+        return;
+    }
+    
+    int rb_len = ring_buf_put(&ringbuf_usb_cdc, buf, len);
+    usb_buffer_writes++;
+    
+    // Periodic USB buffer health logging (every 30 seconds)
+    uint32_t current_time = k_uptime_get_32();
+    if (current_time - last_usb_log_time >= 30000) {
+        uint32_t used = ring_buf_size_get(&ringbuf_usb_cdc);
+        uint32_t capacity = ring_buf_capacity_get(&ringbuf_usb_cdc);
+        uint32_t drop_rate = (usb_buffer_drops * 100) / (usb_buffer_writes + usb_buffer_drops);
+        
+        LOG_INF("USB CDC: %u/%u bytes, %u drops (%u%%)",
+                used, capacity, usb_buffer_drops, drop_rate);
+        
+        last_usb_log_time = current_time;
+    }
+    
+    // Only enable TX interrupt if data was successfully written
+    if (rb_len > 0) {
+        uart_irq_tx_enable(usb_dev);
+    }
 }
 
 static void interrupt_handler(const struct device *dev, void *user_data)
@@ -150,7 +185,7 @@ static void interrupt_handler(const struct device *dev, void *user_data)
         if (!rx_throttled && uart_irq_rx_ready(dev))
         {
             int recv_len, rb_len;
-            uint8_t buffer[64];
+            uint8_t buffer[128];  // Increased from 64 to 128 bytes
             size_t len = MIN(ring_buf_space_get(&ringbuf_usb_cdc),
                              sizeof(buffer));
 
@@ -184,7 +219,7 @@ static void interrupt_handler(const struct device *dev, void *user_data)
 
         if (uart_irq_tx_ready(dev))
         {
-            uint8_t buffer[64];
+            uint8_t buffer[128];  // Increased from 64 to 128 bytes
             int rb_len, send_len;
 
             rb_len = ring_buf_get(&ringbuf_usb_cdc, buffer, sizeof(buffer));
@@ -446,7 +481,7 @@ void hw_thread(void)
     }
 }
 
-#define HW_THREAD_STACKSIZE 4096
-#define HW_THREAD_PRIORITY 7
+#define HW_THREAD_STACKSIZE 3072
+#define HW_THREAD_PRIORITY 9
 
 K_THREAD_DEFINE(hw_thread_id, HW_THREAD_STACKSIZE, hw_thread, NULL, NULL, NULL, HW_THREAD_PRIORITY, 0, 0);
