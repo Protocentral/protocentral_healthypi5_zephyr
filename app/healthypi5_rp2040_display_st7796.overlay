@@ -7,6 +7,16 @@
 		zephyr,display = &ili9488; 
 	};
 
+		/* Input longpress configuration for OK button */
+	longpress: longpress {
+		compatible = "zephyr,input-longpress";
+		input = <&{/gpio_keys}>;
+		input-codes = <INPUT_KEY_ENTER>;
+		short-codes = <INPUT_KEY_ENTER>;
+		long-codes = <INPUT_BTN_0>;  /* Use BTN_0 for long press */
+		long-delay-ms = <1000>;
+	};
+
 	mipi_dbi {
 		compatible = "zephyr,mipi-dbi-spi";
 		reset-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>;

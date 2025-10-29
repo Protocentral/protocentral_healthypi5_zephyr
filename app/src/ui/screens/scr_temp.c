@@ -203,6 +203,11 @@ void update_scr_temp(void)
         return;
     }
 
+    // Verify we're still on the Temperature screen
+    if (hpi_disp_get_curr_screen() != SCR_TEMP) {
+        return;
+    }
+
     // Additional validation: Check if screen is valid before accessing children
     if (!lv_obj_is_valid(scr_temp)) {
         LOG_DBG("Temperature screen not yet valid, skipping update");
