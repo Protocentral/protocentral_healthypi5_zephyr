@@ -1126,19 +1126,25 @@ void data_thread(void)
         // Placeholder for future display-only updates
 #endif
 
-        // Only sleep if no samples were processed (queue was empty)
-        // This ensures we process samples as fast as they arrive
         if (loop_samples_processed == 0) {
-            k_sleep(K_USEC(500));  // 500us sleep when idle (was 1ms)
+            k_sleep(K_USEC(500));  // 500us sleep when idle (no samples)
         } else {
-            // Add small sleep even when processing to give USB interrupt handler time
-            // This prevents data thread from starving the USB CDC interrupt
-            k_sleep(K_USEC(100));  // 100us sleep between processing bursts
+            // Check USB buffer health for backpressure
+            uint8_t usb_util = get_usb_buffer_utilization();
+            if (usb_util > 90) {
+                // USB buffer critically full (>90%) - apply backpressure
+                // This happens when USB host stops reading or disconnects
+                k_sleep(K_MSEC(10));  // 10ms backpressure sleep to prevent buffer overflow
+            } else {
+                // Normal: Small sleep to prevent CPU starvation
+                // At 256 SPS, we process samples in bursts - need to yield CPU between bursts
+                k_sleep(K_USEC(100));  // 100us sleep (was 10us, caused CPU starvation)
+            }
         }
     }
 }
 
 #define DATA_THREAD_STACKSIZE 5120
-#define DATA_THREAD_PRIORITY 4  // Higher priority than sampling workqueue (6)
+#define DATA_THREAD_PRIORITY 6  // Lower priority than sampling workqueue (5) - sampling must be timely
 
 K_THREAD_DEFINE(data_thread_id, DATA_THREAD_STACKSIZE, data_thread, NULL, NULL, NULL, DATA_THREAD_PRIORITY, 0, 0);

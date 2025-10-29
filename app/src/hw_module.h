@@ -27,6 +27,7 @@
 #define hw_module_h
 
 void send_usb_cdc(const char *buf, size_t len);
+uint8_t get_usb_buffer_utilization(void);  // Returns 0-100% buffer usage
 
 enum gpio_keypad_key
 {

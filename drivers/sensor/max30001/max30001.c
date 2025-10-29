@@ -151,9 +151,11 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            LOG_DBG("EOVF ");
+            LOG_WRN("EOVF: FIFO overflow at sample %d, resetting FIFO", secg_counter);
             max30001_fifo_reset(dev);
             max30001_synch(dev);
+            // Return immediately - discard this entire batch to avoid corrupted samples
+            return 0;
         }
     }
 
@@ -209,8 +211,11 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
+            LOG_WRN("BIOVF: BioZ FIFO overflow at sample %d, resetting FIFO", s_counter);
             max30001_fifo_reset(dev);
             max30001_synch(dev);
+            // Return immediately - discard this entire batch
+            return 0;
         }
     }
     return 0;
@@ -502,17 +507,10 @@ static int max30001_chip_init(const struct device *dev)
     }
 
     // ECG Configuration
-    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b10;  // 128 SPS (reduced from 256 for system capacity)
+    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b10;  // 128 SPS (reduced from 256 for stability)
     data->chip_cfg.reg_cnfg_ecg.bit.gain = config->ecg_gain; // From DTS
     data->chip_cfg.reg_cnfg_ecg.bit.dlpf = 0b01;             // 40 Hz
     data->chip_cfg.reg_cnfg_ecg.bit.dhpf = 0b01;             // 0.5 Hz
-    
-    // Override: Set rate to 128 SPS directly in register value (bits [9:8] = 0b10)
-    // Bitfield structure doesn't match datasheet layout, so fix manually
-    LOG_INF("CNFG_ECG before fix: 0x%06X", data->chip_cfg.reg_cnfg_ecg.all);
-    data->chip_cfg.reg_cnfg_ecg.all = (data->chip_cfg.reg_cnfg_ecg.all & ~(0x03 << 8)) | (0b10 << 8);
-    LOG_INF("CNFG_ECG after fix: 0x%06X (rate bits = %d)", 
-            data->chip_cfg.reg_cnfg_ecg.all, (data->chip_cfg.reg_cnfg_ecg.all >> 8) & 0x03);
 
     // ECG MUX Configuration
     data->chip_cfg.reg_cnfg_emux.bit.openp = 0;
@@ -558,17 +556,9 @@ static int max30001_chip_init(const struct device *dev)
     // max30001_enable_ecg(dev);
     // LOG_INF("Enabling MAX30001 ECG");
 
-    // Fix rate bits: bitfield structure doesn't match datasheet, set bits [9:8] = 0b10 for 128 SPS
-    uint32_t ecg_reg_value = data->chip_cfg.reg_cnfg_ecg.all;
-    ecg_reg_value = (ecg_reg_value & ~(0x03 << 8)) | (0b10 << 8);  // Clear and set rate to 128 SPS
-    _max30001RegWrite(dev, CNFG_ECG, ecg_reg_value);
+    _max30001RegWrite(dev, CNFG_ECG, data->chip_cfg.reg_cnfg_ecg.all);
     //_max30001RegWrite(dev, CNFG_ECG, 0x835000); // Gain 160
     k_sleep(K_MSEC(100));
-    {
-        uint32_t reg = max30001_read_reg(dev, CNFG_ECG);
-        LOG_INF("MAX30001 CNFG_ECG = 0x%06X (rate bits[9:8] = %d)", 
-                (uint32_t)reg, (reg >> 8) & 0x03);
-    }
 
     _max30001RegWrite(dev, CNFG_EMUX, data->chip_cfg.reg_cnfg_emux.all);
     //_max30001RegWrite(dev, CNFG_EMUX, 0x0B0000); // Pins internally connection to ECG Channels

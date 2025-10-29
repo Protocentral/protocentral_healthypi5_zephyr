@@ -1,0 +1,1 @@
+source ~/zephyrproject/.venv/bin/activate

@@ -49,10 +49,14 @@ extern const struct device *const max30205_dev;
 #define PPG_SAMPLING_INTERVAL_MS 8
 #define ECG_SAMPLING_INTERVAL_MS 50
 
-#define UNIFIED_SAMPLING_INTERVAL_MS 8  // 8ms = 125Hz reads, matches 128 SPS sensor rate
+#define UNIFIED_SAMPLING_INTERVAL_MS 7  // 128 SPS = 7.8ms per sample, use 7ms to stay ahead
 
-// Unified data point queue - 128 entries = 1 second buffer at 128 SPS
-K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 128, 1);
+// PPG sampling tracking - PPG runs at ~100 SPS, so we read it every ~2-3 ECG reads
+static uint32_t ppg_sample_counter = 0;
+#define PPG_READ_INTERVAL 2  // Read PPG every 2nd ECG read (~8ms = 125Hz, outputs ~100 SPS)
+
+// Unified data point queue - 384 entries = 3 seconds buffer at 128 SPS (balanced RAM/stability)
+K_MSGQ_DEFINE(q_hpi_data_sample, sizeof(struct hpi_sensor_data_point_t), 384, 1);
 
 // Dedicated work queue for sensor sampling to avoid overloading system workqueue
 // Priority 6 (same as data thread) with 4KB stack (needs space for SPI/RTIO operations)
@@ -121,31 +125,69 @@ void work_sample_handler(struct k_work *work)
     uint8_t n_samples_ecg = edata->num_samples_ecg;
     uint8_t n_samples_bioz = edata->num_samples_bioz;
     
-    // Debug logging (reduced frequency)
+    // Enhanced debug logging to track FIFO behavior
     static uint32_t debug_count = 0;
-    if (++debug_count % 2500 == 0) {  // Every ~10 seconds at 250Hz
-        LOG_INF("ECG/BioZ: n_ecg=%d, n_bioz=%d, calls=%u",
-                n_samples_ecg, n_samples_bioz, work_handler_calls);
+    static uint32_t high_sample_warnings = 0;
+    static uint32_t total_samples_processed = 0;
+    
+    // Warn if seeing high sample counts (FIFO accumulation)
+    if (n_samples_ecg > 2) {
+        high_sample_warnings++;
+        if (high_sample_warnings % 10 == 1) {
+            LOG_WRN("High ECG FIFO: %d samples (accumulating, calls=%u)", 
+                    n_samples_ecg, work_handler_calls);
+        }
+    }
+    
+    // Track total samples for rate verification
+    total_samples_processed += n_samples_ecg;
+    
+    // Regular status every 2 seconds at 143Hz (7ms interval)
+    if (++debug_count % 286 == 0) {  // ~2 seconds at 143Hz
+        uint32_t expected_samples = work_handler_calls * 1;  // Expect ~1 sample per 7ms read at 128 SPS
+        int32_t sample_diff = total_samples_processed - expected_samples;
+        
+        // Check queue utilization
+        uint32_t queue_used = k_msgq_num_used_get(&q_hpi_data_sample);
+        uint32_t queue_free = k_msgq_num_free_get(&q_hpi_data_sample);
+        
+        LOG_INF("ECG/BioZ: n_ecg=%d, n_bioz=%d, calls=%u, total_samples=%u (expected=%u, diff=%d), high_fifo=%u",
+                n_samples_ecg, n_samples_bioz, work_handler_calls, 
+                total_samples_processed, expected_samples, sample_diff, high_sample_warnings);
+        LOG_INF("Queue: used=%u, free=%u (%.1f%% full)", 
+                queue_used, queue_free, (queue_used * 100.0) / (queue_used + queue_free));
     }
 
-    ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
-    if (ret < 0)
-    {
-        LOG_ERR("Error reading from AFE4400");
-        return;
+    // Read PPG at lower rate (~100 SPS) to match its actual sample rate
+    // Only update PPG values every PPG_READ_INTERVAL timer callbacks
+    if (++ppg_sample_counter >= PPG_READ_INTERVAL) {
+        ppg_sample_counter = 0;
+        
+        ret = sensor_read(&afe4400_iodev, &afe4400_read_rtio_poll_ctx, ppg_buf, sizeof(ppg_buf));
+        if (ret < 0)
+        {
+            LOG_ERR("Error reading from AFE4400");
+            return;
+        }
+        sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
     }
-    sensor_ppg_decode(ppg_buf, sizeof(ppg_buf));
+    // If we didn't read PPG this cycle, the previous PPG values remain in hpi_sensor_data_point
+    // This is intentional - PPG updates at ~100 SPS while ECG is 128 SPS
     
-    // MAX30001 now configured for 128 SPS
-    // At 8ms reads (125Hz), expect ~1 sample per read
-    // Process all samples to prevent any FIFO accumulation
+    // MAX30001 at 128 SPS with 7ms reads (143Hz):
+    // - At 128 SPS, one sample every 7.8ms
+    // - Reading every 7ms means typically 1 sample per read, occasionally 0
+    // - MUST process ALL samples to prevent FIFO overflow
+    // - MAX30001 FIFO is 32 samples (250ms buffer at 128 SPS)
+    // - Output will be 128 samples/sec (sensor native rate)
     
-    int samples_to_process = (n_samples_ecg > 2) ? 2 : n_samples_ecg;
+    // Process all ECG samples from FIFO to prevent overflow
+    int samples_to_process = (n_samples_ecg > 0) ? n_samples_ecg : 0;
     
     for (int i = 0; i < samples_to_process; i++) {
         hpi_sensor_data_point.ecg_sample = edata->ecg_samples[i];
         
-        // BioZ only on first sample (64 SPS rate)
+        // BioZ only on first sample (lower rate)
         if (i == 0 && n_samples_bioz > 0) {
             hpi_sensor_data_point.bioz_sample = edata->bioz_samples[0];
         }
@@ -158,12 +200,12 @@ void work_sample_handler(struct k_work *work)
             hpi_sensor_data_point.bioz_lead_off = edata->bioz_lead_off;
         }
         
-        // K_NO_WAIT: at 128 SPS with 128-entry queue, drops indicate processing issue
+        // K_NO_WAIT: at 256 SPS with 256-entry queue, drops indicate processing issue
         if (k_msgq_put(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) != 0)
         {
             static uint32_t drop_count = 0;
             if (++drop_count % 50 == 1) {
-                LOG_ERR("Queue full at 128 SPS, drops: %u", drop_count);
+                LOG_ERR("Queue full at 256 SPS, drops: %u (data thread not keeping up!)", drop_count);
             }
         }
     }
@@ -193,9 +235,9 @@ void hpi_sensor_read_all_thread(void)
     k_work_queue_init(&sampling_workq);
     k_work_queue_start(&sampling_workq, sampling_workq_stack,
                        K_THREAD_STACK_SIZEOF(sampling_workq_stack), 
-                       6, NULL);  // Priority 6 (same as data thread)
+                       5, NULL);  // Priority 5 (higher than data thread=4) to prevent FIFO overflow
     
-    LOG_INF("Sampling work queue initialized");
+    LOG_INF("Sampling work queue initialized with priority 5");
 
     // Mark sensors as ready BEFORE starting timer to prevent null pointer crashes
     sensors_ready = true;

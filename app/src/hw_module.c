@@ -68,9 +68,14 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
 
 // USB buffer monitoring
-static uint32_t usb_buffer_drops = 0;
 static uint32_t usb_buffer_writes = 0;
+static uint32_t usb_buffer_drops = 0;
 static uint32_t last_usb_log_time = 0;
+static bool usb_host_connected = true;   // Start optimistic - assume host connected, detect disconnect
+static uint32_t last_buffer_drain_time = 0;
+
+// Temperature sensor availability
+static bool temp_sensor_available = false;  // Set at boot, never changes
 
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
 static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
@@ -92,6 +97,19 @@ K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 #define RING_BUF_SIZE 6144
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
+
+// Get USB buffer utilization as percentage (0-100)
+uint8_t get_usb_buffer_utilization(void)
+{
+    uint32_t used = ring_buf_size_get(&ringbuf_usb_cdc);
+    uint32_t capacity = ring_buf_capacity_get(&ringbuf_usb_cdc);
+    
+    if (capacity == 0) {
+        return 0;
+    }
+    
+    return (uint8_t)((used * 100) / capacity);
+}
 
 // Peripheral Device Pointers
 const struct device *fg_dev;
@@ -146,11 +164,54 @@ void send_usb_cdc(const char *buf, size_t len)
 {
     // Check if buffer has enough space before attempting write
     uint32_t space = ring_buf_space_get(&ringbuf_usb_cdc);
+    uint32_t capacity = ring_buf_capacity_get(&ringbuf_usb_cdc);
+    uint32_t used = capacity - space;
+    
+    // DISABLED: Host detection causing false disconnects and data loss
+    // TODO: Re-enable with proper implementation after baseline stability confirmed
+    /*
+    // Detect USB host connection by monitoring buffer drain
+    static uint32_t last_used = 0;
+    static bool initialized = false;
+    
+    if (!initialized) {
+        last_buffer_drain_time = k_uptime_get_32();
+        initialized = true;
+    }
+    
+    if (used < last_used - 1000) {
+        usb_host_connected = true;
+        last_buffer_drain_time = k_uptime_get_32();
+    }
+    last_used = used;
+    
+    if (k_uptime_get_32() - last_buffer_drain_time > 5000) {
+        usb_host_connected = false;
+    }
+    
+    if (!usb_host_connected && used > (capacity * 80 / 100)) {
+        usb_buffer_drops++;
+        static uint32_t last_disconnect_log = 0;
+        if (k_uptime_get_32() - last_disconnect_log > 5000) {
+            LOG_WRN("USB host not detected, buffer %u/%u bytes - dropping data", 
+                    used, capacity);
+            last_disconnect_log = k_uptime_get_32();
+        }
+        return;
+    }
+    */
     
     if (space < len) {
-        // Buffer full - drop packet silently to avoid USB stalls
-        // Don't log here as logging during overflow makes it worse
+        // Buffer full - drop packet to avoid USB stalls
         usb_buffer_drops++;
+        
+        // Log warning on first drop and every 100 drops
+        static uint32_t last_drop_log = 0;
+        if (usb_buffer_drops - last_drop_log >= 100 || usb_buffer_drops == 1) {
+            LOG_WRN("USB buffer full: %u/%u bytes, total drops: %u", 
+                    used, capacity, usb_buffer_drops);
+            last_drop_log = usb_buffer_drops;
+        }
         return;
     }
     
@@ -160,12 +221,15 @@ void send_usb_cdc(const char *buf, size_t len)
     // Periodic USB buffer health logging (every 30 seconds)
     uint32_t current_time = k_uptime_get_32();
     if (current_time - last_usb_log_time >= 30000) {
-        uint32_t used = ring_buf_size_get(&ringbuf_usb_cdc);
-        uint32_t capacity = ring_buf_capacity_get(&ringbuf_usb_cdc);
-        uint32_t drop_rate = (usb_buffer_drops * 100) / (usb_buffer_writes + usb_buffer_drops);
+        uint32_t drop_rate = 0;
+        if ((usb_buffer_writes + usb_buffer_drops) > 0) {
+            drop_rate = (usb_buffer_drops * 100) / (usb_buffer_writes + usb_buffer_drops);
+        }
         
-        LOG_INF("USB CDC: %u/%u bytes, %u drops (%u%%)",
-                used, capacity, usb_buffer_drops, drop_rate);
+        LOG_INF("USB CDC: %u/%u bytes (%.1f%% full), %u writes, %u drops (%u%%), host %s",
+                used, capacity, (used * 100.0f) / capacity,
+                usb_buffer_writes, usb_buffer_drops, drop_rate,
+                usb_host_connected ? "connected" : "disconnected");
         
         last_usb_log_time = current_time;
     }
@@ -288,12 +352,47 @@ static void usb_init()
 
 int hpi_hw_read_temp(float* temp_f, float* temp_c)
 {
+    // If sensor was not detected at boot, don't try to read it
+    if (!temp_sensor_available) {
+        return -ENODEV;
+    }
+    
+    static uint32_t consecutive_failures = 0;
+    static uint32_t last_failure_log = 0;
+    
+    // Skip temperature reading if sensor is persistently failing
+    // This prevents I2C bus overload from continuous failures
+    if (consecutive_failures > 10) {
+        // Try again every 60 seconds
+        if (k_uptime_get_32() - last_failure_log < 60000) {
+            return -EIO;  // Sensor unavailable
+        }
+        consecutive_failures = 0;  // Reset counter, try again
+    }
+    
     struct sensor_value temp_sample;
-    sensor_sample_fetch(max30205_dev);
-    sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
+    int ret = sensor_sample_fetch(max30205_dev);
+    if (ret != 0) {
+        consecutive_failures++;
+        if (k_uptime_get_32() - last_failure_log > 10000) {
+            LOG_WRN("Temperature sensor fetch failed: %d (failures: %u)", 
+                    ret, consecutive_failures);
+            last_failure_log = k_uptime_get_32();
+        }
+        return ret;
+    }
+    
+    ret = sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_sample);
+    if (ret != 0) {
+        consecutive_failures++;
+        return ret;
+    }
 
     if (temp_sample.val1 < 0)
         return 0;
+
+    // Successful read - reset failure counter
+    consecutive_failures = 0;
 
     // Convert to degree F
 
@@ -409,7 +508,24 @@ void hw_thread(void)
     if (!device_is_ready(max30205_dev))
     {
         LOG_ERR("MAX30205 device not found!");
-        // return;
+        temp_sensor_available = false;
+    }
+    else
+    {
+        // Test sensor by attempting a read
+        struct sensor_value test_sample;
+        int ret = sensor_sample_fetch(max30205_dev);
+        if (ret == 0) {
+            ret = sensor_channel_get(max30205_dev, SENSOR_CHAN_AMBIENT_TEMP, &test_sample);
+        }
+        
+        if (ret == 0) {
+            temp_sensor_available = true;
+            LOG_INF("MAX30205 temperature sensor detected and working");
+        } else {
+            temp_sensor_available = false;
+            LOG_WRN("MAX30205 present but not responding (error: %d) - disabling", ret);
+        }
     }
 
     fg_dev = DEVICE_DT_GET_ANY(maxim_max17048);
