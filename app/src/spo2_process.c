@@ -39,7 +39,7 @@
 
 #include "spo2_process.h"
 
-LOG_MODULE_REGISTER(spo2_process, LOG_LEVEL_WRN);
+LOG_MODULE_REGISTER(spo2_process, LOG_LEVEL_INF);  // Changed from DBG to reduce log spam
 
 // ============================================================================
 // PROBE-OFF DETECTION THRESHOLDS

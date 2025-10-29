@@ -255,7 +255,8 @@
 };
 
 &wdt0 {
-	status = "okay";
+	/* Disabled - not being fed by application, causes spurious resets */
+	status = "disabled";
 };
 
 &adc {

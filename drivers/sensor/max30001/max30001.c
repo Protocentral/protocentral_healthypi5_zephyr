@@ -151,9 +151,11 @@ static int _max30001_read_ecg_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
-            LOG_DBG("EOVF ");
+            LOG_WRN("EOVF: FIFO overflow at sample %d, resetting FIFO", secg_counter);
             max30001_fifo_reset(dev);
             max30001_synch(dev);
+            // Return immediately - discard this entire batch to avoid corrupted samples
+            return 0;
         }
     }
 
@@ -209,8 +211,11 @@ static int _max30001_read_bioz_fifo(const struct device *dev, int num_bytes)
         }
         else if (ecg_etag == 0x07) // FIFO Overflow
         {
+            LOG_WRN("BIOVF: BioZ FIFO overflow at sample %d, resetting FIFO", s_counter);
             max30001_fifo_reset(dev);
             max30001_synch(dev);
+            // Return immediately - discard this entire batch
+            return 0;
         }
     }
     return 0;
@@ -502,7 +507,7 @@ static int max30001_chip_init(const struct device *dev)
     }
 
     // ECG Configuration
-    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b01;// 256 SPS 0b10;             // 128 SPS
+    data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b10;  // 128 SPS (reduced from 256 for stability)
     data->chip_cfg.reg_cnfg_ecg.bit.gain = config->ecg_gain; // From DTS
     data->chip_cfg.reg_cnfg_ecg.bit.dlpf = 0b01;             // 40 Hz
     data->chip_cfg.reg_cnfg_ecg.bit.dhpf = 0b01;             // 0.5 Hz
