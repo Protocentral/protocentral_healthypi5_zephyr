@@ -29,6 +29,12 @@
 void send_usb_cdc(const char *buf, size_t len);
 uint8_t get_usb_buffer_utilization(void);  // Returns 0-100% buffer usage
 
+// Thread heartbeat tracking for software watchdog
+// Each thread updates its heartbeat timestamp; hw_thread monitors them
+extern volatile uint32_t heartbeat_data_thread;
+extern volatile uint32_t heartbeat_display_thread;
+extern volatile uint32_t heartbeat_sampling_workq;
+
 enum gpio_keypad_key
 {
     GPIO_KEYPAD_KEY_NONE = 0,

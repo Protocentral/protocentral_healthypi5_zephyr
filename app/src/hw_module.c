@@ -42,6 +42,7 @@
 #include <zephyr/input/input.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/zbus/zbus.h>
+#include <zephyr/drivers/watchdog.h>
 
 #include "max30001.h"
 #include "hw_module.h"
@@ -77,11 +78,22 @@ static uint32_t last_buffer_drain_time = 0;
 // Temperature sensor availability
 static bool temp_sensor_available = false;  // Set at boot, never changes
 
+// Thread heartbeat tracking for software watchdog
+volatile uint32_t heartbeat_data_thread = 0;
+volatile uint32_t heartbeat_display_thread = 0;
+volatile uint32_t heartbeat_sampling_workq = 0;
+
+// Hardware watchdog
+static const struct device *const wdt_dev = DEVICE_DT_GET(DT_ALIAS(watchdog0));
+static int wdt_channel_id = -1;
+
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
 static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
+static uint32_t last_tx_activity = 0;
+static bool usb_dtr_state = false;  // DTR line status (host port open)
 
 K_SEM_DEFINE(sem_up_key_pressed, 0, 1);
 K_SEM_DEFINE(sem_down_key_pressed, 0, 1);
@@ -204,12 +216,11 @@ void send_usb_cdc(const char *buf, size_t len)
     if (space < len) {
         // Buffer full - drop packet to avoid USB stalls
         usb_buffer_drops++;
-        
-        // Log warning on first drop and every 100 drops
+
+        // Log warning on first drop and every 5000 drops (reduced from 100)
         static uint32_t last_drop_log = 0;
-        if (usb_buffer_drops - last_drop_log >= 100 || usb_buffer_drops == 1) {
-            LOG_WRN("USB buffer full: %u/%u bytes, total drops: %u", 
-                    used, capacity, usb_buffer_drops);
+        if (usb_buffer_drops == 1 || usb_buffer_drops - last_drop_log >= 5000) {
+            LOG_WRN("USB buffer full, drops: %u", usb_buffer_drops);
             last_drop_log = usb_buffer_drops;
         }
         return;
@@ -218,19 +229,14 @@ void send_usb_cdc(const char *buf, size_t len)
     int rb_len = ring_buf_put(&ringbuf_usb_cdc, buf, len);
     usb_buffer_writes++;
     
-    // Periodic USB buffer health logging (every 30 seconds)
+    // Periodic USB buffer health logging (every 120 seconds, reduced from 30)
     uint32_t current_time = k_uptime_get_32();
-    if (current_time - last_usb_log_time >= 30000) {
-        uint32_t drop_rate = 0;
-        if ((usb_buffer_writes + usb_buffer_drops) > 0) {
-            drop_rate = (usb_buffer_drops * 100) / (usb_buffer_writes + usb_buffer_drops);
+    if (current_time - last_usb_log_time >= 120000) {
+        // Only log if there are drops (indicates a problem)
+        if (usb_buffer_drops > 0) {
+            uint32_t drop_rate = (usb_buffer_drops * 100) / (usb_buffer_writes + usb_buffer_drops);
+            LOG_INF("USB: %u/%u bytes, drops=%u (%u%%)", used, capacity, usb_buffer_drops, drop_rate);
         }
-        
-        LOG_INF("USB CDC: %u/%u bytes (%.1f%% full), %u writes, %u drops (%u%%), host %s",
-                used, capacity, (used * 100.0f) / capacity,
-                usb_buffer_writes, usb_buffer_drops, drop_rate,
-                usb_host_connected ? "connected" : "disconnected");
-        
         last_usb_log_time = current_time;
     }
     
@@ -301,14 +307,63 @@ static void interrupt_handler(const struct device *dev, void *user_data)
             }
 
             send_len = uart_fifo_fill(dev, buffer, rb_len);
+            if (send_len > 0) {
+                last_tx_activity = k_uptime_get_32();
+            }
             if (send_len < rb_len)
             {
-                LOG_ERR("Drop %d bytes", rb_len - send_len);
+                // Put back the unsent data
+                int remaining = rb_len - send_len;
+                ring_buf_put(&ringbuf_usb_cdc, buffer + send_len, remaining);
             }
 
             LOG_DBG("ringbuf -> tty fifo %d bytes", send_len);
         }
     }
+}
+
+// USB TX watchdog - re-enables TX if it appears stuck
+static void usb_tx_watchdog_work_handler(struct k_work *work);
+K_WORK_DELAYABLE_DEFINE(usb_tx_watchdog_work, usb_tx_watchdog_work_handler);
+
+static uint32_t tx_watchdog_triggers = 0;
+
+static void usb_tx_watchdog_work_handler(struct k_work *work)
+{
+    static uint32_t watchdog_runs = 0;
+    uint32_t ring_used = ring_buf_size_get(&ringbuf_usb_cdc);
+    uint32_t now = k_uptime_get_32();
+
+    watchdog_runs++;
+
+    // Check DTR line status (indicates if host has serial port open)
+    uint32_t dtr_val = 0;
+    int ret = uart_line_ctrl_get(usb_dev, UART_LINE_CTRL_DTR, &dtr_val);
+    bool dtr_current = (ret == 0 && dtr_val != 0);
+
+    // Log DTR state changes
+    if (dtr_current != usb_dtr_state) {
+        LOG_INF("USB DTR: %s -> %s", usb_dtr_state ? "ON" : "OFF", dtr_current ? "ON" : "OFF");
+        usb_dtr_state = dtr_current;
+    }
+
+    // Log watchdog health every 60 seconds
+    if ((watchdog_runs % 240) == 0) {  // 240 * 250ms = 60s
+        LOG_INF("USB WD: runs=%u, ring=%u, triggers=%u, DTR=%d", watchdog_runs, ring_used, tx_watchdog_triggers, usb_dtr_state);
+    }
+
+    // If ring buffer has data but no TX activity for 500ms, kick the TX
+    if (ring_used > 0 && (now - last_tx_activity) > 500) {
+        tx_watchdog_triggers++;
+        if (tx_watchdog_triggers <= 5 || (tx_watchdog_triggers % 100) == 0) {
+            LOG_WRN("USB TX watchdog: ring=%u, triggers=%u", ring_used, tx_watchdog_triggers);
+        }
+        uart_irq_tx_enable(usb_dev);
+        last_tx_activity = now;
+    }
+
+    // Reschedule watchdog
+    k_work_schedule(&usb_tx_watchdog_work, K_MSEC(250));
 }
 
 void update_battery_level(void)
@@ -341,6 +396,11 @@ static void usb_init()
     uart_irq_callback_set(usb_dev, interrupt_handler);
     uart_irq_rx_enable(usb_dev);
 
+    // Start USB TX watchdog to recover from stuck TX states
+    // Delay initial start by 5 seconds to avoid startup noise during USB enumeration
+    last_tx_activity = k_uptime_get_32();
+    k_work_schedule(&usb_tx_watchdog_work, K_MSEC(5000));
+
 #endif
 
 #ifdef CONFIG_HEALTHYPI_USB_MSC_ENABLED
@@ -356,29 +416,25 @@ int hpi_hw_read_temp(float* temp_f, float* temp_c)
     if (!temp_sensor_available) {
         return -ENODEV;
     }
-    
+
     static uint32_t consecutive_failures = 0;
-    static uint32_t last_failure_log = 0;
-    
+    static uint32_t last_retry_time = 0;
+
     // Skip temperature reading if sensor is persistently failing
-    // This prevents I2C bus overload from continuous failures
-    if (consecutive_failures > 10) {
-        // Try again every 60 seconds
-        if (k_uptime_get_32() - last_failure_log < 60000) {
+    // Back off quickly (after 3 failures) to reduce I2C bus noise
+    if (consecutive_failures >= 3) {
+        // Try again every 30 seconds
+        if (k_uptime_get_32() - last_retry_time < 30000) {
             return -EIO;  // Sensor unavailable
         }
-        consecutive_failures = 0;  // Reset counter, try again
+        last_retry_time = k_uptime_get_32();
     }
-    
+
     struct sensor_value temp_sample;
     int ret = sensor_sample_fetch(max30205_dev);
     if (ret != 0) {
         consecutive_failures++;
-        if (k_uptime_get_32() - last_failure_log > 10000) {
-            LOG_WRN("Temperature sensor fetch failed: %d (failures: %u)", 
-                    ret, consecutive_failures);
-            last_failure_log = k_uptime_get_32();
-        }
+        // Silently fail - sensor may not be connected
         return ret;
     }
     
@@ -568,11 +624,66 @@ void hw_thread(void)
 
     k_sem_give(&sem_ecg_bioz_thread_start);
 
+    // Initialize hardware watchdog - 8 second timeout
+    // If hw_thread hangs or system crashes, watchdog will reset the device
+    if (device_is_ready(wdt_dev)) {
+        struct wdt_timeout_cfg wdt_config = {
+            .window.min = 0,
+            .window.max = 8000,  // 8 second timeout (max for RP2040 is ~8.3s)
+            .callback = NULL,   // No callback, just reset
+            .flags = WDT_FLAG_RESET_SOC,
+        };
+
+        wdt_channel_id = wdt_install_timeout(wdt_dev, &wdt_config);
+        if (wdt_channel_id >= 0) {
+            int ret = wdt_setup(wdt_dev, WDT_OPT_PAUSE_HALTED_BY_DBG);
+            if (ret == 0) {
+                LOG_INF("Hardware watchdog enabled (8s timeout)");
+            } else {
+                LOG_ERR("Failed to setup watchdog: %d", ret);
+                wdt_channel_id = -1;
+            }
+        } else {
+            LOG_ERR("Failed to install watchdog timeout: %d", wdt_channel_id);
+        }
+    } else {
+        LOG_WRN("Hardware watchdog not available");
+    }
+
     float m_temp_f = 0;
     float m_temp_c = 0;
 
     for (;;)
     {
+        static uint32_t hw_loop_count = 0;
+        hw_loop_count++;
+
+        // Log every 5 seconds to confirm hw_thread is running (increased frequency for debugging)
+        if ((hw_loop_count % 5) == 0) {
+            LOG_INF("HW loop=%u, ring=%u, data_hb=%u, samp_hb=%u", hw_loop_count,
+                    ring_buf_size_get(&ringbuf_usb_cdc),
+                    heartbeat_data_thread, heartbeat_sampling_workq);
+
+            // Software watchdog: check thread heartbeats
+            // Each thread should update its heartbeat at least every 5 seconds
+            // Alert if any thread is stale (hasn't updated in >10 seconds)
+            uint32_t now = k_uptime_get_32();
+            uint32_t stale_threshold = 10000;  // 10 seconds
+
+            if (heartbeat_data_thread > 0 && (now - heartbeat_data_thread) > stale_threshold) {
+                LOG_ERR("WATCHDOG: data_thread stale! last=%u, now=%u, delta=%u",
+                        heartbeat_data_thread, now, now - heartbeat_data_thread);
+            }
+            if (heartbeat_display_thread > 0 && (now - heartbeat_display_thread) > stale_threshold) {
+                LOG_ERR("WATCHDOG: display_thread stale! last=%u, now=%u, delta=%u",
+                        heartbeat_display_thread, now, now - heartbeat_display_thread);
+            }
+            if (heartbeat_sampling_workq > 0 && (now - heartbeat_sampling_workq) > stale_threshold) {
+                LOG_ERR("WATCHDOG: sampling_workq stale! last=%u, now=%u, delta=%u",
+                        heartbeat_sampling_workq, now, now - heartbeat_sampling_workq);
+            }
+        }
+
         // Sample slow changing sensors
         global_batt_level = hpi_hw_read_batt();
 
@@ -591,6 +702,11 @@ void hw_thread(void)
         };
         // Use K_NO_WAIT to prevent blocking threads
         zbus_chan_pub(&temp_chan, &temp, K_NO_WAIT);
+
+        // Feed hardware watchdog - must be called every <8 seconds to prevent reset
+        if (wdt_channel_id >= 0) {
+            wdt_feed(wdt_dev, wdt_channel_id);
+        }
 
         gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));

@@ -573,23 +573,31 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
     // Check 1: DC Signal Too Weak (probe physically removed or very poor contact)
     // Clinical: Normal PPG DC values are 50k-500k for AFE4400
     // Threshold 1000 is extremely conservative - probe must be completely off
+    static uint32_t low_dc_warn_count = 0;
     if (mean_ir < 1000 || mean_red < 1000) {
         probe_off_detected = true;
         probe_off_reason = PROBE_OFF_LOW_DC;
-        LOG_WRN("Probe OFF: DC too weak (IR=%d, Red=%d, need >1000)", mean_ir, mean_red);
+        // Only log every 500th occurrence to reduce noise
+        if (++low_dc_warn_count % 500 == 1) {
+            LOG_WRN("Probe OFF: DC weak (IR=%d, Red=%d), warns=%u", mean_ir, mean_red, low_dc_warn_count);
+        }
         if (quality != NULL) {
             quality->probe_off = true;
             quality->probe_off_reason = probe_off_reason;
         }
         return;
     }
-    
+
     // Check 2: Signal Saturation (probe pressed too hard or light overflow)
     // AFE4400 has 22-bit ADC: max ~4.2M, use 3.8M as saturation threshold (90%)
+    static uint32_t saturated_warn_count = 0;
     if (mean_ir > 3800000 || mean_red > 3800000) {
         probe_off_detected = true;
         probe_off_reason = PROBE_OFF_SATURATED;
-        LOG_WRN("Probe OFF: Signal saturated (IR=%d, Red=%d, max 3.8M)", mean_ir, mean_red);
+        // Only log every 500th occurrence to reduce noise
+        if (++saturated_warn_count % 500 == 1) {
+            LOG_WRN("Probe OFF: Saturated (IR=%d, Red=%d), warns=%u", mean_ir, mean_red, saturated_warn_count);
+        }
         if (quality != NULL) {
             quality->probe_off = true;
             quality->probe_off_reason = probe_off_reason;
@@ -621,7 +629,13 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
     detect_peaks(peak_locs, &n_peaks, ir_normalized, n_ir_buffer_length, 40, 15);
     
     if (n_peaks < 2) {
-        LOG_WRN("Insufficient peaks detected: %d", n_peaks);
+        // Throttle this warning to prevent log spam (once per 10 seconds max)
+        static uint32_t last_peak_warn_time = 0;
+        uint32_t now = k_uptime_get_32();
+        if (now - last_peak_warn_time >= 10000) {
+            LOG_WRN("Insufficient peaks detected: %d", n_peaks);
+            last_peak_warn_time = now;
+        }
         return;
     }
     

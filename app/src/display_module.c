@@ -675,6 +675,8 @@ void display_screens_thread(void)
 
     while (1)
     {
+        // Update heartbeat for software watchdog
+        heartbeat_display_thread = k_uptime_get_32();
 
         /*if (k_msgq_get(&q_plot_ecg_bioz, &ecg_bioz_sensor_sample, K_NO_WAIT) == 0)
         {
@@ -1042,7 +1044,7 @@ ZBUS_LISTENER_DEFINE(disp_resp_rate_lis, disp_resp_rate_listener);
 // Lead-off status is now embedded in vital sign messages
 // No separate lead-off listener needed
 
-#define DISPLAY_SCREENS_THREAD_STACKSIZE 5000
+#define DISPLAY_SCREENS_THREAD_STACKSIZE 6144  // Increased from 5000 - was at 88% usage (552 bytes free)
 #define DISPLAY_SCREENS_THREAD_PRIORITY 5
 
 K_THREAD_DEFINE(display_screens_thread_id, DISPLAY_SCREENS_THREAD_STACKSIZE, display_screens_thread, NULL, NULL, NULL, DISPLAY_SCREENS_THREAD_PRIORITY, 0, 0);

@@ -218,6 +218,9 @@ static bool spo2_probe_state_initialized = false;
 void hpi_data_set_stream_mode(enum hpi_stream_modes mode)
 {
     k_mutex_lock(&mutex_stream_mode, K_FOREVER);
+    if (m_stream_mode != mode) {
+        LOG_INF("Stream mode: %d -> %d", m_stream_mode, mode);
+    }
     m_stream_mode = mode;
     k_mutex_unlock(&mutex_stream_mode);
 }
@@ -703,20 +706,27 @@ void data_thread(void)
 
     for (;;)
     {
+        // Update heartbeat for software watchdog
+        heartbeat_data_thread = k_uptime_get_32();
+
         // Process ALL available samples before sleeping (critical for performance)
         int loop_samples_processed = 0;
-        
+        static uint32_t last_data_log_time = 0;
+
         while (k_msgq_get(&q_hpi_data_sample, &hpi_sensor_data_point, K_NO_WAIT) == 0)
         {
             samples_processed++;
             loop_samples_processed++;
-            
-            // Heartbeat logging every 30 seconds (reduced from 10s)
-            uint32_t current_time = k_uptime_get_32();
-            if (current_time - last_heartbeat_time >= 30000) {
-                LOG_INF("Data thread: %u samples, uptime %u.%03u s",
-                        samples_processed, current_time / 1000, current_time % 1000);
-                last_heartbeat_time = current_time;
+
+            // Log data thread activity every 30 seconds
+            static uint32_t usb_send_count = 0;
+            static uint32_t ble_send_count = 0;
+            uint32_t now = k_uptime_get_32();
+            if (now - last_data_log_time >= 30000) {
+                LOG_INF("Data: %u samples, mode=%d, USB=%u, BLE=%u, queue=%u",
+                        samples_processed, m_stream_mode, usb_send_count, ble_send_count,
+                        k_msgq_num_used_get(&q_hpi_data_sample));
+                last_data_log_time = now;
             }
             
             // Buffer PPG data for SPO2/HR calculation
@@ -1056,11 +1066,13 @@ void data_thread(void)
 
             if (m_stream_mode == HPI_STREAM_MODE_USB)
             {
+                usb_send_count++;
                 sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red,
                          hpi_sensor_data_point.ppg_sample_ir, 0, 0, 0, 0, 0);
             }
             else if (m_stream_mode == HPI_STREAM_MODE_BLE)
             {
+                ble_send_count++;
                 if (ecg_buffer_count < BLE_ECG_BUFFER_SIZE)
                 {
                     ble_ecg_buffer[ecg_buffer_count++] = hpi_sensor_data_point.ecg_sample;
@@ -1108,11 +1120,13 @@ void data_thread(void)
 
         if (k_sem_take(&sem_ble_connected, K_NO_WAIT) == 0)
         {
+            LOG_INF("BLE connected - switching to BLE stream mode");
             hpi_data_set_stream_mode(HPI_STREAM_MODE_BLE);
         }
 
         if (k_sem_take(&sem_ble_disconnected, K_NO_WAIT) == 0)
         {
+            LOG_INF("BLE disconnected - switching to USB stream mode");
             hpi_data_set_stream_mode(HPI_STREAM_MODE_USB);
         }
 

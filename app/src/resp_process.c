@@ -158,9 +158,13 @@ void resp_rate_detect(int16_t Resp_wave, volatile uint8_t *RespirationRate)
                 peakToPeak, baselineValue, minAmplitude, maxAmplitude);
 
         // Check for signal loss
+        static uint32_t weak_signal_count = 0;
         if (peakToPeak < 50)
         {
-            LOG_WRN("RESP: Weak signal, amplitude=%d", peakToPeak);
+            // Only log every 50th occurrence to reduce noise
+            if (++weak_signal_count % 50 == 1) {
+                LOG_WRN("RESP: Weak signal (count=%u)", weak_signal_count);
+            }
             Respiration_Rate = 0;
             validIntervals = 0;
         }
@@ -275,7 +279,11 @@ void resp_rate_detect(int16_t Resp_wave, volatile uint8_t *RespirationRate)
             }
             else
             {
-                LOG_WRN("RESP: Invalid interval %d samples (expected 30-400)", samplesSinceCrossing);
+                // Invalid interval - log sparingly to reduce noise
+                static uint32_t invalid_interval_count = 0;
+                if (++invalid_interval_count % 100 == 1) {
+                    LOG_WRN("RESP: Invalid intervals (count=%u)", invalid_interval_count);
+                }
 
                 // If interval is way too long, might have lost signal
                 if (samplesSinceCrossing > 400)
@@ -292,7 +300,11 @@ void resp_rate_detect(int16_t Resp_wave, volatile uint8_t *RespirationRate)
     // Timeout detection: if no crossing for >10 seconds, reset
     if (samplesSinceCrossing > 312)  // 312 samples × 32ms = 10 seconds
     {
-        LOG_WRN("RESP: No breath detected for >10 sec, resetting");
+        static uint32_t timeout_count = 0;
+        // Only log every 10th timeout to reduce noise
+        if (++timeout_count % 10 == 1) {
+            LOG_WRN("RESP: No breath >10s (count=%u)", timeout_count);
+        }
         Respiration_Rate = 0;
         validIntervals = 0;
         waitingForLow = false;

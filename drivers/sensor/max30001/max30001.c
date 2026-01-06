@@ -587,16 +587,15 @@ static int max30001_chip_init(const struct device *dev)
     _max30001RegWrite(dev, CNFG_CAL, 0x702000); // Calibration sources disabled
     k_sleep(K_MSEC(100));
 
-    //_max30001RegWrite(dev, MNGR_INT, 0x190000); // EFIT=4, BFIT=2
-    //_max30001RegWrite(dev, MNGR_INT, 0x7B0000); // EFIT=16, BFIT=8
-    //_max30001RegWrite(dev, MNGR_INT, 0x3B0000); // EFIT=8, BFIT=4
-    _max30001RegWrite(dev, MNGR_INT, 0x080000); // EFIT=2, BFIT=2
-    //_max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=1, BFIT=1
+    // MNGR_INT: EFIT and BFIT control how many samples accumulate before interrupt
+    // EFIT=0 means interrupt after 1 sample (~7.8ms at 128 SPS), matching 7ms polling
+    // BFIT=0 means interrupt after 1 sample (~15.6ms at 64 SPS)
+    _max30001RegWrite(dev, MNGR_INT, 0x000000); // EFIT=0, BFIT=0
     k_sleep(K_MSEC(100));
-    {
-        uint32_t reg = max30001_read_reg(dev, MNGR_INT);
-        LOG_INF("MAX30001 MNGR_INT = 0x%06X", (uint32_t)reg);
-    }
+
+    // MNGR_DYN: Enable automatic fast recovery for better signal stability
+    _max30001RegWrite(dev, MNGR_DYN, 0xBFFFFF);
+    k_sleep(K_MSEC(100));
 
     //_max30001RegWrite(dev, EN_INT, 0x800003); // Disable all interrupts
 

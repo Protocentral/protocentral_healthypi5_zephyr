@@ -18,8 +18,18 @@
 #define MAX30001_STATUS_MASK_BOVF 0x40000
 
 #define MAX30001_STATUS_MASK_DCLOFF 0x100000
+#define MAX30001_STATUS_MASK_LONINT 0x000800
 
 #define MAX30001_STATUS_MASK_RRINT 0x000400
+
+// BioZ lead-off detection masks
+#define MAX30001_STATUS_MASK_BCGMON  0x008000   // Bit 15: BioZ current generator monitor
+#define MAX30001_STATUS_MASK_BCGMP   0x020000   // Bit 17: Positive drive electrode off
+#define MAX30001_STATUS_MASK_BCGMN   0x010000   // Bit 16: Negative drive electrode off
+
+#define BIOZ_LEAD_MASK (MAX30001_STATUS_MASK_BCGMON | \
+                        MAX30001_STATUS_MASK_BCGMP | \
+                        MAX30001_STATUS_MASK_BCGMN)
 
 #define MAX30001_INT_MASK_EFIT 0xF80000
 #define MAX30001_INT_MASK_BFIT 0x070000
