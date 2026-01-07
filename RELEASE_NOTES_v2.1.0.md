@@ -126,15 +126,3 @@ This ensures smooth respiration waveforms without duplicate or missing samples.
 ./make_st7796.sh
 
 # Flash via USB (drag-drop zephyr.uf2 to RPI-RP2 drive)
-```
-
----
-
-## Known Issues
-
-- RAM usage remains high at 96.6% - minimal headroom for additional features
-- BLE and USB CDC cannot run simultaneously (auto-switching mode)
-
----
-
-**For support and updates**: https://github.com/Protocentral/healthypi5_zephyr
