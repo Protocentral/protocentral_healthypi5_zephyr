@@ -658,32 +658,6 @@ void hw_thread(void)
         static uint32_t hw_loop_count = 0;
         hw_loop_count++;
 
-        // Log every 5 seconds to confirm hw_thread is running (increased frequency for debugging)
-        if ((hw_loop_count % 5) == 0) {
-            LOG_INF("HW loop=%u, ring=%u, data_hb=%u, samp_hb=%u", hw_loop_count,
-                    ring_buf_size_get(&ringbuf_usb_cdc),
-                    heartbeat_data_thread, heartbeat_sampling_workq);
-
-            // Software watchdog: check thread heartbeats
-            // Each thread should update its heartbeat at least every 5 seconds
-            // Alert if any thread is stale (hasn't updated in >10 seconds)
-            uint32_t now = k_uptime_get_32();
-            uint32_t stale_threshold = 10000;  // 10 seconds
-
-            if (heartbeat_data_thread > 0 && (now - heartbeat_data_thread) > stale_threshold) {
-                LOG_ERR("WATCHDOG: data_thread stale! last=%u, now=%u, delta=%u",
-                        heartbeat_data_thread, now, now - heartbeat_data_thread);
-            }
-            if (heartbeat_display_thread > 0 && (now - heartbeat_display_thread) > stale_threshold) {
-                LOG_ERR("WATCHDOG: display_thread stale! last=%u, now=%u, delta=%u",
-                        heartbeat_display_thread, now, now - heartbeat_display_thread);
-            }
-            if (heartbeat_sampling_workq > 0 && (now - heartbeat_sampling_workq) > stale_threshold) {
-                LOG_ERR("WATCHDOG: sampling_workq stale! last=%u, now=%u, delta=%u",
-                        heartbeat_sampling_workq, now, now - heartbeat_sampling_workq);
-            }
-        }
-
         // Sample slow changing sensors
         global_batt_level = hpi_hw_read_batt();
 
