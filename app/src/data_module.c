@@ -103,9 +103,6 @@ static volatile uint16_t m_resp_rate = 0;
 extern const struct device *const max30001_dev;
 extern const struct device *const afe4400_dev;
 
-extern struct k_msgq q_ecg_bioz_sample;
-extern struct k_msgq q_ppg_sample;
-
 extern struct k_msgq q_plot_ecg_bioz;
 extern struct k_msgq q_plot_ppg;
 
