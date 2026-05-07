@@ -55,7 +55,7 @@ static struct k_work_q sampling_workq;
 RTIO_DEFINE(max30001_read_rtio_poll_ctx, 16, 16);
 RTIO_DEFINE(afe4400_read_rtio_poll_ctx, 16, 16);
 
-SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), {SENSOR_CHAN_VOLTAGE});
+SENSOR_DT_READ_IODEV(max30001_iodev, DT_ALIAS(max30001), {SENSOR_CHAN_ECG_UV});
 SENSOR_DT_READ_IODEV(afe4400_iodev, DT_ALIAS(afe4400), {SENSOR_CHAN_RED});
 
 extern struct k_sem sem_ecg_bioz_thread_start;
@@ -115,6 +115,7 @@ void work_sample_handler(struct k_work *work)
     }
 
     if (n_samples_ecg > 0) {
+        //LOG_WRN("Number of samples : %u ECG, %u BioZ", n_samples_ecg, n_samples_bioz);
         // BioZ runs at 64 SPS (half of ECG's 128 SPS), interleave samples
         int bioz_idx = 0;
 

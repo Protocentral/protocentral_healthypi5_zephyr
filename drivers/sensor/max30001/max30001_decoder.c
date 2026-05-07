@@ -29,12 +29,10 @@ static int max30001_decoder_get_size_info(enum sensor_channel channel, size_t *b
 {
 	switch (channel)
 	{
-	case SENSOR_CHAN_MAGN_X:
-	case SENSOR_CHAN_MAGN_Y:
-	case SENSOR_CHAN_MAGN_Z:
-	case SENSOR_CHAN_MAGN_XYZ:
-		//*base_size = sizeof(struct sensor_three_axis_data);
-		//*frame_size = sizeof(struct sensor_three_axis_sample_data);
+	case SENSOR_CHAN_ECG_UV:
+	case SENSOR_CHAN_BIOZ_UV:
+		*base_size = sizeof(int32_t);
+		*frame_size = sizeof(int32_t);
 		return 0;
 	default:
 		return -ENOTSUP;
@@ -46,20 +44,28 @@ static int max30001_decoder_decode(const uint8_t *buffer, enum sensor_channel ch
 								   uint16_t max_count, void *data_out)
 {
 	const struct max30001_encoded_data *edata = (const struct max30001_encoded_data *)buffer;
-	const struct max30001_decoder_header *header = &edata->header;
+	int32_t *out = data_out;
 
-	if (*fit != 0)
+	ARG_UNUSED(channel_idx);
+
+	if (*fit != 0 || max_count == 0)
 	{
 		return 0;
 	}
 
-	printk("D ");
-	//printk("Num samples: %u\n", edata->samples[0].ir_sample);
-
-	/*switch (channel)
+	switch (channel)
 	{
-	
-	}*/
+	case SENSOR_CHAN_ECG_UV:
+		out[0] = (edata->num_samples_ecg > 0) ? edata->ecg_samples[0] : 0;
+		*fit = 1;
+		return 0;
+	case SENSOR_CHAN_BIOZ_UV:
+		out[0] = (edata->num_samples_bioz > 0) ? edata->bioz_samples[0] : 0;
+		*fit = 1;
+		return 0;
+	default:
+		return -ENOTSUP;
+	}
 }
 
 SENSOR_DECODER_API_DT_DEFINE() = {

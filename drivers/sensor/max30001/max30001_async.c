@@ -95,7 +95,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
                 uecgtemp = (uint32_t)(uecgtemp << 8);
 
                 int32_t secgtemp = (int32_t)uecgtemp;
-                secgtemp = (int32_t)secgtemp >> 6;
+                secgtemp = (int32_t)secgtemp >> 8;
 
                 ecg_samples[valid_ecg_samples] = (int32_t)(secgtemp);
                 valid_ecg_samples++;

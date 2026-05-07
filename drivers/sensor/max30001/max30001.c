@@ -464,13 +464,14 @@ static int max30001_chip_init(const struct device *dev)
 
     // General Configuration
     data->chip_cfg.reg_cnfg_gen.bit.en_ulp_lon = 0;
-    data->chip_cfg.reg_cnfg_gen.bit.fmstr = 0;
+    data->chip_cfg.reg_cnfg_gen.bit.fmstr = 1;
 
     // data->chip_cfg.reg_cnfg_gen.bit.en_bioz = 0;
 
     data->chip_cfg.reg_cnfg_gen.bit.en_dcloff = 0;
     data->chip_cfg.reg_cnfg_gen.bit.en_bloff = 0;
     data->chip_cfg.reg_cnfg_gen.bit.en_rbias = 0;
+    data->chip_cfg.reg_cnfg_gen.bit.en_pace = 0;
     data->chip_cfg.reg_cnfg_gen.bit.rbiasv = 1;
     data->chip_cfg.reg_cnfg_gen.bit.rbiasp = 0;
     data->chip_cfg.reg_cnfg_gen.bit.rbiasn = 0;
@@ -509,7 +510,7 @@ static int max30001_chip_init(const struct device *dev)
     // ECG Configuration
     data->chip_cfg.reg_cnfg_ecg.bit.rate = 0b10;  // 128 SPS (reduced from 256 for stability)
     data->chip_cfg.reg_cnfg_ecg.bit.gain = config->ecg_gain; // From DTS
-    data->chip_cfg.reg_cnfg_ecg.bit.dlpf = 0b01;             // 40 Hz
+    data->chip_cfg.reg_cnfg_ecg.bit.dlpf = 0b00;             // 40 Hz
     data->chip_cfg.reg_cnfg_ecg.bit.dhpf = 0b01;             // 0.5 Hz
 
     // ECG MUX Configuration
