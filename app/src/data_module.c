@@ -65,8 +65,6 @@ LOG_MODULE_REGISTER(data_module, LOG_LEVEL_INF);  // Changed from DBG to reduce 
 #define CES_CMDIF_TYPE_PPG_DATA 0x04
 #define CES_CMDIF_PKT_STOP 0x0B
 
-#define SAMPLING_FREQ 104 // in Hz.
-
 #define SAMPLE_BUFF_WATERMARK 4
 
 enum hpi5_data_format
@@ -153,7 +151,7 @@ static int32_t ppg_dc_block_filter_apply(struct ppg_dc_block_filter_t *filter, i
     }
 
     float x = (float)sample;
-    float y = (x - filter->x_prev + (PPG_TX_DC_BLOCK_ALPHA * filter->y_prev))*(1+PPG_TX_DC_BLOCK_ALPHA)/2; // Gain compensation to preserve AC amplitude
+    float y = (x - filter->x_prev)*(1+PPG_TX_DC_BLOCK_ALPHA)/2 + PPG_TX_DC_BLOCK_ALPHA * filter->y_prev; // Gain compensation to preserve AC amplitude
     filter->x_prev = x;
     filter->y_prev = y;
 
@@ -844,10 +842,6 @@ void data_thread(void)
                     ble_bioz_notify(ble_bioz_buffer, BLE_ECG_BUFFER_SIZE);
                     bioz_buffer_count = 0;
                 }
-
-                // Move HR notify to ZBus
-                // ble_hrs_notify(ecg_bioz_sensor_sample.hr);
-                // ble_resp_rate_notify(globalRespirationRate);
             }
             else if (m_stream_mode == HPI_STREAM_MODE_RPI_UART)
             {
