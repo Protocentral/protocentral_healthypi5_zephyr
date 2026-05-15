@@ -525,7 +525,7 @@ static int max30001_chip_init(const struct device *dev)
     // AHPF bypass so analog high-pass doesn't remove low-frequency respiration
     data->chip_cfg.reg_cnfg_bioz.bit.ahpf = 0b000;             // AHPF bypass
     // DLPF set low to keep respiration but remove high-frequency noise
-    data->chip_cfg.reg_cnfg_bioz.bit.dlpf = 0b01;              // ~4-40 Hz (keep 4 Hz)
+    data->chip_cfg.reg_cnfg_bioz.bit.dlpf = 0b01;              // 4Hz cutoff -freq
     // DHPF set to narrow (0.05 Hz) to preserve very slow breaths
     data->chip_cfg.reg_cnfg_bioz.bit.dhpf = 0b01;             // ~0.05 Hz
     data->chip_cfg.reg_cnfg_bioz.bit.gain = config->bioz_gain; // FROM DTS

@@ -699,16 +699,14 @@ void data_thread(void)
 
                 // Publish respiration rate with lead-off status
                 // BioZ signal requires ECG electrodes for proper measurement
-                if (m_resp_rate > 0 && m_resp_rate < 60) {
-                    last_valid_rr = m_resp_rate;  // Remember for lead-off state changes
-                    struct hpi_resp_rate_t resp_rate_chan_value = {
-                        .resp_rate = m_resp_rate,
-                        .lead_off = ecg_lead_off_state
-                    };
-                    // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
-                    rr_serial = m_resp_rate;
-                    zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
-                }
+                last_valid_rr = m_resp_rate;  // Remember for lead-off state changes
+                struct hpi_resp_rate_t resp_rate_chan_value = {
+                    .resp_rate = m_resp_rate,
+                    .lead_off = ecg_lead_off_state
+                };
+                // Use K_NO_WAIT to prevent blocking data thread and causing USB stalling
+                rr_serial = m_resp_rate;
+                zbus_chan_pub(&resp_rate_chan, &resp_rate_chan_value, K_NO_WAIT);
 
                 resp_filt_buffer_count = 0;
             }

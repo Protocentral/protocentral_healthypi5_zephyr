@@ -595,7 +595,7 @@ void hw_thread(void)
 #endif
 
     leds_init();
-    fs_module_init();
+    fs_module_init(); // initialize filesystem, enable mouting of SD card.
 
     // init_settings();
 
