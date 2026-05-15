@@ -35,8 +35,9 @@ struct afe4400_encoded_data
 	int32_t raw_sample_red;
 };
 
-// AFE4400 Register Map
+extern char rf_cf_config; // default to 5pF, can be changed by writing to TIA_AMB_GAIN register
 
+// AFE4400 Register Map
 #define CONTROL0 0x00
 #define LED2STC 0x01
 #define LED2ENDC 0x02

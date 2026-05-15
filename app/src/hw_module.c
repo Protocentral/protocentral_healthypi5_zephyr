@@ -24,6 +24,7 @@
 
 
 #include <zephyr/kernel.h>
+#include <zephyr/devicetree.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/device.h>
@@ -49,7 +50,7 @@
 #include "fs_module.h"
 #include "hpi_common_types.h"
 
-#ifdef CONFIG_DISPLAY
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 #include "display_module.h"
 #endif
 
@@ -67,13 +68,12 @@ static const struct gpio_dt_spec led_blue = GPIO_DT_SPEC_GET(DT_ALIAS(ledblue), 
 #define ZEPHYR_USER_NODE DT_PATH(zephyr_user)
 
 const struct device *usb_dev = DEVICE_DT_GET_ONE(zephyr_cdc_acm_uart);
+static const struct device *uart0_dev = NULL;  // Cached at init time for UART data streaming
 
 // USB buffer monitoring
 static uint32_t usb_buffer_writes = 0;
 static uint32_t usb_buffer_drops = 0;
 static uint32_t last_usb_log_time = 0;
-static bool usb_host_connected = true;   // Start optimistic - assume host connected, detect disconnect
-static uint32_t last_buffer_drain_time = 0;
 
 // Temperature sensor availability
 static bool temp_sensor_available = false;  // Set at boot, never changes
@@ -87,8 +87,10 @@ volatile uint32_t heartbeat_sampling_workq = 0;
 static const struct device *const wdt_dev = DEVICE_DT_GET(DT_ALIAS(watchdog0));
 static int wdt_channel_id = -1;
 
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 static const struct device *const gpio_keys_dev = DEVICE_DT_GET_ANY(gpio_keys);
 static const struct device *const longpress_dev = DEVICE_DT_GET(DT_NODELABEL(longpress));
+#endif
 uint8_t m_key_pressed = GPIO_KEYPAD_KEY_NONE;
 
 static bool rx_throttled;
@@ -138,6 +140,7 @@ uint8_t global_batt_level = 0;
 
 /*******EXTERNS******/
 extern struct k_msgq q_session_cmd_msg;
+extern bool settings_send_ble_enabled;
 
 /*bool settings_send_usb_enabled = true;
 bool settings_send_ble_enabled = true;
@@ -179,39 +182,7 @@ void send_usb_cdc(const char *buf, size_t len)
     uint32_t capacity = ring_buf_capacity_get(&ringbuf_usb_cdc);
     uint32_t used = capacity - space;
     
-    // DISABLED: Host detection causing false disconnects and data loss
-    // TODO: Re-enable with proper implementation after baseline stability confirmed
-    /*
-    // Detect USB host connection by monitoring buffer drain
-    static uint32_t last_used = 0;
-    static bool initialized = false;
-    
-    if (!initialized) {
-        last_buffer_drain_time = k_uptime_get_32();
-        initialized = true;
-    }
-    
-    if (used < last_used - 1000) {
-        usb_host_connected = true;
-        last_buffer_drain_time = k_uptime_get_32();
-    }
-    last_used = used;
-    
-    if (k_uptime_get_32() - last_buffer_drain_time > 5000) {
-        usb_host_connected = false;
-    }
-    
-    if (!usb_host_connected && used > (capacity * 80 / 100)) {
-        usb_buffer_drops++;
-        static uint32_t last_disconnect_log = 0;
-        if (k_uptime_get_32() - last_disconnect_log > 5000) {
-            LOG_WRN("USB host not detected, buffer %u/%u bytes - dropping data", 
-                    used, capacity);
-            last_disconnect_log = k_uptime_get_32();
-        }
-        return;
-    }
-    */
+    //Eventually implement host detection
     
     if (space < len) {
         // Buffer full - drop packet to avoid USB stalls
@@ -243,6 +214,21 @@ void send_usb_cdc(const char *buf, size_t len)
     // Only enable TX interrupt if data was successfully written
     if (rb_len > 0) {
         uart_irq_tx_enable(usb_dev);
+    }
+}
+
+void send_rpi_uart(const uint8_t *buf, size_t len)
+{
+    if (buf == NULL || len == 0U) {
+        return;
+    }
+
+    if (uart0_dev == NULL || !device_is_ready(uart0_dev)) {
+        return;
+    }
+
+    for (size_t i = 0; i < len; i++) {
+        uart_poll_out(uart0_dev, buf[i]);
     }
 }
 
@@ -408,6 +394,14 @@ static void usb_init()
 #endif
 
     LOG_INF("USB Init complete");
+    
+    // Initialize UART0 device for UART data streaming (cached to avoid device tree lookups in hot path)
+    uart0_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
+    if (uart0_dev != NULL && device_is_ready(uart0_dev)) {
+        LOG_INF("UART0 ready for data streaming");
+    } else {
+        LOG_WRN("UART0 not ready for data streaming");
+    }
 }
 
 int hpi_hw_read_temp(float* temp_f, float* temp_c)
@@ -535,10 +529,12 @@ static void gpio_updown_cb_handler(struct input_event *evt, void *user_data)
 #endif
 }
 
+#ifdef CONFIG_HEALTHYPI_DISPLAY_ENABLED
 // Register callback on longpress device output (for OK button short/long press)
 INPUT_CALLBACK_DEFINE(longpress_dev, gpio_keys_cb_handler, NULL);
 // Register callback on gpio_keys device (for UP/DOWN buttons)
 INPUT_CALLBACK_DEFINE(gpio_keys_dev, gpio_updown_cb_handler, NULL);
+#endif
 
 void hw_thread(void)
 {
@@ -591,11 +587,15 @@ void hw_thread(void)
     }
 
 #ifdef CONFIG_BT
-    ble_module_init();
+    if (settings_send_ble_enabled) {
+        ble_module_init();
+    } else {
+        LOG_INF("BLE disabled by settings (settings_send_ble_enabled=false)");
+    }
 #endif
 
     leds_init();
-    fs_module_init();
+    fs_module_init(); // initialize filesystem, enable mouting of SD card.
 
     // init_settings();
 
@@ -653,6 +653,10 @@ void hw_thread(void)
     float m_temp_f = 0;
     float m_temp_c = 0;
 
+    //Turn LED off
+    gpio_pin_set_dt(&led_blue, 0);
+    gpio_pin_set_dt(&led_green, 0);
+
     for (;;)
     {
         static uint32_t hw_loop_count = 0;
@@ -682,7 +686,6 @@ void hw_thread(void)
             wdt_feed(wdt_dev, wdt_channel_id);
         }
 
-        gpio_pin_toggle_dt(&led_blue);
         k_sleep(K_MSEC(1000));
     }
 }

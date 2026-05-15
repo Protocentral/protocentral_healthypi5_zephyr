@@ -12,6 +12,8 @@
 
 LOG_MODULE_REGISTER(SENSOR_AFE4400, CONFIG_SENSOR_LOG_LEVEL);
 
+char rf_cf_config = 0xfa; // CF = 250pF, RF = 100kOhm
+
 #if DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT) == 0
 #warning "AFE4400 driver enabled without any devices"
 #endif
@@ -60,13 +62,13 @@ static int afe4400_sample_fetch(const struct device *dev, enum sensor_channel ch
     struct afe4400_data *drv_data = dev->data;
 
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
-    uint32_t led1val = _afe4400_read_reg(dev, LED1VAL);
+    uint32_t led1val = _afe4400_read_reg(dev, LED1ABSVAL);
     led1val = (uint32_t)(led1val << 10);
     int32_t led1val_signed = (int32_t)led1val;
     drv_data->raw_sample_ir = (int32_t)led1val_signed >> 10;
 
     _afe4400_reg_write(dev, CONTROL0, 0x000001);
-    uint32_t led2val = _afe4400_read_reg(dev, LED2VAL);
+    uint32_t led2val = _afe4400_read_reg(dev, LED2ABSVAL);
     led2val = (uint32_t)(led2val << 10);
     int32_t led2val_signed = (int32_t)led2val;
     drv_data->raw_sample_red = (int32_t)led2val_signed >> 10;
@@ -132,10 +134,10 @@ static int afe4400_chip_init(const struct device *dev)
     k_sleep(K_MSEC(100));
 
     _afe4400_reg_write(dev, CONTROL0, 0x000000);
-    _afe4400_reg_write(dev, CONTROL0, 0x000008);
-    _afe4400_reg_write(dev, TIAGAIN, 0x000000); // CF = 5pF, RF = 500kR
-    _afe4400_reg_write(dev, TIA_AMB_GAIN, 0x000001);
-    _afe4400_reg_write(dev, LEDCNTRL, 0x001414);
+    _afe4400_reg_write(dev, CONTROL0, 0x000008); // Software reset
+    _afe4400_reg_write(dev, TIAGAIN, 0x000000);
+    _afe4400_reg_write(dev, TIA_AMB_GAIN, (0x0000 << 8) | rf_cf_config);
+    _afe4400_reg_write(dev, LEDCNTRL, 0x001414); // 20mA for both LEDs
     _afe4400_reg_write(dev, CONTROL2, 0x000000); // LED_RANGE=100mA, LED=50mA
     _afe4400_reg_write(dev, CONTROL1, 0x010707); // Timers ON, average 3 samples
     _afe4400_reg_write(dev, PRPCOUNT, 0X001F3F);

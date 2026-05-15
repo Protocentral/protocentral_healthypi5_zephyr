@@ -185,7 +185,6 @@ extern struct k_sem sem_ok_key_pressed;
 extern struct k_sem sem_ok_key_longpress;  // Separate semaphore for long press
 extern struct k_sem sem_up_key_pressed;
 extern struct k_sem sem_down_key_pressed;
-extern struct k_msgq q_computed_val;
 
 // Software debounce for UP/DOWN buttons to prevent rapid screen changes
 #define BUTTON_DEBOUNCE_MS 1200  // 1.2 seconds between UP/DOWN button presses

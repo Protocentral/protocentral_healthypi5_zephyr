@@ -345,16 +345,6 @@ void cmdif_send_ble_command(uint8_t m_cmd)
     }
 }
 
-/*void send_uart(char *buf)
-{
-    int msg_len = strlen(buf);
-
-    for (int i = 0; i < msg_len; i++)
-    {
-        uart_poll_out(esp_uart_dev, buf[i]);
-    }
-}*/
-
 /*
 void cmd_serial_cb(const struct device *dev, void *user_data)
 {

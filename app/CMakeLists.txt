@@ -20,6 +20,9 @@ FILE(GLOB app_sources src/*.c)
 # Exclude BLE module from the unconditional source list. It will be
 # added conditionally via `target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED ...)`
 list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ble_module.c)
+# Exclude display module from the unconditional source list. It will be
+# added conditionally via `target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED ...)`
+list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/display_module.c)
 FILE(GLOB ui_images_sources src/ui/images/*.c)
 FILE(GLOB ui_sources src/ui/*.c)
 
@@ -34,7 +37,8 @@ set(screen_sources
     # src/ui/screens/scr_all_trends.c  # Disabled
 )
 
-target_sources(app PRIVATE ${app_sources} ${ui_images_sources} ${ui_sources} ${screen_sources})
+# Add non-display app sources
+target_sources(app PRIVATE ${app_sources})
 
 # Add vital stats module
 target_sources(app PRIVATE src/vital_stats.c)
@@ -42,8 +46,8 @@ target_sources(app PRIVATE src/vital_stats.c)
 # Add BLE module only if enabled in Kconfig
 target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED app PRIVATE src/ble_module.c)
 
-# Add display module only if enabled
-#target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE ${display_sources})
+# Add display module only if enabled in Kconfig
+target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE src/display_module.c ${screen_sources} ${ui_images_sources} ${ui_sources})
 
 #FILE(GLOB bt_sources src/bt/*.c)
 #target_sources_ifdef(CONFIG_BT app PRIVATE ${bt_sources})

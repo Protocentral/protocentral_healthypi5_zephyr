@@ -5,8 +5,8 @@
 
 #include <freq.h>
 
-#include <rpi_pico/rp2040.dtsi>
-#include "healthypi5_rp2040-pinctrl.dtsi"
+#include <raspberrypi/rpi_pico/rp2040.dtsi>
+#include "healthypi5-pinctrl.dtsi"
 #include <zephyr/dt-bindings/pwm/pwm.h>
 
 #include <zephyr/dt-bindings/i2c/i2c.h>
@@ -20,7 +20,8 @@
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0; //&cdc_acm_uart0;
 		zephyr,code-partition = &code_partition;
-		zephyr,bt-uart = &uart1;
+		//zephyr,bt-uart = &uart1;
+		zephyr,bt-hci = &bt_hci_uart;
 	};
 
 	leds {
@@ -43,14 +44,17 @@
 		compatible = "gpio-keys";
 		label = "buttons";
 		button_up: sw1 {
+			label = "Button UP / SW1";
 			gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_UP>;
 		};
 		button_ok: sw2 {
+			label = "Button OK / SW2";
 			gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_ENTER>;
 		};
 		button_down: sw3 {
+			label = "Button DOWN / SW3";
 			gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
 			zephyr,code = <INPUT_KEY_DOWN>;
 		};
@@ -58,7 +62,7 @@
 
 	xtal_clk: xtal-clk {
 		compatible = "fixed-clock";
-		clock-frequency = <12000000>;
+		clock-frequency = <13300000>;
 		#clock-cells = <0>;
 	};
 
@@ -129,7 +133,7 @@
 };
 
 &uart0 {
-	current-speed = <115200>;
+	current-speed = <3000000>;
 	status = "okay";
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
@@ -141,6 +145,11 @@
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
 	hw-flow-control;
+
+	bt_hci_uart: bt_hci_uart {  
+		compatible = "zephyr,bt-hci-uart";
+		status = "okay";
+	};
 };
 
 &gpio0 {
@@ -207,8 +216,8 @@
 		bioz-gain = <2>;
 		//ecg-invert;
 
-		//ecg-dcloff-enable;
-		//ecg-dcloff-current = <1>; // 5 nA
+		ecg-dcloff-enable;
+		ecg-dcloff-current = <1>; // 5 nA - recommended for medical-grade detection
 
 	};
 
@@ -238,8 +247,9 @@
 		spi-max-frequency = <DT_FREQ_M(4)>;
 		mmc {
 			compatible = "zephyr,sdmmc-disk";
-			disk_name = "sdhc0";
+			disk-name = "sdhc0";
 			status = "okay";
+
 		};
 	};
 };

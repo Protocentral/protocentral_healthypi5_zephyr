@@ -557,7 +557,7 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
     int32_t mean_ir = calculate_mean(pun_ir_buffer, n_ir_buffer_length);
     int32_t mean_red = calculate_mean(pun_red_buffer, n_ir_buffer_length);
     
-    LOG_DBG("Signal means: IR=%d, Red=%d", mean_ir, mean_red);
+    LOG_INF("PPG Signal means: IR=%d, Red=%d", mean_ir, mean_red);
     
     // ============================================================================
     // ENHANCED PROBE-OFF DETECTION
@@ -589,13 +589,14 @@ void maxim_heart_rate_and_oxygen_saturation_with_quality(
     }
 
     // Check 2: Signal Saturation (probe pressed too hard or light overflow)
-    // AFE4400 has 22-bit ADC: max ~4.2M, use 3.8M as saturation threshold (90%)
+    // AFE4400 has 22-bit ADC: but values are clamped if negative => saturation treshold is at 2^22/2 = 2^21 = 2097152
+    // 0.95*2097152 = ~1990000 is a reasonable threshold to detect saturation without false positives
     static uint32_t saturated_warn_count = 0;
-    if (mean_ir > 3800000 || mean_red > 3800000) {
+    if (mean_ir > 1990000 || mean_red > 1990000) {
         probe_off_detected = true;
         probe_off_reason = PROBE_OFF_SATURATED;
-        // Only log every 500th occurrence to reduce noise
-        if (++saturated_warn_count % 500 == 1) {
+        // Only log every 10th occurrence to reduce noise
+        if (++saturated_warn_count % 10 == 1) {
             LOG_WRN("Probe OFF: Saturated (IR=%d, Red=%d), warns=%u", mean_ir, mean_red, saturated_warn_count);
         }
         if (quality != NULL) {

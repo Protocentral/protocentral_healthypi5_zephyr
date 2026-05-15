@@ -28,8 +28,8 @@
 #include "hpi_common_types.h"
 
 #define LOG_SAMPLE_RATE_SPS 125
-#define LOG_WRITE_INTERVAL 10      // Write to file every 10 seconds
-#define LOG_BUFFER_LENGTH 1250 + 1 // 125Hz * 10 seconds
+#define LOG_WRITE_INTERVAL 5      // Write to file every 5 seconds
+#define LOG_BUFFER_LENGTH LOG_SAMPLE_RATE_SPS * LOG_WRITE_INTERVAL + 1 // 125Hz * 5 seconds
 
 #define ECG_DATA 0
 #define PPG_DATA 1

@@ -30,13 +30,29 @@
 #include "hw_module.h"
 #include "hpi_common_types.h"
 
-/* Helper macro: include BT listeners only when BLE is enabled. This avoids
- * referencing `bt_*_lis` symbols when `ble_module.c` is not compiled.
+ZBUS_OBS_DECLARE(serial_temp_listener);
+
+/* Helper macro: include display and BT listeners conditionally.
+ * This avoids referencing symbols when the respective modules are not compiled.
  */
-#ifdef CONFIG_HEALTHYPI_BLE_ENABLED
+#if defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED) && defined(CONFIG_HEALTHYPI_BLE_ENABLED)
 #define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(disp, bt)
-#else
+#elif defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED)
 #define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(disp)
+#elif defined(CONFIG_HEALTHYPI_BLE_ENABLED)
+#define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(bt)
+#else
+#define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS()
+#endif
+
+#if defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED) && defined(CONFIG_HEALTHYPI_BLE_ENABLED)
+#define HPI_TEMP_OBSERVERS() ZBUS_OBSERVERS(serial_temp_listener, disp_temp_lis, bt_temp_lis)
+#elif defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED)
+#define HPI_TEMP_OBSERVERS() ZBUS_OBSERVERS(serial_temp_listener, disp_temp_lis)
+#elif defined(CONFIG_HEALTHYPI_BLE_ENABLED)
+#define HPI_TEMP_OBSERVERS() ZBUS_OBSERVERS(serial_temp_listener, bt_temp_lis)
+#else
+#define HPI_TEMP_OBSERVERS() ZBUS_OBSERVERS(serial_temp_listener)
 #endif
 
 ZBUS_CHAN_DEFINE(batt_chan,                     /* Name */
@@ -59,7 +75,7 @@ ZBUS_CHAN_DEFINE(temp_chan, /* Name */
                  struct hpi_temp_t,
                  NULL, /* Validator */
                  NULL, /* User Data */
-                 HPI_OBSERVERS(disp_temp_lis, bt_temp_lis),
+                 HPI_TEMP_OBSERVERS(),
                  ZBUS_MSG_INIT(0) /* Initial value {0} */
 );
 

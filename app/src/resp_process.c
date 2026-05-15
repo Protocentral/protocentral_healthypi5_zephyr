@@ -80,7 +80,7 @@ int RESP_Second_Next_Sample = 0;
 // - Actual sampling rate (not exactly 125 Hz)
 // - Buffer size and calling frequency
 // - Any timing variations in the system
-#define RESP_CALIBRATION_FACTOR 2980
+#define RESP_CALIBRATION_FACTOR 1500
 
 void resp_process_sample(int16_t *CurrAqsSample, int16_t *respFiltered)
 {
