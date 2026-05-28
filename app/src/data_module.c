@@ -41,7 +41,6 @@
 #include "hw_module.h"
 #include "cmd_module.h"
 #include "hpi_common_types.h"
-#include "display_module.h"
 
 LOG_MODULE_REGISTER(data_module, LOG_LEVEL_INF);  // Changed from DBG to reduce log spam
 

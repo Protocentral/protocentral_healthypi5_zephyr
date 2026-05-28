@@ -30,13 +30,24 @@
 #include "hw_module.h"
 #include "hpi_common_types.h"
 
-/* Helper macro: include BT listeners only when BLE is enabled. This avoids
- * referencing `bt_*_lis` symbols when `ble_module.c` is not compiled.
+/* Helper macro: include each listener only when its module is compiled in,
+ * avoiding undefined references to `disp_*_lis` / `bt_*_lis` symbols when
+ * display_module.c or ble_module.c are excluded from the build.
+ *
+ * Expansion table:
+ *   DISPLAY=y, BLE=y  -> ZBUS_OBSERVERS(disp, bt)
+ *   DISPLAY=y, BLE=n  -> ZBUS_OBSERVERS(disp)
+ *   DISPLAY=n, BLE=y  -> ZBUS_OBSERVERS(bt)
+ *   DISPLAY=n, BLE=n  -> ZBUS_OBSERVERS()
  */
-#ifdef CONFIG_HEALTHYPI_BLE_ENABLED
+#if defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED) && defined(CONFIG_HEALTHYPI_BLE_ENABLED)
 #define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(disp, bt)
-#else
+#elif defined(CONFIG_HEALTHYPI_DISPLAY_ENABLED)
 #define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(disp)
+#elif defined(CONFIG_HEALTHYPI_BLE_ENABLED)
+#define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS(bt)
+#else
+#define HPI_OBSERVERS(disp, bt) ZBUS_OBSERVERS()
 #endif
 
 ZBUS_CHAN_DEFINE(batt_chan,                     /* Name */

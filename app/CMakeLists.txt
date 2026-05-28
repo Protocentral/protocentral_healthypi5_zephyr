@@ -17,9 +17,14 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
 FILE(GLOB app_sources src/*.c)
-# Exclude BLE module from the unconditional source list. It will be
-# added conditionally via `target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED ...)`
+# Exclude BLE module from the unconditional source list. Added below via
+# `target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED ...)`.
 list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ble_module.c)
+# Display/LVGL module is also excluded here and added conditionally below.
+# This lets us build a no-LVGL variant for isolating display-related issues
+# without touching #ifdef guards in every consumer.
+list(REMOVE_ITEM app_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/display_module.c)
+
 FILE(GLOB ui_images_sources src/ui/images/*.c)
 FILE(GLOB ui_sources src/ui/*.c)
 
@@ -34,7 +39,7 @@ set(screen_sources
     # src/ui/screens/scr_all_trends.c  # Disabled
 )
 
-target_sources(app PRIVATE ${app_sources} ${ui_images_sources} ${ui_sources} ${screen_sources})
+target_sources(app PRIVATE ${app_sources})
 
 # Add vital stats module
 target_sources(app PRIVATE src/vital_stats.c)
@@ -42,8 +47,16 @@ target_sources(app PRIVATE src/vital_stats.c)
 # Add BLE module only if enabled in Kconfig
 target_sources_ifdef(CONFIG_HEALTHYPI_BLE_ENABLED app PRIVATE src/ble_module.c)
 
-# Add display module only if enabled
-#target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE ${display_sources})
+# Add display/LVGL module + UI sources only if HEALTHYPI_DISPLAY_ENABLED.
+# When disabled (e.g. via make_nolvgl.sh) these files are skipped entirely,
+# so LVGL headers and the display thread are gone from the image — useful
+# for narrowing down whether display work is the source of a regression.
+target_sources_ifdef(CONFIG_HEALTHYPI_DISPLAY_ENABLED app PRIVATE
+    src/display_module.c
+    ${ui_images_sources}
+    ${ui_sources}
+    ${screen_sources}
+)
 
 #FILE(GLOB bt_sources src/bt/*.c)
 #target_sources_ifdef(CONFIG_BT app PRIVATE ${bt_sources})

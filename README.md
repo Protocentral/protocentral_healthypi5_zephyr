@@ -69,13 +69,13 @@ Use the provided build scripts for display-specific configurations:
 
 ```bash
 # For ILI9488 display variant
-./make_ili9488.sh
+./scripts/make_ili9488.sh
 
-# For ST7796 display variant  
-./make_st7796.sh
+# For ST7796 display variant
+./scripts/make_st7796.sh
 
 # Clean build
-./clean.sh
+./scripts/clean.sh
 ```
 
 #### Manual Build Commands

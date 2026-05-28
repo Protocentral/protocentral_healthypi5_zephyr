@@ -6,6 +6,11 @@
 
 set -euo pipefail
 
+# Run from repo root regardless of where the script was invoked from.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # Source user's Zephyr venv if present
 if [ -f "$HOME/zephyrproject/.venv/bin/activate" ]; then
     # shellcheck source=/dev/null
@@ -15,8 +20,8 @@ fi
 MODE=${1:-default}
 
 if [ "$MODE" = "merged" ]; then
-    if [ -x ./flash_merged.sh ]; then
-        ./flash_merged.sh
+    if [ -x "$SCRIPT_DIR/flash_merged.sh" ]; then
+        "$SCRIPT_DIR/flash_merged.sh"
     else
         echo "flash_merged.sh not found or not executable"
         exit 1
