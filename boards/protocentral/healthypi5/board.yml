@@ -1,5 +1,6 @@
 board:
   name: healthypi5
+  full_name: HealthyPi 5
   vendor: protocentral
   socs:
   - name: rp2040

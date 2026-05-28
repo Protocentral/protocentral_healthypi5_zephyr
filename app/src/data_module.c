@@ -965,7 +965,9 @@ void data_thread(void)
             {
                 // if (hpi_sensor_data_point.bioz_sample != 0)
                 resp_process_sample(resp_i16_buf, resp_i16_filt_out);
-                resp_algo_process(resp_i16_filt_out, &m_resp_rate);
+                volatile uint8_t rr_u8 = 0;
+                resp_algo_process(resp_i16_filt_out, &rr_u8);
+                m_resp_rate = rr_u8;
 
                 // Publish respiration rate with lead-off status
                 // BioZ signal requires ECG electrodes for proper measurement

@@ -1,4 +1,4 @@
-#include <zephyr/dt-bindings/display/ili9xxx.h>
+#include <zephyr/dt-bindings/display/panel.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
@@ -31,7 +31,7 @@
 			rotation = <90>;
 			width = <480>;
 			height = <320>;
-			pixel-format = <ILI9XXX_PIXEL_FORMAT_RGB888>;
+			pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
 			display-inversion;
 
 			frmctr1 = [ A0  ];

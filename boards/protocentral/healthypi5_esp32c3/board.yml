@@ -1,5 +1,6 @@
 board:
   name: healthypi5_esp32c3
+  full_name: HealthyPi 5 ESP32-C3
   vendor: protocentral
   socs:
   - name: esp32c3
