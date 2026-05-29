@@ -1092,6 +1092,8 @@ void data_thread(void)
                     ble_bioz_notify(ble_bioz_buffer, BLE_ECG_BUFFER_SIZE);
                     bioz_buffer_count = 0;
                 }
+                
+                ble_ppg_notify(hpi_sensor_data_point.ppg_sample_red);
 
                 // Move HR notify to ZBus
                 // ble_hrs_notify(ecg_bioz_sensor_sample.hr);
