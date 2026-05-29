@@ -161,6 +161,9 @@ extern struct hpi_log_session_header_t hpi_log_session_header;
 extern struct k_sem sem_ble_connected;
 extern struct k_sem sem_ble_disconnected;
 
+extern double temp_c;
+extern double temp_f;
+
 #define NUM_TAPS 10  /* Number of taps in the FIR filter (length of the moving average window) */
 #define BLOCK_SIZE 4 /* Number of samples processed per block */
 
@@ -971,6 +974,7 @@ void data_thread(void)
                 // Publish respiration rate with lead-off status
                 // BioZ signal requires ECG electrodes for proper measurement
                 if (m_resp_rate > 0 && m_resp_rate < 60) {
+                    rr_serial = m_resp_rate;
                     last_valid_rr = m_resp_rate;  // Remember for lead-off state changes
                     struct hpi_resp_rate_t resp_rate_chan_value = {
                         .resp_rate = m_resp_rate,
@@ -989,7 +993,7 @@ void data_thread(void)
             if (hpi_data_get_hr_source() == HR_SOURCE_ECG && 
                 hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255)
             {
-                hr_serial = hpi_sensor_data_point.hr;
+                hr_serial = hpi_sensor_data_point.hr; 
                 last_valid_ecg_hr = hpi_sensor_data_point.hr;  // Remember for lead-off state changes
                 struct hpi_hr_t hr_chan_value = {
                     .hr = hpi_sensor_data_point.hr,
@@ -1065,11 +1069,12 @@ void data_thread(void)
                 resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
             }*/
 
+            temp_serial = (int16_t)(temp_c * 100);
             if (m_stream_mode == HPI_STREAM_MODE_USB)
             {
                 usb_send_count++;
                 sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red,
-                         hpi_sensor_data_point.ppg_sample_ir, 0, 0, 0, 0, 0);
+                         hpi_sensor_data_point.ppg_sample_ir, temp_serial, hr_serial, rr_serial, spo2_serial, 0);
             }
             else if (m_stream_mode == HPI_STREAM_MODE_BLE)
             {
