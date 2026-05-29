@@ -2,6 +2,9 @@
 // ProtoCentral Electronics (info@protocentral.com)
 // SPDX-License-Identifier: Apache-2.0
 
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
 / {
 	chosen {
 		zephyr,display = &ili9488; 
@@ -32,7 +35,8 @@
 			rotation = <270>;
 			width = <480>;
 			height = <320>;
-	
+			pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
+
 			frmctr1 = [ a0 11  ];
 			pwctrl1 = [ 17 15  ];
 			pwctrl2 = [ 41  ];

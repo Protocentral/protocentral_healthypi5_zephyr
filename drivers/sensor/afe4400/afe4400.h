@@ -88,7 +88,7 @@ struct afe4400_encoded_data
 #define LED1ABSVAL 0x2f
 #define DIAG 0x30
 
-int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
+void afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
 int afe4400_get_decoder(const struct device *dev, const struct sensor_decoder_api **decoder);
 
 uint32_t _afe4400_read_reg(const struct device *dev, uint8_t reg);

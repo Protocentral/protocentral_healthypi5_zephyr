@@ -217,7 +217,7 @@ static int max30001_async_sample_fetch(const struct device *dev,
     return 0;
 }
 
-int max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
+void max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
 {
     uint32_t m_min_buf_len = sizeof(struct max30001_encoded_data);
 
@@ -233,7 +233,7 @@ int max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
     {
         LOG_ERR("Failed to get a read buffer of size %u bytes", m_min_buf_len);
         rtio_iodev_sqe_err(iodev_sqe, ret);
-        return ret;
+        return;
     }
 
     m_edata = (struct max30001_encoded_data *)buf;
@@ -244,10 +244,8 @@ int max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
     if (ret != 0)
     {
         rtio_iodev_sqe_err(iodev_sqe, ret);
-        return ret;
+        return;
     }
 
     rtio_iodev_sqe_ok(iodev_sqe, 0);
-
-    return 0;
 }

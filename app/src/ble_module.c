@@ -417,9 +417,14 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
 	//.security_changed = security_changed,
 };
 
-static void bt_ready(void)
+static void bt_ready(int init_err)
 {
 	int err;
+
+	if (init_err) {
+		LOG_ERR("Bluetooth init failed (err %d)", init_err);
+		return;
+	}
 
 	LOG_INF("Bluetooth initialized");
 
@@ -428,7 +433,11 @@ static void bt_ready(void)
 		// settings_load();
 	}
 
-	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
+	/* BT_LE_ADV_CONN_NAME was removed in Zephyr 4.x; BT_LE_ADV_CONN_FAST_1
+	 * is the recommended replacement. The device name now needs to be
+	 * present in the advertising data array (already included in `ad`).
+	 */
+	err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_1, ad, ARRAY_SIZE(ad), NULL, 0);
 	if (err)
 	{
 		LOG_ERR("Advertising failed to start (err %d)", err);

@@ -399,7 +399,7 @@ struct max30001_encoded_data
 	uint8_t bioz_lead_off;
 };
 
-int max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
+void max30001_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe);
 int max30001_get_decoder(const struct device *dev, const struct sensor_decoder_api **decoder);
 
 void max30001_synch(const struct device *dev);

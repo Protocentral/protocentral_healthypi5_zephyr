@@ -6,6 +6,11 @@
 
 set -euo pipefail
 
+# Run from repo root regardless of where the script was invoked from.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # Source user's Zephyr venv if it exists
 if [ -f "$HOME/zephyrproject/.venv/bin/activate" ]; then
 	# shellcheck source=/dev/null

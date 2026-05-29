@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# Script to remove license headers from UI image and font files
-# These are auto-generated files and should not have license headers
+# Script to remove license headers from UI image and font files.
+# These are auto-generated files and should not have license headers.
+
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
 
 echo "Removing license headers from UI image files..."
 

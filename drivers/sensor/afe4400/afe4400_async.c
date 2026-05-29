@@ -38,7 +38,7 @@ static int afe4400_async_sample_fetch(const struct device *dev, int32_t *raw_ir_
     return 0;
 }
 
-int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
+void afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
 {
     uint32_t m_min_buf_len = sizeof(struct afe4400_encoded_data);
 
@@ -54,7 +54,7 @@ int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
     {
         LOG_ERR("Failed to get a read buffer of size %u bytes", m_min_buf_len);
         rtio_iodev_sqe_err(iodev_sqe, ret);
-        return ret;
+        return;
     }
 
     m_edata = (struct afe4400_encoded_data *)buf;
@@ -64,10 +64,8 @@ int afe4400_submit(const struct device *dev, struct rtio_iodev_sqe *iodev_sqe)
     if (ret != 0)
     {
         rtio_iodev_sqe_err(iodev_sqe, ret);
-        return ret;
+        return;
     }
 
     rtio_iodev_sqe_ok(iodev_sqe, 0);
-
-    return 0;
 }
