@@ -112,9 +112,6 @@ K_SEM_DEFINE(sem_ecg_bioz_thread_start, 0, 1);
 uint8_t ring_buffer[RING_BUF_SIZE];
 struct ring_buf ringbuf_usb_cdc;
 
-double temp_f = 0.0;
-double temp_c = 0.0;
-
 // Get USB buffer utilization as percentage (0-100)
 uint8_t get_usb_buffer_utilization(void)
 {
@@ -852,10 +849,6 @@ void hw_thread(void)
 
         // Read and publish temperature
         hpi_hw_read_temp(&m_temp_f, &m_temp_c);
-
-        temp_c = m_temp_c;
-        temp_f = m_temp_f;
-        
         struct hpi_temp_t temp = {
             .temp_f = m_temp_f,
             .temp_c = m_temp_c,
