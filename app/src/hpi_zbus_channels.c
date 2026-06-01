@@ -70,7 +70,7 @@ ZBUS_CHAN_DEFINE(temp_chan, /* Name */
                  struct hpi_temp_t,
                  NULL, /* Validator */
                  NULL, /* User Data */
-                 HPI_OBSERVERS(disp_temp_lis, bt_temp_lis),
+                 ZBUS_OBSERVERS(disp_temp_lis, bt_temp_lis, data_temp_lis),
                  ZBUS_MSG_INIT(0) /* Initial value {0} */
 );
 
