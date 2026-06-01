@@ -161,9 +161,6 @@ extern struct hpi_log_session_header_t hpi_log_session_header;
 extern struct k_sem sem_ble_connected;
 extern struct k_sem sem_ble_disconnected;
 
-extern double temp_c;
-extern double temp_f;
-
 #define NUM_TAPS 10  /* Number of taps in the FIR filter (length of the moving average window) */
 #define BLOCK_SIZE 4 /* Number of samples processed per block */
 
@@ -1069,7 +1066,6 @@ void data_thread(void)
                 resp_i16_buf[i] = (int16_t)(ecg_bioz_sensor_sample.bioz_samples[i] >> 4);
             }*/
 
-            temp_serial = (int16_t)(temp_c * 100);
             if (m_stream_mode == HPI_STREAM_MODE_USB)
             {
                 usb_send_count++;
@@ -1163,6 +1159,12 @@ void data_thread(void)
         }
     }
 }
+static void data_temp_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+    temp_serial = (int16_t)(hpi_temp->temp_c * 100);
+}
+ZBUS_LISTENER_DEFINE(data_temp_lis, data_temp_listener);
 
 #define DATA_THREAD_STACKSIZE 5120
 #define DATA_THREAD_PRIORITY 6  // Lower priority than sampling workqueue (5) - sampling must be timely
