@@ -971,6 +971,7 @@ void data_thread(void)
                 // Publish respiration rate with lead-off status
                 // BioZ signal requires ECG electrodes for proper measurement
                 if (m_resp_rate > 0 && m_resp_rate < 60) {
+                    rr_serial = m_resp_rate;
                     last_valid_rr = m_resp_rate;  // Remember for lead-off state changes
                     struct hpi_resp_rate_t resp_rate_chan_value = {
                         .resp_rate = m_resp_rate,
@@ -989,7 +990,7 @@ void data_thread(void)
             if (hpi_data_get_hr_source() == HR_SOURCE_ECG && 
                 hpi_sensor_data_point.hr > 0 && hpi_sensor_data_point.hr < 255)
             {
-                hr_serial = hpi_sensor_data_point.hr;
+                hr_serial = hpi_sensor_data_point.hr; 
                 last_valid_ecg_hr = hpi_sensor_data_point.hr;  // Remember for lead-off state changes
                 struct hpi_hr_t hr_chan_value = {
                     .hr = hpi_sensor_data_point.hr,
@@ -1069,7 +1070,7 @@ void data_thread(void)
             {
                 usb_send_count++;
                 sendData(hpi_sensor_data_point.ecg_sample, hpi_sensor_data_point.bioz_sample, hpi_sensor_data_point.ppg_sample_red,
-                         hpi_sensor_data_point.ppg_sample_ir, 0, 0, 0, 0, 0);
+                         hpi_sensor_data_point.ppg_sample_ir, temp_serial, hr_serial, rr_serial, spo2_serial, 0);
             }
             else if (m_stream_mode == HPI_STREAM_MODE_BLE)
             {
@@ -1160,6 +1161,12 @@ void data_thread(void)
         }
     }
 }
+static void data_temp_listener(const struct zbus_channel *chan)
+{
+    const struct hpi_temp_t *hpi_temp = zbus_chan_const_msg(chan);
+    temp_serial = (int16_t)(hpi_temp->temp_c * 100);
+}
+ZBUS_LISTENER_DEFINE(data_temp_lis, data_temp_listener);
 
 #define DATA_THREAD_STACKSIZE 5120
 #define DATA_THREAD_PRIORITY 6  // Lower priority than sampling workqueue (5) - sampling must be timely
