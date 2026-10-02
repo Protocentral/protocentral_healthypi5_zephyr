@@ -29,8 +29,17 @@
 			reg = <0>;
 			mipi-max-frequency = <48000000>;
 			rotation = <90>;
-			width = <480>;
-			height = <320>;
+			/* Zephyr >= v4.4 (commit 'ili9xxx: fix orientation logic') changed the MADCTL
+			 * mapping for 90/270 deg. h-mirror restores the MADCTL value used with
+			 * Zephyr v4.2 (firmware <= v2.1.0), fixing the mirrored image.
+			 */
+			h-mirror;
+			/* Native (unrotated) panel size. Zephyr >= v4.4 reads width/height from DT
+			 * and swaps them for 90/270 deg rotation; 480x320 here made LVGL see a
+			 * 320x480 screen and leave 160 columns undrawn (grey strip).
+			 */
+			width = <320>;
+			height = <480>;
 			pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
 			display-inversion;
 
